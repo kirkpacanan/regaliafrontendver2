@@ -95,6 +95,13 @@
 
       <main class="main">
         <header class="topbar">
+          <button class="menu-toggle" type="button" aria-label="Toggle menu">
+            <svg viewBox="0 0 24 24">
+              <line x1="4" y1="7" x2="20" y2="7"></line>
+              <line x1="4" y1="12" x2="20" y2="12"></line>
+              <line x1="4" y1="17" x2="20" y2="17"></line>
+            </svg>
+          </button>
           <div>
             <h1>Messages</h1>
             <p>Stay on top of guest and team updates.</p>
@@ -173,5 +180,13 @@
         </section>
       </main>
     </div>
+    <script>
+      const toggle = document.querySelector(".menu-toggle");
+      if (toggle) {
+        toggle.addEventListener("click", () => {
+          document.body.classList.toggle("sidebar-open");
+        });
+      }
+    </script>
   </body>
 </html>

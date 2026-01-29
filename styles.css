@@ -377,16 +377,64 @@ body.is-form-open .hero-bg__center {
 }
 
 @media (max-width: 720px) {
+  .app::after {
+    height: 58%;
+  }
   .hero-bg {
-    height: 62vh;
+    height: 46vh;
   }
 
   .hero-bg img {
-    width: 182%;
+    width: 114%;
+    max-width: 580px;
+    min-width: 0;
+    bottom: -8vh;
   }
 
   .hero-bg__center {
-    width: 150%;
+    display: none;
+  }
+
+
+  .content {
+    padding: 3vh 6vw 6vh;
+    gap: 2.4vh;
+  }
+
+  .brand__logo {
+    width: min(320px, 82vw);
+  }
+
+  .brand__logo-shadow {
+    width: min(520px, 120vw);
+  }
+
+  .panel-stack {
+    width: min(520px, 92vw);
+  }
+
+  .panel[data-view="welcome"] {
+    margin-top: 28vh;
+  }
+
+  .panel[data-view="signup"] {
+    margin-top: -10vh;
+  }
+
+  .panel[data-view="login"] {
+    margin-top: -6vh;
+  }
+
+  .card {
+    padding: 1.6rem 1.3rem 1.4rem;
+  }
+
+  .button-group {
+    width: min(320px, 90vw);
+  }
+
+  .field input {
+    height: 44px;
   }
 }
 
