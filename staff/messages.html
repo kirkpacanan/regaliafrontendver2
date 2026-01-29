@@ -14,6 +14,7 @@
   </head>
   <body>
     <div class="dashboard">
+      <div class="sidebar-overlay" data-sidebar-overlay></div>
       <aside class="sidebar">
         <div class="brand">
           <img class="brand-logo" src="../logo.png" alt="Regalia" />
@@ -182,11 +183,16 @@
     </div>
     <script>
       const toggle = document.querySelector(".menu-toggle");
-      if (toggle) {
-        toggle.addEventListener("click", () => {
-          document.body.classList.toggle("sidebar-open");
-        });
-      }
+      const overlay = document.querySelector("[data-sidebar-overlay]");
+      const navLinks = document.querySelectorAll(".sidebar .nav a");
+
+      const closeSidebar = () => document.body.classList.remove("sidebar-open");
+      const toggleSidebar = () =>
+        document.body.classList.toggle("sidebar-open");
+
+      if (toggle) toggle.addEventListener("click", toggleSidebar);
+      if (overlay) overlay.addEventListener("click", closeSidebar);
+      navLinks.forEach((link) => link.addEventListener("click", closeSidebar));
     </script>
   </body>
 </html>

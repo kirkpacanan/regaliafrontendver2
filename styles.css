@@ -378,7 +378,7 @@ body.is-form-open .hero-bg__center {
 
 @media (max-width: 720px) {
   .app::after {
-    height: 58%;
+    height: 60%;
   }
   .hero-bg {
     height: 46vh;

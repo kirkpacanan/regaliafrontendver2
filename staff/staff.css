@@ -55,6 +55,11 @@ body::after {
   backdrop-filter: blur(6px);
 }
 
+.sidebar-overlay {
+  display: none;
+}
+
+
 .menu-toggle {
   display: none;
   width: 42px;
@@ -738,11 +743,34 @@ body::after {
     border-right: 1px solid rgba(255, 255, 255, 0.15);
     border-bottom: none;
     z-index: 20;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   body.sidebar-open .sidebar {
     transform: translateX(0);
   }
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 15;
+  }
+
+  body.sidebar-open .sidebar-overlay {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  body.sidebar-open {
+    overflow: hidden;
+  }
+
 
   .brand-logo {
     width: 140px;
