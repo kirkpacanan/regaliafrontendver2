@@ -36,7 +36,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  height: 45%;
+  height: 40%;
   background: #ffffff;
 }
 
@@ -51,6 +51,9 @@ body {
 
 .hero-bg img {
   --x: 0;
+  --shift-x: 0px;
+  --shift-y: 0px;
+  --intro-y: 20px;
   position: absolute;
   bottom: -35vh;
   width: 138%;
@@ -58,8 +61,14 @@ body {
   min-width: 600px;
   filter: none;
   opacity: 0;
-  transform: translate3d(var(--x), 20px, 0);
-  animation: riseIn 1.2s ease forwards;
+  transform: translate3d(
+    calc(var(--x) + var(--shift-x)),
+    calc(var(--intro-y) + var(--shift-y)),
+    0
+  );
+  transition: transform 0.7s ease, opacity 0.7s ease, left 0.7s ease,
+    right 0.7s ease, bottom 0.7s ease;
+  will-change: transform;
 }
 
 .hero-bg__left {
@@ -77,14 +86,12 @@ body {
   max-width: 1060px;
   min-width: 480px;
   --x: 0;
-  animation-delay: 0.05s;
   z-index: 2;
 }
 
 .hero-bg__right {
   right: 0;
   width: 124%;
-  animation-delay: 0.15s;
   z-index: 3;
 }
 
@@ -135,7 +142,7 @@ body {
   position: relative;
   width: min(680px, 90vw);
   min-height: 320px;
-  margin-top: 32vh;
+  margin-top: 0;
 }
 
 .panel {
@@ -147,9 +154,20 @@ body {
   justify-content: flex-start;
   gap: 2rem;
   opacity: 0;
-  transform: translateY(18px);
-  transition: opacity 0.45s ease, transform 0.45s ease;
+  transform: translateY(60px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
   pointer-events: none;
+}
+
+.panel[data-view="welcome"] {
+  margin-top: 27vh;
+}
+
+.panel[data-view="signup"]{
+  margin-top: -25vh;
+}
+.panel[data-view="login"] {
+  margin-top: -8vh;
 }
 
 .panel.is-active {
@@ -159,7 +177,8 @@ body {
 }
 
 .panel.is-hidden {
-  display: none;
+  visibility: hidden;
+  transform: translateY(60px);
 }
 
 .welcome-title {
@@ -292,11 +311,27 @@ body {
   color: #9ab0b5;
 }
 
-@keyframes riseIn {
-  to {
-    opacity: 1;
-    transform: translate3d(var(--x), 0, 0);
-  }
+.app.is-loaded .hero-bg img {
+  --intro-y: 0px;
+  opacity: 1;
+}
+
+.app.is-form-open .hero-bg__left,
+body.is-form-open .hero-bg__left {
+  --shift-x: -22vw;
+  left: -12vw;
+}
+
+.app.is-form-open .hero-bg__right,
+body.is-form-open .hero-bg__right {
+  --shift-x: 22vw;
+  right: -12vw;
+}
+
+.app.is-form-open .hero-bg__center,
+body.is-form-open .hero-bg__center {
+  --shift-y: 32vh;
+  bottom: -60vh;
 }
 
 @keyframes fadeDown {

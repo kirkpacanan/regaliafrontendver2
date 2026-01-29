@@ -1,7 +1,14 @@
 const panels = Array.from(document.querySelectorAll(".panel"));
 const views = new Map(panels.map((panel) => [panel.dataset.view, panel]));
+const appRoot = document.querySelector(".app");
 
 let activePanel = views.get("welcome");
+
+if (appRoot) {
+  window.requestAnimationFrame(() => {
+    appRoot.classList.add("is-loaded");
+  });
+}
 
 const setActivePanel = (viewName) => {
   const nextPanel = views.get(viewName);
@@ -14,6 +21,11 @@ const setActivePanel = (viewName) => {
   void nextPanel.offsetWidth;
   nextPanel.classList.add("is-active");
   activePanel = nextPanel;
+
+  if (appRoot) {
+    appRoot.classList.toggle("is-form-open", viewName !== "welcome");
+  }
+  document.body.classList.toggle("is-form-open", viewName !== "welcome");
 };
 
 document.addEventListener("click", (event) => {
