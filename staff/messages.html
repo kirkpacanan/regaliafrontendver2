@@ -19,6 +19,13 @@
         <div class="brand">
           <img class="brand-logo" src="../logo.png" alt="Regalia" />
         </div>
+        <button class="menu-toggle" type="button" data-sidebar-close>
+          <svg viewBox="0 0 24 24">
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+            <line x1="6" y1="18" x2="18" y2="6"></line>
+          </svg>
+          Close
+        </button>
         <nav class="nav">
           <a href="./index.html">
             <span class="icon">
@@ -182,7 +189,8 @@
       </main>
     </div>
     <script>
-      const toggle = document.querySelector(".menu-toggle");
+      const toggle = document.querySelector(".topbar .menu-toggle");
+      const closeButton = document.querySelector("[data-sidebar-close]");
       const overlay = document.querySelector("[data-sidebar-overlay]");
       const navLinks = document.querySelectorAll(".sidebar .nav a");
 
@@ -191,6 +199,7 @@
         document.body.classList.toggle("sidebar-open");
 
       if (toggle) toggle.addEventListener("click", toggleSidebar);
+      if (closeButton) closeButton.addEventListener("click", closeSidebar);
       if (overlay) overlay.addEventListener("click", closeSidebar);
       navLinks.forEach((link) => link.addEventListener("click", closeSidebar));
     </script>
