@@ -15,17 +15,81 @@
   <body>
     <div class="dashboard">
       <aside class="sidebar">
-        <div class="brand">Regalia</div>
+        <div class="brand">
+          <img class="brand-logo" src="../logo.png" alt="Regalia" />
+        </div>
         <nav class="nav">
-          <a href="./index.html">🏠 Dashboard</a>
-          <a class="active" href="./qr.html">🔳 QR Check-in</a>
-          <a href="./bookings.html">📅 Bookings</a>
-          <a href="./guests.html">👥 Guests</a>
-          <a href="./messages.html">💬 Messages</a>
+          <a href="./index.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              </svg>
+            </span>
+            Dashboard
+          </a>
+          <a class="active" href="./qr.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M7 3H3v4M7 21H3v-4M17 3h4v4M17 21h4v-4"></path>
+                <path d="M7 7h4v4H7zM13 13h4v4h-4z"></path>
+              </svg>
+            </span>
+            QR Check-in
+          </a>
+          <a href="./bookings.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <path d="M16 2v4M8 2v4M3 10h18"></path>
+              </svg>
+            </span>
+            Bookings
+          </a>
+          <a href="./guests.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </span>
+            Guests
+          </a>
+          <a href="./messages.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+              </svg>
+            </span>
+            Messages
+          </a>
         </nav>
         <div class="sidebar-footer">
-          <a href="#">⚙️ Settings</a>
-          <a href="../index.html">↩️ Logout</a>
+          <a href="#">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path
+                  d="M19.4 15a1.8 1.8 0 0 0 .3 2l-1.4 2.4a1.8 1.8 0 0 1-2.2.8l-1.6-.6a7 7 0 0 1-2.4 1.4l-.2 1.8a1.8 1.8 0 0 1-1.8 1.6H9a1.8 1.8 0 0 1-1.8-1.6l-.2-1.8a7 7 0 0 1-2.4-1.4l-1.6.6a1.8 1.8 0 0 1-2.2-.8L.4 17a1.8 1.8 0 0 0 .3-2l1-1.4a7 7 0 0 1 0-2.8l-1-1.4a1.8 1.8 0 0 0-.3-2L1.8 4a1.8 1.8 0 0 1 2.2-.8l1.6.6a7 7 0 0 1 2.4-1.4l.2-1.8A1.8 1.8 0 0 1 10 0h4a1.8 1.8 0 0 1 1.8 1.6l.2 1.8a7 7 0 0 1 2.4 1.4l1.6-.6a1.8 1.8 0 0 1 2.2.8l1.4 2.4a1.8 1.8 0 0 0-.3 2l-1 1.4a7 7 0 0 1 0 2.8z"
+                ></path>
+              </svg>
+            </span>
+            Settings
+          </a>
+          <a href="../index.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                <polyline points="10 17 15 12 10 7"></polyline>
+                <line x1="15" y1="12" x2="3" y2="12"></line>
+              </svg>
+            </span>
+            Logout
+          </a>
         </div>
       </aside>
 
@@ -36,7 +100,12 @@
             <p>Scan and validate guest arrivals quickly.</p>
           </div>
           <div class="top-actions">
-            <span>🔔</span>
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </span>
             <div class="avatar">FD</div>
           </div>
         </header>
@@ -50,14 +119,22 @@
                   Camera: Online
                   <small>Last heartbeat: 2s ago</small>
                 </div>
-                <span>🟢</span>
+                <span class="icon">
+                  <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9"></circle>
+                  </svg>
+                </span>
               </div>
               <div class="list-item">
                 <div>
                   Today’s Scans
                   <small>18 successful • 2 failed</small>
                 </div>
-                <span>✔️</span>
+                <span class="icon">
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="5 13 9 17 19 7"></polyline>
+                  </svg>
+                </span>
               </div>
             </div>
           </div>
@@ -89,7 +166,12 @@
               </div>
             </div>
             <div class="quick-card">
-              <div class="quick-icon">🔍</div>
+              <div class="quick-icon">
+                <svg viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="7"></circle>
+                  <path d="M21 21l-4.3-4.3"></path>
+                </svg>
+              </div>
               <div>
                 <strong>Manual Lookup</strong>
                 <p class="muted">Search reservation code or guest name.</p>
@@ -97,7 +179,12 @@
               <button class="btn ghost">Search Guest</button>
             </div>
             <div class="quick-card">
-              <div class="quick-icon">📩</div>
+              <div class="quick-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M22 2 11 13"></path>
+                  <path d="M22 2 15 22 11 13 2 9 22 2"></path>
+                </svg>
+              </div>
               <div>
                 <strong>Resend QR</strong>
                 <p class="muted">Send QR check-in link by email or SMS.</p>
@@ -115,14 +202,22 @@
                 Unit 204 • Ocean View Condo
                 <small>Scanned 10:14 AM • Pamela Beesly</small>
               </div>
-              <span>✅</span>
+              <span class="icon">
+                <svg viewBox="0 0 24 24">
+                  <polyline points="5 13 9 17 19 7"></polyline>
+                </svg>
+              </span>
             </div>
             <div class="list-item">
               <div>
                 Unit 310 • Corner Suite
                 <small>Scanned 9:52 AM • Dwight Schrute</small>
               </div>
-              <span>✅</span>
+              <span class="icon">
+                <svg viewBox="0 0 24 24">
+                  <polyline points="5 13 9 17 19 7"></polyline>
+                </svg>
+              </span>
             </div>
           </div>
         </section>

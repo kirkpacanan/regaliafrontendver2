@@ -15,17 +15,81 @@
   <body>
     <div class="dashboard">
       <aside class="sidebar">
-        <div class="brand">Regalia</div>
+        <div class="brand">
+          <img class="brand-logo" src="../logo.png" alt="Regalia" />
+        </div>
         <nav class="nav">
-          <a class="active" href="./index.html">🏠 Dashboard</a>
-          <a href="./qr.html">🔳 QR Check-in</a>
-          <a href="./bookings.html">📅 Bookings</a>
-          <a href="./guests.html">👥 Guests</a>
-          <a href="./messages.html">💬 Messages</a>
+          <a class="active" href="./index.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              </svg>
+            </span>
+            Dashboard
+          </a>
+          <a href="./qr.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M7 3H3v4M7 21H3v-4M17 3h4v4M17 21h4v-4"></path>
+                <path d="M7 7h4v4H7zM13 13h4v4h-4z"></path>
+              </svg>
+            </span>
+            QR Check-in
+          </a>
+          <a href="./bookings.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <path d="M16 2v4M8 2v4M3 10h18"></path>
+              </svg>
+            </span>
+            Bookings
+          </a>
+          <a href="./guests.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+              </svg>
+            </span>
+            Guests
+          </a>
+          <a href="./messages.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+              </svg>
+            </span>
+            Messages
+          </a>
         </nav>
         <div class="sidebar-footer">
-          <a href="#">⚙️ Settings</a>
-          <a href="../index.html">↩️ Logout</a>
+          <a href="#">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path
+                  d="M19.4 15a1.8 1.8 0 0 0 .3 2l-1.4 2.4a1.8 1.8 0 0 1-2.2.8l-1.6-.6a7 7 0 0 1-2.4 1.4l-.2 1.8a1.8 1.8 0 0 1-1.8 1.6H9a1.8 1.8 0 0 1-1.8-1.6l-.2-1.8a7 7 0 0 1-2.4-1.4l-1.6.6a1.8 1.8 0 0 1-2.2-.8L.4 17a1.8 1.8 0 0 0 .3-2l1-1.4a7 7 0 0 1 0-2.8l-1-1.4a1.8 1.8 0 0 0-.3-2L1.8 4a1.8 1.8 0 0 1 2.2-.8l1.6.6a7 7 0 0 1 2.4-1.4l.2-1.8A1.8 1.8 0 0 1 10 0h4a1.8 1.8 0 0 1 1.8 1.6l.2 1.8a7 7 0 0 1 2.4 1.4l1.6-.6a1.8 1.8 0 0 1 2.2.8l1.4 2.4a1.8 1.8 0 0 0-.3 2l-1 1.4a7 7 0 0 1 0 2.8z"
+                ></path>
+              </svg>
+            </span>
+            Settings
+          </a>
+          <a href="../index.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                <polyline points="10 17 15 12 10 7"></polyline>
+                <line x1="15" y1="12" x2="3" y2="12"></line>
+              </svg>
+            </span>
+            Logout
+          </a>
         </div>
       </aside>
 
@@ -36,7 +100,12 @@
             <p>Welcome, Front Desk Staff!</p>
           </div>
           <div class="top-actions">
-            <span>🔔</span>
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+              </svg>
+            </span>
             <div class="avatar">FD</div>
           </div>
         </header>
@@ -69,28 +138,44 @@
                   Michael Scott (Unit 101)
                   <small>Arrival: 2:00 PM</small>
                 </div>
-                <span>⬇️</span>
+                <span class="icon">
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
               </div>
               <div class="list-item">
                 <div>
                   Pamela Beesly (Unit 204)
                   <small>Departure: 11:00 AM</small>
                 </div>
-                <span>⬆️</span>
+                <span class="icon">
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="6 15 12 9 18 15"></polyline>
+                  </svg>
+                </span>
               </div>
               <div class="list-item">
                 <div>
                   Jim Halpert (Unit G2)
                   <small>Arrival: 3:30 PM</small>
                 </div>
-                <span>⬇️</span>
+                <span class="icon">
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                  </svg>
+                </span>
               </div>
               <div class="list-item">
                 <div>
                   Dwight Schrute (Unit 310)
                   <small>Departure: 12:00 PM</small>
                 </div>
-                <span>⬆️</span>
+                <span class="icon">
+                  <svg viewBox="0 0 24 24">
+                    <polyline points="6 15 12 9 18 15"></polyline>
+                  </svg>
+                </span>
               </div>
             </div>
           </div>
@@ -101,25 +186,33 @@
               <div class="list-item">
                 <div>
                   The Grand Suite (Unit 101)
-                  <div class="status"><span class="dot"></span>Occupied</div>
+                  <div class="status status--occupied">
+                    <span class="dot"></span>Occupied
+                  </div>
                 </div>
               </div>
               <div class="list-item">
                 <div>
                   Ocean View Condo (Unit 204)
-                  <div class="status"><span class="dot"></span>Available</div>
+                  <div class="status status--available">
+                    <span class="dot"></span>Available
+                  </div>
                 </div>
               </div>
               <div class="list-item">
                 <div>
                   Penthouse (Unit 501)
-                  <div class="status"><span class="dot"></span>Maintenance</div>
+                  <div class="status status--maintenance">
+                    <span class="dot"></span>Maintenance
+                  </div>
                 </div>
               </div>
               <div class="list-item">
                 <div>
                   Garden Apartment (Unit G2)
-                  <div class="status"><span class="dot"></span>Occupied</div>
+                  <div class="status status--occupied">
+                    <span class="dot"></span>Occupied
+                  </div>
                 </div>
               </div>
             </div>
@@ -130,7 +223,12 @@
           <div class="panel">
             <h3>QR Check-in</h3>
             <div class="quick-card">
-              <div class="quick-icon">🔳</div>
+              <div class="quick-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M7 3H3v4M7 21H3v-4M17 3h4v4M17 21h4v-4"></path>
+                  <path d="M7 7h4v4H7zM13 13h4v4h-4z"></path>
+                </svg>
+              </div>
               <div>
                 <strong>Scan Guest QR</strong>
                 <p class="muted">
@@ -143,7 +241,12 @@
           <div class="panel">
             <h3>Bookings</h3>
             <div class="quick-card">
-              <div class="quick-icon">📅</div>
+              <div class="quick-icon">
+                <svg viewBox="0 0 24 24">
+                  <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                  <path d="M16 2v4M8 2v4M3 10h18"></path>
+                </svg>
+              </div>
               <div>
                 <strong>Today’s Bookings</strong>
                 <p class="muted">24 confirmed • 3 pending approvals</p>
@@ -154,7 +257,14 @@
           <div class="panel">
             <h3>Guests</h3>
             <div class="quick-card">
-              <div class="quick-icon">👥</div>
+              <div class="quick-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path>
+                  <circle cx="9" cy="7" r="4"></circle>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                </svg>
+              </div>
               <div>
                 <strong>Active Guests</strong>
                 <p class="muted">58 checked-in • 5 VIP flagged</p>
@@ -165,7 +275,11 @@
           <div class="panel">
             <h3>Messages</h3>
             <div class="quick-card">
-              <div class="quick-icon">💬</div>
+              <div class="quick-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
+                </svg>
+              </div>
               <div>
                 <strong>Unread Updates</strong>
                 <p class="muted">7 new messages • 2 urgent alerts</p>

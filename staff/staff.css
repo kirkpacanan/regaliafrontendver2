@@ -56,9 +56,15 @@ body::after {
 }
 
 .brand {
-  font-size: 1.5rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
+  display: flex;
+  align-items: center;
+}
+
+.brand-logo {
+  width: 150px;
+  height: auto;
+  display: block;
+  filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.2));
 }
 
 .nav {
@@ -76,6 +82,30 @@ body::after {
   gap: 0.6rem;
   font-size: 0.95rem;
   transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+}
+
+.icon svg {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon.fill svg {
+  fill: currentColor;
+  stroke: none;
 }
 
 .nav a.active {
@@ -236,7 +266,16 @@ body::after {
   background: rgba(255, 255, 255, 0.2);
   display: grid;
   place-items: center;
-  font-size: 1.25rem;
+}
+
+.quick-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: #ffffff;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .quick-card strong {
@@ -502,6 +541,19 @@ body::after {
   gap: 0.4rem;
   color: var(--muted);
   font-size: 0.8rem;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.status--occupied {
+  color: #c8ffe2;
+}
+
+.status--available {
+  color: #cfe8ff;
+}
+
+.status--maintenance {
+  color: #ffe6a6;
 }
 
 .dot {
@@ -509,6 +561,26 @@ body::after {
   height: 8px;
   border-radius: 50%;
   background: #ffffff;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+
+.tag--paid {
+  background: rgba(200, 255, 226, 0.28);
+  color: #eafff3;
+}
+
+.tag--pending {
+  background: rgba(255, 230, 166, 0.28);
+  color: #fff3cf;
 }
 
 .stats .stat-card:nth-child(1) {
