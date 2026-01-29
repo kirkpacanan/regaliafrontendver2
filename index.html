@@ -82,6 +82,15 @@
                   />
                 </label>
                 <label class="field">
+                  <span>Username</span>
+                  <input
+                    type="text"
+                    name="username"
+                    placeholder="Username"
+                    autocomplete="username"
+                  />
+                </label>
+                <label class="field">
                   <span>Password</span>
                   <div class="input-group">
                     <input
@@ -134,14 +143,14 @@
           <section class="panel is-hidden" data-view="login">
             <div class="card">
               <h2 class="card__title">Enter Account Details</h2>
-              <form class="form" autocomplete="on">
+              <form class="form" autocomplete="on" data-login-form>
                 <label class="field">
-                  <span>Email</span>
+                  <span>Username / Email</span>
                   <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    autocomplete="email"
+                    type="text"
+                    name="login"
+                    placeholder="Username or Email"
+                    autocomplete="username"
                   />
                 </label>
                 <label class="field">
@@ -165,6 +174,10 @@
                     </button>
                   </div>
                 </label>
+                <div class="login-hint">
+                  Temp accounts: `admin / admin123` or `staff / staff123`
+                </div>
+                <div class="login-error" data-login-error></div>
                 <button class="btn primary" type="submit">Log in</button>
               </form>
               <button class="link" type="button" data-action="to-signup">

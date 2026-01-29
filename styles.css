@@ -252,12 +252,12 @@ body {
 
 .form {
   display: grid;
-  gap: 1.1rem;
+  gap: 0.35rem;
 }
 
 .field {
   display: grid;
-  gap: 0.4rem;
+  gap: 0.12rem;
   text-align: left;
   color: #8aa5aa;
   font-size: 0.85rem;
@@ -309,6 +309,25 @@ body {
 
 .link.muted {
   color: #9ab0b5;
+}
+
+.login-hint {
+  font-size: 0.85rem;
+  color: #8aa5aa;
+  text-align: center;
+  margin-top: 0.2rem;
+}
+
+.login-hint code {
+  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  color: #5a8f97;
+}
+
+.login-error {
+  min-height: 1.1rem;
+  font-size: 0.85rem;
+  color: #cf4d4d;
+  text-align: center;
 }
 
 .app.is-loaded .hero-bg img {

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guests | Regalia Staff</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./staff.css" />
+  </head>
+  <body>
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand">Regalia</div>
+        <nav class="nav">
+          <a href="./index.html">🏠 Dashboard</a>
+          <a href="./qr.html">🔳 QR Check-in</a>
+          <a href="./bookings.html">📅 Bookings</a>
+          <a class="active" href="./guests.html">👥 Guests</a>
+          <a href="./messages.html">💬 Messages</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#">⚙️ Settings</a>
+          <a href="../index.html">↩️ Logout</a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Guests</h1>
+            <p>Monitor active guests and VIP arrivals.</p>
+          </div>
+          <div class="top-actions">
+            <span>🔔</span>
+            <div class="avatar">FD</div>
+          </div>
+        </header>
+
+        <section class="panel-stack">
+          <div class="panel">
+            <h3>Active Guests</h3>
+            <div class="list">
+              <div class="list-item">
+                <div>
+                  Angela Martin
+                  <small>VIP • Unit 101</small>
+                </div>
+                <span>⭐</span>
+              </div>
+              <div class="list-item">
+                <div>
+                  Stanley Hudson
+                  <small>Checked-in • Unit 204</small>
+                </div>
+                <span>🟢</span>
+              </div>
+              <div class="list-item">
+                <div>
+                  Kevin Malone
+                  <small>Checked-in • Unit G2</small>
+                </div>
+                <span>🟢</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <h3>VIP Alerts</h3>
+            <div class="list">
+              <div class="list-item">
+                <div>
+                  CEO Arrival
+                  <small>Expected 4:00 PM • Penthouse</small>
+                </div>
+                <span>⚡</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

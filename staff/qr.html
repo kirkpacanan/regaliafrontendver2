@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Check-in | Regalia Staff</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./staff.css" />
+  </head>
+  <body>
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand">Regalia</div>
+        <nav class="nav">
+          <a href="./index.html">🏠 Dashboard</a>
+          <a class="active" href="./qr.html">🔳 QR Check-in</a>
+          <a href="./bookings.html">📅 Bookings</a>
+          <a href="./guests.html">👥 Guests</a>
+          <a href="./messages.html">💬 Messages</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#">⚙️ Settings</a>
+          <a href="../index.html">↩️ Logout</a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>QR Check-in</h1>
+            <p>Scan and validate guest arrivals quickly.</p>
+          </div>
+          <div class="top-actions">
+            <span>🔔</span>
+            <div class="avatar">FD</div>
+          </div>
+        </header>
+
+        <section class="content-grid qr-grid">
+          <div class="panel">
+            <h3>Scanner Status</h3>
+            <div class="list">
+              <div class="list-item">
+                <div>
+                  Camera: Online
+                  <small>Last heartbeat: 2s ago</small>
+                </div>
+                <span>🟢</span>
+              </div>
+              <div class="list-item">
+                <div>
+                  Today’s Scans
+                  <small>18 successful • 2 failed</small>
+                </div>
+                <span>✔️</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel panel-stack">
+            <h3>Scan a QR</h3>
+            <div class="scan-panel">
+              <div class="scan-frame">
+                <video class="scan-video" playsinline muted></video>
+                <div class="scan-corner top-left"></div>
+                <div class="scan-corner top-right"></div>
+                <div class="scan-corner bottom-left"></div>
+                <div class="scan-corner bottom-right"></div>
+                <div class="scan-line"></div>
+              </div>
+              <div>
+                <strong>Camera Ready</strong>
+                <p class="muted">
+                  Align the guest QR code inside the frame to auto-check in.
+                </p>
+                <div class="scan-status" data-scan-status>
+                  Tap start scan to begin.
+                </div>
+                <div class="scan-actions">
+                  <button class="btn ghost" data-start-scan>Start Scan</button>
+                  <button class="btn ghost" data-stop-scan>Stop Scan</button>
+                  <button class="btn ghost">Upload QR</button>
+                </div>
+              </div>
+            </div>
+            <div class="quick-card">
+              <div class="quick-icon">🔍</div>
+              <div>
+                <strong>Manual Lookup</strong>
+                <p class="muted">Search reservation code or guest name.</p>
+              </div>
+              <button class="btn ghost">Search Guest</button>
+            </div>
+            <div class="quick-card">
+              <div class="quick-icon">📩</div>
+              <div>
+                <strong>Resend QR</strong>
+                <p class="muted">Send QR check-in link by email or SMS.</p>
+              </div>
+              <button class="btn ghost">Resend</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel recent-section">
+          <h3>Recent Scans</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>
+                Unit 204 • Ocean View Condo
+                <small>Scanned 10:14 AM • Pamela Beesly</small>
+              </div>
+              <span>✅</span>
+            </div>
+            <div class="list-item">
+              <div>
+                Unit 310 • Corner Suite
+                <small>Scanned 9:52 AM • Dwight Schrute</small>
+              </div>
+              <span>✅</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script>
+      const startButton = document.querySelector("[data-start-scan]");
+      const stopButton = document.querySelector("[data-stop-scan]");
+      const scanFrame = document.querySelector(".scan-frame");
+      const scanVideo = document.querySelector(".scan-video");
+      const scanStatus = document.querySelector("[data-scan-status]");
+      let stream = null;
+
+      const startScan = async () => {
+        if (!scanVideo || !scanFrame) return;
+        scanFrame.classList.add("is-scanning");
+        if (scanStatus) {
+          scanStatus.textContent = "Starting camera...";
+        }
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" },
+            audio: false,
+          });
+          scanVideo.srcObject = stream;
+          await scanVideo.play();
+          if (scanStatus) {
+            scanStatus.textContent = "Scanning... hold QR steady.";
+          }
+        } catch (error) {
+          if (scanStatus) {
+            scanStatus.textContent =
+              "Camera blocked. Scanning simulation active.";
+          }
+        }
+      };
+
+      const stopScan = () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+          stream = null;
+        }
+        if (scanVideo) {
+          scanVideo.pause();
+          scanVideo.srcObject = null;
+        }
+        if (scanFrame) {
+          scanFrame.classList.remove("is-scanning");
+        }
+        if (scanStatus) {
+          scanStatus.textContent = "Scan stopped.";
+        }
+      };
+
+      if (startButton) startButton.addEventListener("click", startScan);
+      if (stopButton) stopButton.addEventListener("click", stopScan);
+    </script>
+  </body>
+</html>

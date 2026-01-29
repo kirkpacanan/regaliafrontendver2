@@ -49,3 +49,31 @@ document.querySelectorAll("[data-toggle='password']").forEach((button) => {
     button.textContent = nextType === "password" ? "Show" : "Hide";
   });
 });
+
+const loginForm = document.querySelector("[data-login-form]");
+const loginError = document.querySelector("[data-login-error]");
+
+if (loginForm) {
+  loginForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (loginError) loginError.textContent = "";
+
+    const formData = new FormData(loginForm);
+    const login = String(formData.get("login") || "").trim().toLowerCase();
+    const password = String(formData.get("password") || "").trim();
+
+    if (login === "admin" && password === "admin123") {
+      window.location.href = "./admin/index.html";
+      return;
+    }
+
+    if (login === "staff" && password === "staff123") {
+      window.location.href = "./staff/index.html";
+      return;
+    }
+
+    if (loginError) {
+      loginError.textContent = "Invalid login. Try admin/admin123 or staff/staff123.";
+    }
+  });
+}

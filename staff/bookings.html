@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bookings | Regalia Staff</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./staff.css" />
+  </head>
+  <body>
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand">Regalia</div>
+        <nav class="nav">
+          <a href="./index.html">🏠 Dashboard</a>
+          <a href="./qr.html">🔳 QR Check-in</a>
+          <a class="active" href="./bookings.html">📅 Bookings</a>
+          <a href="./guests.html">👥 Guests</a>
+          <a href="./messages.html">💬 Messages</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#">⚙️ Settings</a>
+          <a href="../index.html">↩️ Logout</a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Bookings</h1>
+            <p>Track arrivals, departures, and approvals.</p>
+          </div>
+          <div class="top-actions">
+            <span>🔔</span>
+            <div class="avatar">FD</div>
+          </div>
+        </header>
+
+        <section class="stats">
+          <div class="stat-card">
+            <div class="label">Today</div>
+            <div class="value">24</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Pending Approval</div>
+            <div class="value">3</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Upcoming Week</div>
+            <div class="value">82</div>
+          </div>
+          <div class="stat-card highlight">
+            <div class="label">Priority Unit</div>
+            <div class="value">Penthouse</div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>Upcoming Bookings</h3>
+          <div class="list">
+            <div class="list-item">
+              <div>
+                Unit 502 • 2 Nights
+                <small>Check-in: Feb 2 • Paid</small>
+              </div>
+              <span>✅</span>
+            </div>
+            <div class="list-item">
+              <div>
+                Unit 310 • 3 Nights
+                <small>Check-in: Feb 3 • Pending</small>
+              </div>
+              <span>⏳</span>
+            </div>
+            <div class="list-item">
+              <div>
+                Unit G2 • 1 Night
+                <small>Check-in: Feb 4 • Paid</small>
+              </div>
+              <span>✅</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel calendar-panel">
+          <h3>Booking Calendar</h3>
+          <div class="calendar">
+            <div class="calendar-header">
+              <span>February 2026</span>
+              <div class="calendar-actions">
+                <button class="btn ghost">Prev</button>
+                <button class="btn ghost">Next</button>
+              </div>
+            </div>
+            <div class="calendar-grid">
+              <div class="calendar-day">Sun</div>
+              <div class="calendar-day">Mon</div>
+              <div class="calendar-day">Tue</div>
+              <div class="calendar-day">Wed</div>
+              <div class="calendar-day">Thu</div>
+              <div class="calendar-day">Fri</div>
+              <div class="calendar-day">Sat</div>
+
+              <div class="calendar-cell muted" data-date="2026-01-26">26</div>
+              <div class="calendar-cell muted" data-date="2026-01-27">27</div>
+              <div class="calendar-cell muted" data-date="2026-01-28">28</div>
+              <div class="calendar-cell muted" data-date="2026-01-29">29</div>
+              <div class="calendar-cell muted" data-date="2026-01-30">30</div>
+              <div class="calendar-cell muted" data-date="2026-01-31">31</div>
+              <div class="calendar-cell" data-date="2026-02-01">1</div>
+
+              <div class="calendar-cell" data-date="2026-02-02">
+                2<span class="badge">4</span>
+              </div>
+              <div class="calendar-cell" data-date="2026-02-03">
+                3<span class="badge">6</span>
+              </div>
+              <div class="calendar-cell" data-date="2026-02-04">
+                4<span class="badge">2</span>
+              </div>
+              <div class="calendar-cell" data-date="2026-02-05">5</div>
+              <div class="calendar-cell" data-date="2026-02-06">
+                6<span class="badge">1</span>
+              </div>
+              <div class="calendar-cell" data-date="2026-02-07">7</div>
+              <div class="calendar-cell" data-date="2026-02-08">8</div>
+
+              <div class="calendar-cell" data-date="2026-02-09">9</div>
+              <div class="calendar-cell" data-date="2026-02-10">10</div>
+              <div class="calendar-cell" data-date="2026-02-11">11</div>
+              <div class="calendar-cell" data-date="2026-02-12">12</div>
+              <div class="calendar-cell" data-date="2026-02-13">13</div>
+              <div class="calendar-cell" data-date="2026-02-14">14</div>
+              <div class="calendar-cell" data-date="2026-02-15">15</div>
+
+              <div class="calendar-cell" data-date="2026-02-16">16</div>
+              <div class="calendar-cell" data-date="2026-02-17">17</div>
+              <div class="calendar-cell" data-date="2026-02-18">18</div>
+              <div class="calendar-cell" data-date="2026-02-19">19</div>
+              <div class="calendar-cell" data-date="2026-02-20">20</div>
+              <div class="calendar-cell" data-date="2026-02-21">21</div>
+              <div class="calendar-cell" data-date="2026-02-22">22</div>
+
+              <div class="calendar-cell" data-date="2026-02-23">23</div>
+              <div class="calendar-cell" data-date="2026-02-24">24</div>
+              <div class="calendar-cell" data-date="2026-02-25">25</div>
+              <div class="calendar-cell" data-date="2026-02-26">26</div>
+              <div class="calendar-cell" data-date="2026-02-27">27</div>
+              <div class="calendar-cell" data-date="2026-02-28">28</div>
+              <div class="calendar-cell muted" data-date="2026-03-01">1</div>
+            </div>
+            <div class="calendar-details" data-calendar-details>
+              <div class="calendar-details__title">
+                Select a date to view bookings.
+              </div>
+              <div class="list"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script>
+      const bookingsByDate = {
+        "2026-02-02": [
+          { unit: "Unit 502", note: "2 Nights • Paid" },
+          { unit: "Unit 104", note: "1 Night • Paid" },
+          { unit: "Unit 310", note: "3 Nights • Pending" },
+          { unit: "Unit G2", note: "1 Night • Paid" },
+        ],
+        "2026-02-03": [
+          { unit: "Unit 204", note: "2 Nights • Paid" },
+          { unit: "Unit 310", note: "3 Nights • Pending" },
+          { unit: "Unit 410", note: "2 Nights • Paid" },
+          { unit: "Unit 501", note: "1 Night • Paid" },
+          { unit: "Unit 602", note: "2 Nights • Paid" },
+          { unit: "Unit 702", note: "1 Night • Paid" },
+        ],
+        "2026-02-04": [
+          { unit: "Unit 115", note: "2 Nights • Paid" },
+          { unit: "Unit 318", note: "1 Night • Paid" },
+        ],
+        "2026-02-06": [{ unit: "Unit 809", note: "1 Night • Paid" }],
+      };
+
+      const calendarCells = document.querySelectorAll(".calendar-cell");
+      const details = document.querySelector("[data-calendar-details]");
+      const list = details ? details.querySelector(".list") : null;
+      const title = details
+        ? details.querySelector(".calendar-details__title")
+        : null;
+
+      const renderBookings = (date) => {
+        if (!list || !title) return;
+        list.innerHTML = "";
+        const bookings = bookingsByDate[date] || [];
+        if (!bookings.length) {
+          title.textContent = `${date} • No bookings`;
+          return;
+        }
+        title.textContent = `${date} • ${bookings.length} booking(s)`;
+        bookings.forEach((booking) => {
+          const item = document.createElement("div");
+          item.className = "list-item";
+          item.innerHTML = `<div>${booking.unit}<small>${booking.note}</small></div><span>✅</span>`;
+          list.appendChild(item);
+        });
+      };
+
+      calendarCells.forEach((cell) => {
+        const date = cell.dataset.date;
+        if (bookingsByDate[date]) {
+          cell.classList.add("has-bookings");
+        }
+        cell.addEventListener("click", () => {
+          calendarCells.forEach((item) => item.classList.remove("selected"));
+          cell.classList.add("selected");
+          renderBookings(date);
+        });
+      });
+    </script>
+  </body>
+</html>
