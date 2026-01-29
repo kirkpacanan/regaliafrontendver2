@@ -38,6 +38,7 @@ body {
   bottom: 0;
   height: 40%;
   background: #ffffff;
+  z-index: 1;
 }
 
 .hero-bg {
@@ -45,7 +46,7 @@ body {
   inset: 0 0 auto 0;
   height: 70vh;
   display: block;
-  z-index: 1;
+  z-index: 0;
   pointer-events: none;
 }
 
