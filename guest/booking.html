@@ -1,0 +1,589 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Regalia Guest Booking</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --teal: #1e9db1;
+        --green: #7acb59;
+        --panel: rgba(255, 255, 255, 0.22);
+        --panel-strong: rgba(255, 255, 255, 0.3);
+        --text: #ffffff;
+        --muted: rgba(255, 255, 255, 0.92);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+        min-height: 100vh;
+        color: var(--text);
+        background: linear-gradient(90deg, var(--teal), var(--green));
+      }
+
+      .page {
+        padding: 2.4rem 1.6rem 3rem;
+        display: grid;
+        gap: 1.6rem;
+        justify-items: center;
+      }
+
+      .hero {
+        text-align: center;
+        display: grid;
+        gap: 0.6rem;
+        justify-items: center;
+      }
+
+      .hero-logo {
+        width: min(220px, 70vw);
+        height: auto;
+        filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.18));
+      }
+
+      .hero p {
+        margin: 0;
+        color: var(--text);
+        font-size: 0.9rem;
+      }
+
+      .card {
+        width: min(920px, 94vw);
+        background: var(--panel);
+        border-radius: 20px;
+        padding: 1.8rem;
+        display: grid;
+        gap: 1.4rem;
+        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.12);
+      }
+
+      .image-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+
+      .image-grid img {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 12px;
+        box-shadow: 0 12px 22px rgba(0, 0, 0, 0.12);
+      }
+
+      .details {
+        text-align: center;
+        display: grid;
+        gap: 0.4rem;
+      }
+
+      .details h2 {
+        margin: 0;
+        font-size: 1.25rem;
+      }
+
+      .details p {
+        margin: 0;
+        color: var(--text);
+        font-size: 0.85rem;
+      }
+
+      .detail-grid {
+        display: grid;
+        gap: 0.35rem;
+        text-align: left;
+        font-size: 0.85rem;
+        color: var(--text);
+      }
+
+      .detail-grid span:first-child {
+        font-weight: 600;
+        margin-right: 0.35rem;
+      }
+
+      .form {
+        width: min(920px, 94vw);
+        background: var(--panel);
+        border-radius: 20px;
+        padding: 1.6rem;
+        display: grid;
+        gap: 1.1rem;
+        box-shadow: 0 18px 36px rgba(0, 0, 0, 0.12);
+      }
+
+      .section-title {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: var(--text);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .section-title svg {
+        width: 18px;
+        height: 18px;
+        stroke: #ffffff;
+        fill: none;
+        stroke-width: 2;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+
+      .field-group {
+        display: grid;
+        gap: 0.7rem;
+      }
+
+      .field-group label {
+        font-size: 0.8rem;
+        color: var(--text);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+
+      .field-group input,
+      .field-group textarea,
+      .field-group select {
+        width: 100%;
+        padding: 0.75rem 0.85rem;
+        border-radius: 14px;
+        border: 1px solid rgba(255, 255, 255, 0.35);
+        background: rgba(255, 255, 255, 0.16);
+        color: #ffffff;
+        font-family: inherit;
+      }
+
+      .field-group input:focus,
+      .field-group textarea:focus,
+      .field-group select:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.18);
+      }
+
+      .field-group input::placeholder,
+      .field-group textarea::placeholder {
+        color: rgba(255, 255, 255, 0.8);
+      }
+
+      .field-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.8rem;
+      }
+
+      .field-note {
+        font-size: 0.8rem;
+        color: var(--text);
+        opacity: 0.9;
+      }
+
+      .radio-group {
+        display: grid;
+        gap: 0.4rem;
+        font-size: 0.8rem;
+        color: var(--text);
+      }
+
+      .radio-group label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        text-transform: none;
+        letter-spacing: normal;
+        justify-content: flex-start;
+      }
+
+      .radio-options {
+        display: inline-flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .radio-options label {
+        margin: 0;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+      }
+
+      .radio-options input {
+        margin: 0;
+        width: auto;
+        flex: 0 0 auto;
+      }
+
+      .undertaking {
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+        padding: 0.9rem 1rem;
+        color: var(--text);
+        line-height: 1.45;
+        font-size: 0.82rem;
+      }
+
+      .signature-box {
+        background: rgba(255, 255, 255, 0.14);
+        border-radius: 14px;
+        padding: 0.8rem;
+        display: grid;
+        gap: 0.6rem;
+      }
+
+      .signature-canvas {
+        width: 100%;
+        height: 140px;
+        border-radius: 12px;
+        background: #ffffff;
+        border: 2px solid rgba(79, 127, 132, 0.35);
+        touch-action: none;
+      }
+
+      .signature-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      .signature-label {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.85);
+        font-size: 0.75rem;
+      }
+
+      .actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 0.8rem;
+      }
+
+      .btn {
+        border: none;
+        padding: 0.7rem 1.2rem;
+        border-radius: 12px;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      .btn.secondary {
+        background: rgba(255, 255, 255, 0.2);
+        color: #ffffff;
+      }
+
+      .btn.primary {
+        background: linear-gradient(90deg, #1e9db1, #7acb59);
+        color: #ffffff;
+        box-shadow: 0 12px 26px rgba(30, 157, 177, 0.25);
+      }
+
+      @media (max-width: 720px) {
+        .image-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+
+        .image-grid img {
+          height: 110px;
+        }
+
+        .field-row {
+          grid-template-columns: 1fr;
+        }
+
+        .card,
+        .form {
+          padding: 1.3rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="hero">
+        <img class="hero-logo" src="../logo.png" alt="Regalia" />
+        <p>Guest Booking Form</p>
+      </div>
+
+      <section class="card">
+        <div class="image-grid" data-images></div>
+        <div class="details">
+          <h2 data-unit>Unit</h2>
+          <div class="detail-grid">
+            <div><span>Location:</span> <span data-location></span></div>
+            <div><span>Price:</span> <span data-price></span></div>
+            <div><span>Room Type:</span> <span data-room></span></div>
+            <div><span>Check-in/Check-out:</span> <span data-time></span></div>
+            <div><span>Description:</span> <span data-description></span></div>
+            <div><span>Rules:</span> <span data-rules></span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="form">
+        <div class="field-group">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            Personal Information
+          </div>
+          <div class="field-row">
+            <input type="text" placeholder="Name" />
+            <input type="text" placeholder="Permanent Address" />
+          </div>
+          <div class="field-row">
+            <input type="text" placeholder="Age" />
+            <input type="text" placeholder="Nationality" />
+          </div>
+          <div class="field-row">
+            <input type="text" placeholder="Relation to the Unit Owner" />
+            <input type="text" placeholder="Occupation" />
+          </div>
+          <div class="field-row">
+            <input type="email" placeholder="E-mail Address" />
+            <input type="text" placeholder="Contact Number" />
+          </div>
+          <div class="field-note">
+            Kindly attach a copy of any government issued identification card.
+          </div>
+          <div class="field-row">
+            <input type="file" accept="image/*" multiple />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24">
+              <path d="M3 21h18"></path>
+              <path d="M5 21V7l7-4 7 4v14"></path>
+              <path d="M9 21v-6h6v6"></path>
+            </svg>
+            Unit Details
+          </div>
+          <div class="field-row">
+            <input type="text" placeholder="Unit Number/Tower" />
+            <input type="text" placeholder="Name of Owner" />
+          </div>
+          <div class="field-row">
+            <input type="text" placeholder="Contact Number/s" />
+            <input type="text" placeholder="Inclusive Dates" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+              <path d="M16 2v4M8 2v4M3 10h18"></path>
+            </svg>
+            Length of Stay
+          </div>
+          <div class="field-row">
+            <input type="text" placeholder="Purpose of Stay" />
+            <div class="radio-group">
+              <span>Did you pay for your stay?</span>
+              <div class="radio-options">
+                <label><input type="radio" name="paid" /> Yes</label>
+                <label><input type="radio" name="paid" /> No</label>
+              </div>
+            </div>
+          </div>
+          <div class="field-row">
+            <input type="text" placeholder="If YES, how much did you pay?" />
+            <input
+              type="text"
+              placeholder="Which booking platform did you booked your stay?"
+            />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24">
+              <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+              <path d="M3 9h18"></path>
+              <path d="M7 14h4"></path>
+            </svg>
+            Proof of Payment
+          </div>
+          <div class="field-row">
+            <select data-payment-method>
+              <option value="upload">Upload Proof</option>
+              <option value="cash">Cash</option>
+            </select>
+            <input type="file" data-payment-upload accept="image/*" />
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 4h16v16H4z"></path>
+              <path d="M8 8h8M8 12h8M8 16h5"></path>
+            </svg>
+            Undertaking
+          </div>
+          <div class="undertaking">
+            In signing this form, I acknowledge that I gave the foregoing personal
+            information knowingly and voluntarily. I also hereby declare that I
+            had been informed of the House Rules and Regulations of Abreeza Place
+            prior to my stay and shall fully comply therewith pursuant to
+            paragraph 1.2 of the House Rules which states: “1.2 All unit owners
+            are required to comply with these House Rules which must likewise be
+            observed by (a) members of their family and their household help;
+            (b) their lessees and members of the family and household help of
+            said lessees; (c) their guests and the guests of their lessees; (d)
+            those transacting business with or visiting the condominium.” I also
+            hereby agree that I am liable, together with the unit owner, in the
+            event that I violate any such House Rules and Regulations. I also
+            certify that the foregoing information are true and correct, and
+            that any misdeclaration herein can make me liable.
+          </div>
+        </div>
+
+        <div class="field-group">
+          <div class="section-title">
+            <svg viewBox="0 0 24 24">
+              <path d="M4 20h7"></path>
+              <path d="M14 4l6 6"></path>
+              <path d="M20 10l-9 9H5v-6l9-9z"></path>
+            </svg>
+            Signature
+          </div>
+          <div class="signature-box">
+            <canvas class="signature-canvas" data-signature></canvas>
+            <div class="signature-actions">
+              <button class="btn secondary" type="button" data-clear-sign>
+                Clear
+              </button>
+            </div>
+            <div class="signature-label">Signature Over Printed Name</div>
+          </div>
+        </div>
+
+        <div class="actions">
+          <button class="btn secondary" type="button">Cancel</button>
+          <button class="btn primary" type="button">Submit Booking</button>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const params = new URLSearchParams(window.location.search);
+      const get = (key, fallback) => params.get(key) || fallback;
+
+      const unit = get("unit", "Unit");
+      const beds = get("beds", "");
+      const price = get("price", "");
+      const roomType = get("roomType", "");
+      const checkin = get("checkin", "");
+      const checkout = get("checkout", "");
+      const description = get("description", "");
+      const rules = get("rules", "");
+      const img = get("img", "");
+
+      const images = document.querySelector("[data-images]");
+      const imageList = img ? [img, img, img, img] : [];
+      if (images) {
+        if (!imageList.length) {
+          images.innerHTML =
+            "<div style='color: rgba(255,255,255,0.7)'>No images</div>";
+        } else {
+          imageList.forEach((src) => {
+            const el = document.createElement("img");
+            el.src = src;
+            el.alt = unit;
+            images.appendChild(el);
+          });
+        }
+      }
+
+      const setText = (selector, value) => {
+        const el = document.querySelector(selector);
+        if (el) el.textContent = value;
+      };
+
+      setText("[data-unit]", unit);
+      setText("[data-location]", beds);
+      setText("[data-price]", price);
+      setText("[data-room]", roomType);
+      setText(
+        "[data-time]",
+        checkin || checkout ? `${checkin} • ${checkout}` : ""
+      );
+      setText("[data-description]", description || "—");
+      setText("[data-rules]", rules || "—");
+
+      const paymentMethod = document.querySelector("[data-payment-method]");
+      const paymentUpload = document.querySelector("[data-payment-upload]");
+      const syncPayment = () => {
+        if (!paymentMethod || !paymentUpload) return;
+        const isCash = paymentMethod.value === "cash";
+        paymentUpload.disabled = isCash;
+        paymentUpload.style.opacity = isCash ? "0.5" : "1";
+      };
+      if (paymentMethod) {
+        paymentMethod.addEventListener("change", syncPayment);
+        syncPayment();
+      }
+
+      const canvas = document.querySelector("[data-signature]");
+      const clearBtn = document.querySelector("[data-clear-sign]");
+      if (canvas) {
+        const ctx = canvas.getContext("2d");
+        const resize = () => {
+          const ratio = window.devicePixelRatio || 1;
+          canvas.width = canvas.offsetWidth * ratio;
+          canvas.height = canvas.offsetHeight * ratio;
+          ctx.scale(ratio, ratio);
+          ctx.lineWidth = 2;
+          ctx.lineCap = "round";
+          ctx.strokeStyle = "#2f5f67";
+        };
+        resize();
+        window.addEventListener("resize", resize);
+
+        let drawing = false;
+        const start = (event) => {
+          drawing = true;
+          const { offsetX, offsetY } = event;
+          ctx.beginPath();
+          ctx.moveTo(offsetX, offsetY);
+        };
+        const move = (event) => {
+          if (!drawing) return;
+          const { offsetX, offsetY } = event;
+          ctx.lineTo(offsetX, offsetY);
+          ctx.stroke();
+        };
+        const stop = () => {
+          drawing = false;
+        };
+
+        canvas.addEventListener("pointerdown", start);
+        canvas.addEventListener("pointermove", move);
+        canvas.addEventListener("pointerup", stop);
+        canvas.addEventListener("pointerleave", stop);
+      }
+
+      if (clearBtn && canvas) {
+        clearBtn.addEventListener("click", () => {
+          const ctx = canvas.getContext("2d");
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+      }
+    </script>
+  </body>
+</html>

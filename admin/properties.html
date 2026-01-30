@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Properties | Regalia Owner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./admin.css" />
+  </head>
+  <body>
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-logo" src="../logo.png" alt="Regalia" />
+        </div>
+        <nav class="nav">
+          <a href="./index.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              </svg>
+            </span>
+            Dashboard
+          </a>
+          <a href="#">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <path d="M16 2v4M8 2v4M3 10h18"></path>
+              </svg>
+            </span>
+            Booking
+          </a>
+          <a class="active" href="./properties.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 21h18"></path>
+                <path d="M5 21V7l7-4 7 4v14"></path>
+                <path d="M9 21v-6h6v6"></path>
+              </svg>
+            </span>
+            Properties
+          </a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path
+                  d="M19.4 15a1.8 1.8 0 0 0 .3 2l-1.4 2.4a1.8 1.8 0 0 1-2.2.8l-1.6-.6a7 7 0 0 1-2.4 1.4l-.2 1.8a1.8 1.8 0 0 1-1.8 1.6H9a1.8 1.8 0 0 1-1.8-1.6l-.2-1.8a7 7 0 0 1-2.4-1.4l-1.6.6a1.8 1.8 0 0 1-2.2-.8L.4 17a1.8 1.8 0 0 0 .3-2l1-1.4a7 7 0 0 1 0-2.8l-1-1.4a1.8 1.8 0 0 0-.3-2L1.8 4a1.8 1.8 0 0 1 2.2-.8l1.6.6a7 7 0 0 1 2.4-1.4l.2-1.8A1.8 1.8 0 0 1 10 0h4a1.8 1.8 0 0 1 1.8 1.6l.2 1.8a7 7 0 0 1 2.4 1.4l1.6-.6a1.8 1.8 0 0 1 2.2.8l1.4 2.4a1.8 1.8 0 0 0-.3 2l-1 1.4a7 7 0 0 1 0 2.8z"
+                ></path>
+              </svg>
+            </span>
+            Settings
+          </a>
+          <a href="../index.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                <polyline points="10 17 15 12 10 7"></polyline>
+                <line x1="15" y1="12" x2="3" y2="12"></line>
+              </svg>
+            </span>
+            Log out
+          </a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Properties</h1>
+            <p>Manage your available units.</p>
+          </div>
+          <button class="btn-primary" data-open-modal>
+            <span class="icon fill">
+              <svg viewBox="0 0 24 24">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </span>
+            Add Property
+          </button>
+        </header>
+
+        <section class="panel">
+          <h3>Available Properties</h3>
+          <div class="properties-list" data-properties></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-overlay" data-modal>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 data-modal-title>Add Property</h2>
+          <button class="icon-button" type="button" data-close-modal>
+            <svg viewBox="0 0 24 24">
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+              <line x1="6" y1="18" x2="18" y2="6"></line>
+            </svg>
+          </button>
+        </div>
+        <form class="modal-form" data-step="1">
+          <div class="form-step is-active" data-step="1" data-title="Add Property">
+            <label>
+              Unit Name/No.
+              <input type="text" placeholder="Unit Name/No." name="unit" />
+            </label>
+            <label>
+              Location
+              <input type="text" placeholder="Location" name="location" />
+            </label>
+            <label>
+              Price
+              <input type="text" placeholder="Price" name="price" />
+            </label>
+            <label>
+              Room Type
+              <select name="roomType">
+                <option>Studio Type</option>
+                <option>1 Bedroom</option>
+                <option>2 Bedroom</option>
+                <option>3 Bedroom</option>
+                <option>Penthouse</option>
+                <option>Duplex</option>
+              </select>
+            </label>
+            <label>
+              Check-in and Check-out
+              <input type="time" placeholder="Check-in" name="checkin" />
+              <input type="time" placeholder="Check-out" name="checkout" />
+            </label>
+          </div>
+
+          <div class="form-step" data-step="2" data-title="Add Property">
+            <label>
+              Description
+              <textarea placeholder="Description" name="description"></textarea>
+            </label>
+            <label>
+              Rules
+              <textarea placeholder="Rules" name="rules"></textarea>
+            </label>
+          </div>
+
+          <div class="form-step" data-step="3" data-title="Add Property">
+            <div class="photo-title">
+              Add 4 images
+              <span>(the first image will be the cover)</span>
+            </div>
+            <div class="photo-grid">
+              <button class="photo-slot" type="button">Add image</button>
+              <button class="photo-slot" type="button">Add image</button>
+              <button class="photo-slot" type="button">Add image</button>
+              <button class="photo-slot" type="button">Add image</button>
+            </div>
+          </div>
+
+          <div class="form-step" data-step="4" data-title="Create Front Desk">
+            <label>
+              Username
+              <input type="text" placeholder="Username" name="fdUsername" />
+            </label>
+            <label>
+              Password
+              <input type="password" placeholder="Password" name="fdPassword" />
+            </label>
+            <label>
+              Confirm Password
+              <input
+                type="password"
+                placeholder="Confirm Password"
+                name="fdConfirm"
+              />
+            </label>
+          </div>
+
+          <div class="step-actions">
+            <button class="submit-button ghost" type="button" data-prev>
+              <span class="icon fill">
+                <svg viewBox="0 0 24 24">
+                  <path d="M19 12H5"></path>
+                  <path d="M11 6l-6 6 6 6"></path>
+                </svg>
+              </span>
+              Back
+            </button>
+            <button class="submit-button" type="button" data-next>
+              <span class="icon fill">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 12h14"></path>
+                  <path d="M13 6l6 6-6 6"></path>
+                </svg>
+              </span>
+              Next
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="modal-overlay" data-update-modal>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2 data-update-title>Update Property</h2>
+          <button class="icon-button" type="button" data-close-update>
+            <svg viewBox="0 0 24 24">
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+              <line x1="6" y1="18" x2="18" y2="6"></line>
+            </svg>
+          </button>
+        </div>
+        <form class="modal-form">
+          <label>
+            Status
+            <select data-status>
+              <option>Available</option>
+              <option>Maintenance</option>
+              <option>Occupied</option>
+            </select>
+          </label>
+          <label>
+            Booking Link
+            <div class="link-field">
+              <input type="text" data-booking-link />
+              <button class="icon-button" type="button" data-copy-link>
+                <svg viewBox="0 0 24 24">
+                  <rect x="9" y="9" width="13" height="13" rx="2"></rect>
+                  <rect x="2" y="2" width="13" height="13" rx="2"></rect>
+                </svg>
+              </button>
+              <button class="icon-button" type="button" data-open-link>
+                <svg viewBox="0 0 24 24">
+                  <path d="M14 3h7v7"></path>
+                  <path d="M10 14 21 3"></path>
+                  <path d="M5 7v14h14v-5"></path>
+                </svg>
+              </button>
+            </div>
+          </label>
+          <div class="step-actions">
+            <button class="submit-button danger" type="button" data-delete>
+              Delete
+            </button>
+            <button class="submit-button" type="button" data-save-update>
+              <span class="icon fill">
+                <svg viewBox="0 0 24 24">
+                  <path d="M5 12h14"></path>
+                  <path d="M13 6l6 6-6 6"></path>
+                </svg>
+              </span>
+              Save
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const openBtn = document.querySelector("[data-open-modal]");
+      const closeBtn = document.querySelector("[data-close-modal]");
+      const overlay = document.querySelector("[data-modal]");
+
+      const form = document.querySelector(".modal-form");
+      const steps = document.querySelectorAll(".form-step");
+      const nextBtn = document.querySelector("[data-next]");
+      const prevBtn = document.querySelector("[data-prev]");
+      const title = document.querySelector("[data-modal-title]");
+      const propertiesList = document.querySelector("[data-properties]");
+      const updateModal = document.querySelector("[data-update-modal]");
+      const updateCloseBtn = document.querySelector("[data-close-update]");
+      const updateStatus = document.querySelector("[data-status]");
+      const updateBooking = document.querySelector("[data-booking-link]");
+      const saveUpdateBtn = document.querySelector("[data-save-update]");
+      const deleteBtn = document.querySelector("[data-delete]");
+      const copyBtn = document.querySelector("[data-copy-link]");
+      const openLinkBtn = document.querySelector("[data-open-link]");
+      const updateTitle = document.querySelector("[data-update-title]");
+      let activePropertyId = null;
+
+      const buildBookingLink = (property) => {
+        const params = new URLSearchParams({
+          unit: property.name,
+          beds: property.beds,
+          price: property.price,
+          roomType: property.roomType,
+          checkin: property.checkin,
+          checkout: property.checkout,
+          description: property.description,
+          rules: property.rules,
+          img: property.image,
+        });
+        return `../guest/booking.html?${params.toString()}`;
+      };
+
+      const sampleProperties = [
+        {
+          id: "unit-501",
+          name: "Unit 501",
+          beds: "8 Spacious Rooms",
+          status: "Available",
+          price: "₱2500/night",
+          roomType: "2 Bedroom",
+          checkin: "9:30 AM",
+          checkout: "12:30 PM",
+          description: "Nice and cozy with city view.",
+          rules: "No pets.",
+          image: "../admin/property-1.jpg",
+        },
+        {
+          id: "unit-204",
+          name: "Unit 204",
+          beds: "4 Spacious Rooms",
+          status: "Occupied",
+          price: "₱1800/night",
+          roomType: "Studio Type",
+          checkin: "10:00 AM",
+          checkout: "12:00 PM",
+          description: "Bright studio with balcony.",
+          rules: "No smoking.",
+          image: "../admin/property-2.jpg",
+        },
+      ];
+
+      sampleProperties.forEach((property) => {
+        property.bookingLink = buildBookingLink(property);
+      });
+
+      const statusClass = (status) =>
+        status === "Available"
+          ? "status--available"
+          : status === "Maintenance"
+          ? "status--maintenance"
+          : "status--occupied";
+
+      const renderProperties = () => {
+        if (!propertiesList) return;
+        propertiesList.innerHTML = "";
+        if (!sampleProperties.length) {
+          propertiesList.innerHTML =
+            '<div class="empty-state">No properties available.</div>';
+          return;
+        }
+        sampleProperties.forEach((property) => {
+          const card = document.createElement("button");
+          card.type = "button";
+          card.className = "property-card property-card--clickable";
+          card.dataset.propertyId = property.id;
+          card.innerHTML = `
+            <div class="property-card__media">
+              <img src="${property.image}" alt="${property.name}" />
+            </div>
+            <div class="property-card__title">${property.name}</div>
+            <div class="property-card__meta">${property.beds}</div>
+            <div class="property-card__meta ${statusClass(
+              property.status
+            )}">${property.status}</div>
+          `;
+          propertiesList.appendChild(card);
+        });
+      };
+
+      const setStep = (step) => {
+        if (!form) return;
+        form.dataset.step = String(step);
+        steps.forEach((panel) => {
+          panel.classList.toggle(
+            "is-active",
+            panel.dataset.step === String(step)
+          );
+        });
+        if (prevBtn) prevBtn.disabled = step === 1;
+        if (nextBtn) nextBtn.textContent = step === 4 ? "Submit" : "Next";
+        if (title) {
+          const active = document.querySelector(".form-step.is-active");
+          const text = active?.dataset.title || "Add Property";
+          title.textContent = text;
+        }
+      };
+
+      const openModal = () => {
+        overlay.classList.add("is-open");
+        setStep(1);
+      };
+      const closeModal = () => overlay.classList.remove("is-open");
+
+      if (openBtn) openBtn.addEventListener("click", openModal);
+      if (closeBtn) closeBtn.addEventListener("click", closeModal);
+      if (overlay) {
+        overlay.addEventListener("click", (event) => {
+          if (event.target === overlay) closeModal();
+        });
+      }
+      const submitProperty = () => {
+        if (!form || !propertiesList) return;
+        const data = new FormData(form);
+        const unit = String(data.get("unit") || "").trim();
+        const location = String(data.get("location") || "").trim();
+          const price = String(data.get("price") || "").trim();
+        const roomType = String(data.get("roomType") || "").trim();
+        const checkin = String(data.get("checkin") || "").trim();
+        const checkout = String(data.get("checkout") || "").trim();
+        const description = String(data.get("description") || "").trim();
+        const rules = String(data.get("rules") || "").trim();
+          const newProperty = {
+            id: `unit-${Date.now()}`,
+            name: unit || "Untitled Unit",
+            beds: "Rooms not set",
+            status: "Available",
+            price: price || "N/A",
+            roomType: roomType || "Room Type",
+            checkin: checkin || "N/A",
+            checkout: checkout || "N/A",
+            description: description || "No description provided.",
+            rules: rules || "No rules provided.",
+            image: "../admin/property-1.jpg",
+          };
+          newProperty.bookingLink = buildBookingLink(newProperty);
+
+        sampleProperties.push(newProperty);
+        renderProperties();
+
+        form.reset();
+        closeModal();
+      };
+
+      const openUpdateModal = (property) => {
+        if (!updateModal) return;
+        updateModal.classList.add("is-open");
+        if (updateTitle) updateTitle.textContent = "Update Property";
+        if (updateStatus) updateStatus.value = property.status;
+        if (updateBooking) updateBooking.value = property.bookingLink;
+        activePropertyId = property.id;
+      };
+
+      const closeUpdateModal = () => {
+        if (!updateModal) return;
+        updateModal.classList.remove("is-open");
+        activePropertyId = null;
+      };
+
+      if (nextBtn) {
+        nextBtn.addEventListener("click", () => {
+          const current = Number(form?.dataset.step || 1);
+          if (current === 1) return setStep(2);
+          if (current === 2) return setStep(3);
+          if (current === 3) return setStep(4);
+          submitProperty();
+        });
+      }
+      if (prevBtn) {
+        prevBtn.addEventListener("click", () => {
+          setStep(1);
+        });
+      }
+
+      renderProperties();
+
+      if (propertiesList) {
+        propertiesList.addEventListener("click", (event) => {
+          const card = event.target.closest("[data-property-id]");
+          if (!card) return;
+          const property = sampleProperties.find(
+            (item) => item.id === card.dataset.propertyId
+          );
+          if (!property) return;
+
+          if (event.target.closest("[data-open-link]")) {
+            window.open(property.bookingLink, "_blank", "noopener,noreferrer");
+            return;
+          }
+
+          openUpdateModal(property);
+        });
+      }
+
+      if (updateCloseBtn) updateCloseBtn.addEventListener("click", closeUpdateModal);
+      if (updateModal) {
+        updateModal.addEventListener("click", (event) => {
+          if (event.target === updateModal) closeUpdateModal();
+        });
+      }
+
+      if (saveUpdateBtn) {
+        saveUpdateBtn.addEventListener("click", () => {
+          const property = sampleProperties.find((p) => p.id === activePropertyId);
+          if (!property) return;
+          if (updateStatus) property.status = updateStatus.value;
+          if (updateBooking) property.bookingLink = updateBooking.value;
+          renderProperties();
+          closeUpdateModal();
+        });
+      }
+
+      if (openLinkBtn) {
+        openLinkBtn.addEventListener("click", () => {
+          if (!updateBooking?.value) return;
+          window.open(updateBooking.value, "_blank", "noopener,noreferrer");
+        });
+      }
+
+      if (deleteBtn) {
+        deleteBtn.addEventListener("click", () => {
+          const index = sampleProperties.findIndex(
+            (item) => item.id === activePropertyId
+          );
+          if (index >= 0) {
+            sampleProperties.splice(index, 1);
+            renderProperties();
+            closeUpdateModal();
+          }
+        });
+      }
+
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async () => {
+          if (!updateBooking) return;
+          try {
+            await navigator.clipboard.writeText(updateBooking.value);
+          } catch {
+            updateBooking.select();
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -3,33 +3,144 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Regalia Admin Controls</title>
-    <link rel="stylesheet" href="../styles.css" />
-    <style>
-      body {
-        background: #f5f7f8;
-      }
-      .page {
-        min-height: 100vh;
-        display: grid;
-        place-items: center;
-        text-align: center;
-        padding: 2rem;
-      }
-      .card {
-        width: min(520px, 90vw);
-      }
-    </style>
+    <title>Regalia Owner Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./admin.css" />
   </head>
   <body>
-    <main class="page">
-      <div class="card">
-        <h1 class="card__title">Admin Controls</h1>
-        <p class="link muted">Temporary admin dashboard placeholder.</p>
-        <button class="btn primary" onclick="location.href='../index.html'">
-          Back to Login
-        </button>
-      </div>
-    </main>
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand">
+          <img class="brand-logo" src="../logo.png" alt="Regalia" />
+        </div>
+        <nav class="nav">
+          <a class="active" href="#">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              </svg>
+            </span>
+            Dashboard
+          </a>
+          <a href="#">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <path d="M16 2v4M8 2v4M3 10h18"></path>
+              </svg>
+            </span>
+            Booking
+          </a>
+          <a href="./properties.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M3 21h18"></path>
+                <path d="M5 21V7l7-4 7 4v14"></path>
+                <path d="M9 21v-6h6v6"></path>
+              </svg>
+            </span>
+            Properties
+          </a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path
+                  d="M19.4 15a1.8 1.8 0 0 0 .3 2l-1.4 2.4a1.8 1.8 0 0 1-2.2.8l-1.6-.6a7 7 0 0 1-2.4 1.4l-.2 1.8a1.8 1.8 0 0 1-1.8 1.6H9a1.8 1.8 0 0 1-1.8-1.6l-.2-1.8a7 7 0 0 1-2.4-1.4l-1.6.6a1.8 1.8 0 0 1-2.2-.8L.4 17a1.8 1.8 0 0 0 .3-2l1-1.4a7 7 0 0 1 0-2.8l-1-1.4a1.8 1.8 0 0 0-.3-2L1.8 4a1.8 1.8 0 0 1 2.2-.8l1.6.6a7 7 0 0 1 2.4-1.4l.2-1.8A1.8 1.8 0 0 1 10 0h4a1.8 1.8 0 0 1 1.8 1.6l.2 1.8a7 7 0 0 1 2.4 1.4l1.6-.6a1.8 1.8 0 0 1 2.2.8l1.4 2.4a1.8 1.8 0 0 0-.3 2l-1 1.4a7 7 0 0 1 0 2.8z"
+                ></path>
+              </svg>
+            </span>
+            Settings
+          </a>
+          <a href="../index.html">
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                <polyline points="10 17 15 12 10 7"></polyline>
+                <line x1="15" y1="12" x2="3" y2="12"></line>
+              </svg>
+            </span>
+            Log out
+          </a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Owner Dashboard</h1>
+            <p>Welcome!</p>
+          </div>
+        </header>
+
+        <section class="stats">
+          <div class="stat-card">
+            <div class="icon-tile">
+              <svg viewBox="0 0 24 24">
+                <rect x="4" y="3" width="16" height="18" rx="2"></rect>
+                <path d="M8 7h8M8 11h8M8 15h5"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="label">Total Booking</div>
+              <div class="value">0</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-tile">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                <polyline points="7 12 11 16 17 8"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div class="label">Available</div>
+              <div class="value">0</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-tile">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="18" height="18" rx="3"></rect>
+                <line x1="8" y1="8" x2="16" y2="16"></line>
+                <line x1="16" y1="8" x2="8" y2="16"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="label">Occupied</div>
+              <div class="value">0</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-tile">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="18" height="18" rx="2"></rect>
+                <path d="M7 21v-8h10v8"></path>
+                <path d="M9 13V7h6v6"></path>
+              </svg>
+            </div>
+            <div>
+              <div class="label">Total Properties</div>
+              <div class="value">0</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h3>Available Properties</h3>
+          <div class="empty-state">No properties available.</div>
+        </section>
+      </main>
+    </div>
   </body>
 </html>
