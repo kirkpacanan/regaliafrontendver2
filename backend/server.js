@@ -14,6 +14,7 @@ app.use(cors());
 app.use(express.json()); // Parse JSON bodies
 
 // ---------------- DB Connection ----------------
+const fs = require("fs");
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
