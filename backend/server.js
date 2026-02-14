@@ -1,3 +1,4 @@
+// ==================== server.js ====================
 const express = require("express");
 const cors = require("cors");
 const mysql = require("mysql2");
@@ -7,8 +8,10 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
+
+// ---------------- Middleware ----------------
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); // Parse JSON bodies
 
 // ---------------- DB Connection ----------------
 const db = mysql.createConnection({
@@ -17,7 +20,7 @@ const db = mysql.createConnection({
   password: process.env.DB_PASS,
   database: process.env.DB_NAME,
   port: process.env.DB_PORT,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false } // for Aiven MySQL
 });
 
 db.connect(err => {
@@ -29,7 +32,7 @@ db.connect(err => {
 // Serve static files from frontend folder
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-// Serve index.html on root
+// Serve index.html at root
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend", "index.html"));
 });
@@ -105,8 +108,8 @@ app.post("/login", async (req, res) => {
 });
 
 // ---------------- Catch-all for frontend routing ----------------
-app.get("*", (req, res) => {
-  // If no API route matches, serve index.html (for SPA support)
+// Fixes Render Node v22+ "Missing parameter name at index 1: *" error
+app.get(/^\/.*$/, (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend", "index.html"));
 });
 
