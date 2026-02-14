@@ -40,6 +40,7 @@ app.get("/", (req, res) => {
 
 // ---------------- SIGNUP ----------------
 app.post("/signup", async (req, res) => {
+  console.log("Signup payload:", req.body);
   try {
     const { full_name, address, username, password, contact_number, email } = req.body;
 
