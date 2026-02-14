@@ -3,13 +3,14 @@ const cors = require("cors");
 const mysql = require("mysql2");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const path = require("path");
 require("dotenv").config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// DB connection
+// ---------------- DB Connection ----------------
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -24,25 +25,35 @@ db.connect(err => {
   else console.log("✅ Connected to Aiven DB!");
 });
 
+// ---------------- Serve Frontend ----------------
+// Serve static files from frontend folder
+app.use(express.static(path.join(__dirname, "../frontend")));
+
+// Serve index.html on root
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "../frontend", "index.html"));
+});
+
 // ---------------- SIGNUP ----------------
 app.post("/signup", async (req, res) => {
   try {
-    const { full_name, username, password, contact_number, email } = req.body;
+    const { full_name, address, username, password, contact_number, email } = req.body;
 
     // Check if username or email exists
     const [existing] = await db.promise().query(
       "SELECT * FROM EMPLOYEE WHERE username = ? OR email = ?",
       [username, email]
     );
-    if (existing.length > 0) return res.status(400).json({ error: "Username or email exists" });
+    if (existing.length > 0) 
+      return res.status(400).json({ error: "Username or email already exists" });
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Insert into EMPLOYEE
     const [result] = await db.promise().query(
-      "INSERT INTO EMPLOYEE (full_name, username, password, contact_number, email) VALUES (?, ?, ?, ?, ?)",
-      [full_name, username, hashedPassword, contact_number, email]
+      "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email) VALUES (?, ?, ?, ?, ?, ?)",
+      [full_name, address, username, hashedPassword, contact_number, email]
     );
 
     const employeeId = result.insertId;
@@ -93,5 +104,12 @@ app.post("/login", async (req, res) => {
   }
 });
 
-const PORT = 3000;
+// ---------------- Catch-all for frontend routing ----------------
+app.get("*", (req, res) => {
+  // If no API route matches, serve index.html (for SPA support)
+  res.sendFile(path.join(__dirname, "../frontend", "index.html"));
+});
+
+// ---------------- Start Server ----------------
+const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

@@ -49,31 +49,89 @@ document.querySelectorAll("[data-toggle='password']").forEach((button) => {
     button.textContent = nextType === "password" ? "Show" : "Hide";
   });
 });
+//Signup
+const signupForm = document.querySelector("[data-signup-form]");
+const signupError = document.querySelector("[data-signup-error]");
 
+if (signupForm) {
+  signupForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (signupError) signupError.textContent = "";
+
+    const formData = new FormData(signupForm);
+
+    const payload = {
+    full_name: String(formData.get("full_name") || "").trim(),
+    username: String(formData.get("username") || "").trim(),
+    password: String(formData.get("password") || "").trim(),
+    contact_number: String(formData.get("contact_number") || "").trim(),
+    email: String(formData.get("email") || "").trim(),
+    address: String(formData.get("address") || "").trim()  // <-- added
+    };
+
+
+    try {
+      const response = await fetch("https://regalia-eon6.onrender.com/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        alert("Signup successful!");
+        console.log(data);
+
+        // Optional: auto switch to login panel
+        setActivePanel("login");
+      } else {
+        if (signupError) signupError.textContent = data.error || "Signup failed";
+      }
+    } catch (err) {
+      console.error(err);
+      if (signupError) signupError.textContent = "Server error. Try again.";
+    }
+  });
+}
+
+//Login
 const loginForm = document.querySelector("[data-login-form]");
 const loginError = document.querySelector("[data-login-error]");
 
 if (loginForm) {
-  loginForm.addEventListener("submit", (event) => {
+  loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (loginError) loginError.textContent = "";
 
     const formData = new FormData(loginForm);
-    const login = String(formData.get("login") || "").trim().toLowerCase();
+    const username = String(formData.get("login") || "").trim();
     const password = String(formData.get("password") || "").trim();
 
-    if (login === "admin" && password === "admin123") {
-      window.location.href = "./admin/index.html";
-      return;
-    }
+    try {
+      const response = await fetch("https://regalia-eon6.onrender.com/login", {  // your backend URL
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
+      });
 
-    if (login === "staff" && password === "staff123") {
-      window.location.href = "./staff/index.html";
-      return;
-    }
+      const data = await response.json();
 
-    if (loginError) {
-      loginError.textContent = "Invalid login. Try admin/admin123 or staff/staff123.";
+      if (response.ok) {
+        console.log("Login successful:", data);
+        // You can save JWT token to localStorage if needed
+        localStorage.setItem("token", data.token);
+
+        // Redirect based on role
+        if (data.role === "OWNER") window.location.href = "./owner/index.html";
+        else window.location.href = "./dashboard.html"; // default page
+      } else {
+        if (loginError) loginError.textContent = data.error || "Login failed";
+      }
+    } catch (err) {
+      console.error(err);
+      if (loginError) loginError.textContent = "Server error. Try again later.";
     }
   });
 }
+

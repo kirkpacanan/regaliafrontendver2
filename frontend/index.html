@@ -15,179 +15,105 @@
   <body>
     <div class="app">
       <div class="hero-bg" aria-hidden="true">
-        <img
-          class="hero-bg__left"
-          src="./buildings-left.png"
-          alt=""
-          loading="eager"
-        />
-        <img
-          class="hero-bg__center"
-          src="./buildings-center.png"
-          alt=""
-          loading="eager"
-        />
-        <img
-          class="hero-bg__right"
-          src="./buildings-right.png"
-          alt=""
-          loading="eager"
-        />
+        <img class="hero-bg__left" src="./buildings-left.png" alt="" loading="eager" />
+        <img class="hero-bg__center" src="./buildings-center.png" alt="" loading="eager" />
+        <img class="hero-bg__right" src="./buildings-right.png" alt="" loading="eager" />
       </div>
 
       <main class="content">
         <header class="brand">
           <div class="brand__logo-wrap">
-            <img
-              class="brand__logo-shadow"
-              src="./logo-shadow.png"
-              alt=""
-              loading="eager"
-            />
+            <img class="brand__logo-shadow" src="./logo-shadow.png" alt="" loading="eager" />
             <img class="brand__logo" src="./logo.png" alt="Regalia" />
           </div>
         </header>
 
         <section class="panel-stack" aria-live="polite">
+
+          <!-- Welcome Panel -->
           <section class="panel is-active" data-view="welcome">
             <h1 class="welcome-title">Welcome!</h1>
             <div class="button-group">
-              <button class="btn primary" data-action="to-signup">
-                Create Account
-              </button>
+              <button class="btn primary" data-action="to-signup">Create Account</button>
               <button class="btn outline" data-action="to-login">Login</button>
             </div>
           </section>
 
+          <!-- Signup Panel -->
           <section class="panel is-hidden" data-view="signup">
             <div class="card">
               <h2 class="card__title">Enter Credentials</h2>
-              <form class="form" autocomplete="on">
+              <form class="form" autocomplete="on" data-signup-form>
                 <label class="field">
-                  <span>Name</span>
-                  <input
-                    type="text"
-                    name="firstName"
-                    placeholder="First Name"
-                    autocomplete="given-name"
-                  />
+                  <span>Full Name</span>
+                  <input type="text" name="full_name" placeholder="Full Name" autocomplete="name" required />
                 </label>
                 <label class="field">
-                  <span>&nbsp;</span>
-                  <input
-                    type="text"
-                    name="lastName"
-                    placeholder="Last Name"
-                    autocomplete="family-name"
-                  />
+                  <span>Address</span>
+                  <input type="text" name="address" placeholder="Address" autocomplete="street-address" required />
                 </label>
                 <label class="field">
                   <span>Username</span>
-                  <input
-                    type="text"
-                    name="username"
-                    placeholder="Username"
-                    autocomplete="username"
-                  />
+                  <input type="text" name="username" placeholder="Username" autocomplete="username" required />
                 </label>
                 <label class="field">
                   <span>Password</span>
                   <div class="input-group">
-                    <input
-                      id="signup-password"
-                      type="password"
-                      name="password"
-                      placeholder="Password"
-                      autocomplete="new-password"
-                    />
-                    <button
-                      class="icon-toggle"
-                      type="button"
-                      data-toggle="password"
-                      data-target="signup-password"
-                      aria-label="Show password"
-                    >
-                      Show
-                    </button>
+                    <input id="signup-password" type="password" name="password" placeholder="Password" autocomplete="new-password" required />
+                    <button class="icon-toggle" type="button" data-toggle="password" data-target="signup-password" aria-label="Show password">Show</button>
                   </div>
                 </label>
                 <label class="field">
-                  <span>&nbsp;</span>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    placeholder="Confirm Password"
-                    autocomplete="new-password"
-                  />
+                  <span>Confirm Password</span>
+                  <input type="password" name="confirmPassword" placeholder="Confirm Password" autocomplete="new-password" required />
+                </label>
+                <label class="field">
+                  <span>Contact Number</span>
+                  <input type="text" name="contact_number" placeholder="Contact Number" autocomplete="tel" required />
                 </label>
                 <label class="field">
                   <span>Email</span>
-                  <input
-                    type="email"
-                    name="email"
-                    placeholder="Email"
-                    autocomplete="email"
-                  />
+                  <input type="email" name="email" placeholder="Email" autocomplete="email" required />
                 </label>
+
+                <div class="signup-error" data-signup-error></div>
                 <button class="btn primary" type="submit">Create Account</button>
               </form>
-              <button class="link" type="button" data-action="to-login">
-                Already have an account? Log in
-              </button>
-              <button class="link muted" type="button" data-action="to-welcome">
-                Back to welcome
-              </button>
+
+              <button class="link" type="button" data-action="to-login">Already have an account? Log in</button>
+              <button class="link muted" type="button" data-action="to-welcome">Back to welcome</button>
             </div>
           </section>
 
+          <!-- Login Panel -->
           <section class="panel is-hidden" data-view="login">
             <div class="card">
               <h2 class="card__title">Enter Account Details</h2>
               <form class="form" autocomplete="on" data-login-form>
                 <label class="field">
                   <span>Username / Email</span>
-                  <input
-                    type="text"
-                    name="login"
-                    placeholder="Username or Email"
-                    autocomplete="username"
-                  />
+                  <input type="text" name="login" placeholder="Username or Email" autocomplete="username" />
                 </label>
                 <label class="field">
                   <span>Password</span>
                   <div class="input-group">
-                    <input
-                      id="login-password"
-                      type="password"
-                      name="password"
-                      placeholder="Password"
-                      autocomplete="current-password"
-                    />
-                    <button
-                      class="icon-toggle"
-                      type="button"
-                      data-toggle="password"
-                      data-target="login-password"
-                      aria-label="Show password"
-                    >
-                      Show
-                    </button>
+                    <input id="login-password" type="password" name="password" placeholder="Password" autocomplete="current-password" />
+                    <button class="icon-toggle" type="button" data-toggle="password" data-target="login-password" aria-label="Show password">Show</button>
                   </div>
                 </label>
+
                 <div class="login-hint">
                   Temp accounts: `admin / admin123` or `staff / staff123`
                 </div>
                 <div class="login-error" data-login-error></div>
                 <button class="btn primary" type="submit">Log in</button>
               </form>
-              <button class="link" type="button" data-action="to-signup">
-                New here? Create an account
-              </button>
-              <button class="link muted" type="button" data-action="to-welcome">
-                Back to welcome
-              </button>
+
+              <button class="link" type="button" data-action="to-signup">New here? Create an account</button>
+              <button class="link muted" type="button" data-action="to-welcome">Back to welcome</button>
             </div>
           </section>
+
         </section>
       </main>
     </div>
