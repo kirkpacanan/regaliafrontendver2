@@ -123,7 +123,7 @@ if (loginForm) {
         localStorage.setItem("token", data.token);
 
         // Redirect based on role
-        if (data.role === "OWNER") window.location.href = "./owner/index.html";
+        if (data.role === "OWNER") window.location.href = "./admin/index.html";
         else window.location.href = "./dashboard.html"; // default page
       } else {
         if (loginError) loginError.textContent = data.error || "Login failed";
