@@ -26,7 +26,8 @@
 
       body {
         margin: 0;
-        font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+        font-family: var(--font-family, "Poppins"), "Segoe UI", system-ui,
+          sans-serif;
         min-height: 100vh;
         color: var(--text);
         background: linear-gradient(90deg, var(--teal), var(--green));
@@ -480,6 +481,7 @@
       </section>
     </div>
 
+    <script src="../settings.js"></script>
     <script>
       const params = new URLSearchParams(window.location.search);
       const get = (key, fallback) => params.get(key) || fallback;

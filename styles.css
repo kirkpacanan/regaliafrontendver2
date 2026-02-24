@@ -18,7 +18,7 @@
 
 body {
   margin: 0;
-  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-family, "Poppins"), "Segoe UI", system-ui, sans-serif;
   min-height: 100vh;
   background: linear-gradient(90deg, var(--teal) 0%, var(--green) 100%);
   color: #1d2a2f;
@@ -320,7 +320,7 @@ body {
 }
 
 .login-hint code {
-  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-family, "Poppins"), "Segoe UI", system-ui, sans-serif;
   color: #5a8f97;
 }
 

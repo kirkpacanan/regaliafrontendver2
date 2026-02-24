@@ -13,10 +13,10 @@
 
 body {
   margin: 0;
-  font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-family, "Poppins"), "Segoe UI", system-ui, sans-serif;
   min-height: 100vh;
   color: var(--text);
-  background: linear-gradient(90deg, #1e9db1 0%, #7acb59 100%);
+  background: linear-gradient(90deg, var(--teal) 0%, var(--green) 100%);
 }
 
 body::after {
@@ -169,6 +169,117 @@ body::after {
   color: var(--muted);
   text-decoration: none;
   font-size: 0.9rem;
+}
+
+.settings-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 50;
+}
+
+.settings-modal.is-open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.settings-card {
+  width: min(360px, 90vw);
+  background: rgba(255, 255, 255, 0.95);
+  color: #2f5f67;
+  border-radius: 16px;
+  padding: 1.2rem 1.4rem 1.4rem;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.8rem;
+}
+
+.settings-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.settings-close {
+  border: none;
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  background: rgba(47, 95, 103, 0.12);
+  color: #2f5f67;
+}
+
+.settings-fields {
+  display: grid;
+  gap: 0.8rem;
+  font-size: 0.85rem;
+}
+
+.settings-fields label {
+  display: grid;
+  gap: 0.4rem;
+  color: #2f5f67;
+}
+
+.settings-fields input,
+.settings-fields select {
+  border: 1px solid rgba(47, 95, 103, 0.3);
+  border-radius: 10px;
+  padding: 0.5rem 0.6rem;
+  font-family: inherit;
+}
+
+.settings-presets {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+.settings-presets button {
+  border: none;
+  color: #ffffff;
+  padding: 0.5rem 0.6rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.settings-actions {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+}
+
+.settings-actions button {
+  border: none;
+  padding: 0.55rem 0.9rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.settings-actions .reset {
+  background: rgba(47, 95, 103, 0.12);
+  color: #2f5f67;
+}
+
+.settings-actions .save {
+  background: linear-gradient(90deg, var(--teal), var(--green));
+  color: #ffffff;
 }
 
 .main {
