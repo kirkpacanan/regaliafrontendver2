@@ -109,7 +109,7 @@ if (loginForm) {
     const password = String(formData.get("password") || "").trim();
 
     try {
-      const response = await fetch("https://regalia-eon6.onrender.com/login", {  // your backend URL
+      const response = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
@@ -119,12 +119,18 @@ if (loginForm) {
 
       if (response.ok) {
         console.log("Login successful:", data);
-        // You can save JWT token to localStorage if needed
         localStorage.setItem("token", data.token);
+        if (data.role) localStorage.setItem("role", data.role);
+        if (data.employee) localStorage.setItem("employee", JSON.stringify(data.employee));
 
-        // Redirect based on role
-        if (data.role === "OWNER") window.location.href = "./admin/index.html";
-        else window.location.href = "./dashboard.html"; // default page
+        // Redirect based on role: OWNER → admin panel; staff roles → staff area
+        if (data.role === "OWNER") {
+          window.location.href = "./admin/index.html";
+        } else if (data.role === "Admin" || data.role === "Front Desk" || data.role === "Property Manager" || data.role === "Security" || data.role === "Maintenance") {
+          window.location.href = "./staff/index.html";
+        } else {
+          window.location.href = "./staff/index.html"; // fallback for any other role
+        }
       } else {
         if (loginError) loginError.textContent = data.error || "Login failed";
       }
