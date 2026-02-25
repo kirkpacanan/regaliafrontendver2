@@ -157,27 +157,47 @@ app.get("/api/units", async (req, res) => {
 
 app.post("/api/units", async (req, res) => {
   try {
-    const { tower_id, unit_number, floor_number, unit_type, unit_size, description } = req.body;
+    const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls } = req.body;
     if (!tower_id || !unit_number)
       return res.status(400).json({ error: "tower_id and unit_number required" });
-    const [result] = await db.promise().query(
-      `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [
-        Number(tower_id),
-        String(unit_number).trim(),
-        floor_number != null ? String(floor_number).trim() : null,
-        unit_type ? String(unit_type).trim() : null,
-        unit_size != null ? Number(unit_size) : null,
-        description ? String(description).trim() : null,
-      ]
-    );
+    const hasImages = image_urls != null && String(image_urls).trim() !== "";
+    const [result] = hasImages
+      ? await db.promise().query(
+          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            Number(tower_id),
+            String(unit_number).trim(),
+            floor_number != null ? String(floor_number).trim() : null,
+            unit_type ? String(unit_type).trim() : null,
+            unit_size != null ? Number(unit_size) : null,
+            description ? String(description).trim() : null,
+            String(image_urls).trim(),
+          ]
+        )
+      : await db.promise().query(
+          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            Number(tower_id),
+            String(unit_number).trim(),
+            floor_number != null ? String(floor_number).trim() : null,
+            unit_type ? String(unit_type).trim() : null,
+            unit_size != null ? Number(unit_size) : null,
+            description ? String(description).trim() : null,
+          ]
+        );
     res.status(201).json({
       unit_id: result.insertId,
       tower_id: Number(tower_id),
       unit_number: String(unit_number).trim(),
     });
   } catch (err) {
+    if (err.code === "ER_BAD_FIELD_ERROR" && err.message.includes("image_urls")) {
+      return res.status(500).json({
+        error: "Database UNIT table has no image_urls column. Add it in Aiven (e.g. image_urls TEXT) to save images.",
+      });
+    }
     console.error(err);
     res.status(500).json({ error: "Failed to create unit" });
   }

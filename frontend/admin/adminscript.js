@@ -35,6 +35,7 @@
     var towers = [];
     var currentStep = 1;
     var activeUnit = null;
+    var selectedTowerIdOrNew = null; // "__new__" or number; set when leaving step 1
 
     function buildBookingLink(unit) {
       var base = window.location.origin + (window.location.pathname.indexOf("/admin") !== -1 ? "/admin" : "") + "/../guest/booking.html";
@@ -46,6 +47,8 @@
       return base.replace("/admin/../", "/") + "?" + params.toString();
     }
 
+    var totalSteps = 3; // Tower, Unit details, Images
+
     function setStep(step) {
       if (!form) return;
       currentStep = step;
@@ -54,7 +57,7 @@
         steps[i].classList.toggle("is-active", steps[i].dataset.step === String(step));
       }
       if (prevBtn) prevBtn.disabled = step === 1;
-      var isLast = step === 2;
+      var isLast = step === totalSteps;
       if (nextBtn) nextBtn.textContent = isLast ? "Submit" : "Next";
       if (title) {
         var activePanel = document.querySelector(".form-step.is-active[data-title]");
@@ -62,6 +65,23 @@
       }
       var sel = towerSelect ? towerSelect.value : "";
       if (newTowerFields) newTowerFields.style.display = sel === "__new__" ? "grid" : "none";
+    }
+
+    function validateStep1() {
+      var towerId = towerSelect ? towerSelect.value : "";
+      if (!towerId) {
+        alert("Please select a tower or choose \"+ Add new tower\".");
+        return false;
+      }
+      if (towerId === "__new__") {
+        var name = form.querySelector("[name=tower_name]") && form.querySelector("[name=tower_name]").value.trim();
+        var floors = form.querySelector("[name=number_floors]") && form.querySelector("[name=number_floors]").value;
+        if (!name || !floors) {
+          alert("For a new tower, please enter Tower name and Number of floors.");
+          return false;
+        }
+      }
+      return true;
     }
 
     function loadTowers() {
@@ -125,29 +145,40 @@
     function closeModal() {
       overlay.classList.remove("is-open");
       if (form) form.reset();
+      selectedTowerIdOrNew = null;
     }
 
     function submitProperty() {
-      var towerId = towerSelect ? towerSelect.value : "";
+      var towerId = selectedTowerIdOrNew;
+      if (towerId === undefined || towerId === null) {
+        towerId = towerSelect ? towerSelect.value : "";
+      }
       if (!towerId) {
-        alert("Please select a tower or add a new one.");
+        alert("Please go back and select a tower or add a new one.");
         return;
       }
       var payload = {
-        unit_number: form.querySelector("[name=unit_number]").value.trim(),
+        unit_number: form.querySelector("[name=unit_number]") && form.querySelector("[name=unit_number]").value.trim(),
         floor_number: (form.querySelector("[name=floor_number]") && form.querySelector("[name=floor_number]").value.trim()) || null,
         unit_type: (form.querySelector("[name=unit_type]") && form.querySelector("[name=unit_type]").value) || null,
         unit_size: (form.querySelector("[name=unit_size]") && form.querySelector("[name=unit_size]").value) || null,
         description: (form.querySelector("[name=description]") && form.querySelector("[name=description]").value.trim()) || null,
       };
+      var img1 = form.querySelector("[name=image1]") && form.querySelector("[name=image1]").value.trim();
+      var img2 = form.querySelector("[name=image2]") && form.querySelector("[name=image2]").value.trim();
+      var img3 = form.querySelector("[name=image3]") && form.querySelector("[name=image3]").value.trim();
+      var img4 = form.querySelector("[name=image4]") && form.querySelector("[name=image4]").value.trim();
+      if (img1 || img2 || img3 || img4) {
+        payload.image_urls = JSON.stringify([img1 || "", img2 || "", img3 || "", img4 || ""].filter(Boolean));
+      }
       if (!payload.unit_number) {
         alert("Unit number is required.");
         return;
       }
       var promise = Promise.resolve(null);
       if (towerId === "__new__") {
-        var name = form.querySelector("[name=tower_name]").value.trim();
-        var floors = form.querySelector("[name=number_floors]").value;
+        var name = form.querySelector("[name=tower_name]") && form.querySelector("[name=tower_name]").value.trim();
+        var floors = form.querySelector("[name=number_floors]") && form.querySelector("[name=number_floors]").value;
         if (!name || !floors) {
           alert("Tower name and number of floors are required for a new tower.");
           return;
@@ -157,8 +188,15 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ tower_name: name, number_floors: Number(floors) }),
         })
-          .then(function (r) { return r.json(); })
-          .then(function (data) { return data.tower_id; });
+          .then(function (r) {
+            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed to create tower"); });
+            return r.json();
+          })
+          .then(function (data) {
+            var tid = data.tower_id;
+            if (tid == null) throw new Error("Tower was not created. Check the server.");
+            return tid;
+          });
       } else {
         promise = Promise.resolve(Number(towerId));
       }
@@ -177,6 +215,7 @@
         })
         .then(function () {
           closeModal();
+          selectedTowerIdOrNew = null;
           loadProperties();
         })
         .catch(function (err) {
@@ -210,11 +249,20 @@
 
     if (nextBtn) {
       nextBtn.addEventListener("click", function () {
-        if (currentStep === 1) setStep(2);
-        else if (currentStep === 2) submitProperty();
+        if (currentStep === 1) {
+          if (!validateStep1()) return;
+          selectedTowerIdOrNew = towerSelect ? towerSelect.value : "";
+          setStep(2);
+        } else if (currentStep === 2) {
+          setStep(3);
+        } else if (currentStep === 3) {
+          submitProperty();
+        }
       });
     }
-    if (prevBtn) prevBtn.addEventListener("click", function () { setStep(1); });
+    if (prevBtn) prevBtn.addEventListener("click", function () {
+      setStep(currentStep - 1);
+    });
 
     if (propertiesList) {
       propertiesList.addEventListener("click", function (e) {
