@@ -11,7 +11,7 @@ const app = express();
 
 // ---------------- Middleware ----------------
 app.use(cors());
-app.use(express.json()); // Parse JSON bodies
+app.use(express.json({ limit: "50mb" })); // Allow large payloads (e.g. 4 base64 unit images)
 
 // ---------------- DB Connection ----------------
 const db = mysql.createConnection({
