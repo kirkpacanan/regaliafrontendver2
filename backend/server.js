@@ -143,13 +143,20 @@ app.get("/api/units", async (req, res) => {
   try {
     const [rows] = await db.promise().query(
       `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-        t.tower_name
+        u.image_urls, t.tower_name
        FROM UNIT u
        LEFT JOIN TOWER t ON t.tower_id = u.tower_id
        ORDER BY t.tower_name, u.floor_number, u.unit_number`
     );
     res.json(rows);
   } catch (err) {
+    if (err.code === "ER_BAD_FIELD_ERROR" && err.message.includes("image_urls")) {
+      const [rowsWithout] = await db.promise().query(
+        `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+          t.tower_name FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id ORDER BY t.tower_name, u.floor_number, u.unit_number`
+      );
+      return res.json(rowsWithout.map(r => ({ ...r, image_urls: null })));
+    }
     console.error(err);
     res.status(500).json({ error: "Failed to fetch units" });
   }
@@ -208,13 +215,20 @@ app.get("/api/properties", async (req, res) => {
   try {
     const [rows] = await db.promise().query(
       `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-        t.tower_name, t.number_floors
+        u.image_urls, t.tower_name, t.number_floors
        FROM UNIT u
        LEFT JOIN TOWER t ON t.tower_id = u.tower_id
        ORDER BY t.tower_name, u.floor_number, u.unit_number`
     );
     res.json(rows);
   } catch (err) {
+    if (err.code === "ER_BAD_FIELD_ERROR" && err.message.includes("image_urls")) {
+      const [rowsWithout] = await db.promise().query(
+        `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+          t.tower_name, t.number_floors FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id ORDER BY t.tower_name, u.floor_number, u.unit_number`
+      );
+      return res.json(rowsWithout.map(r => ({ ...r, image_urls: null })));
+    }
     console.error(err);
     res.status(500).json({ error: "Failed to fetch properties" });
   }

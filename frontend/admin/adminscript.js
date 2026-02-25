@@ -36,6 +36,7 @@
     var currentStep = 1;
     var activeUnit = null;
     var selectedTowerIdOrNew = null; // "__new__" or number; set when leaving step 1
+    var unitImageDataUrls = [null, null, null, null]; // base64 data URLs for 4 slots
 
     function buildBookingLink(unit) {
       var base = window.location.origin + (window.location.pathname.indexOf("/admin") !== -1 ? "/admin" : "") + "/../guest/booking.html";
@@ -146,6 +147,14 @@
       overlay.classList.remove("is-open");
       if (form) form.reset();
       selectedTowerIdOrNew = null;
+      unitImageDataUrls = [null, null, null, null];
+      var slots = form && form.querySelectorAll("[data-photo-slot]");
+      if (slots) for (var s = 0; s < slots.length; s++) {
+        var img = slots[s].querySelector(".photo-slot-preview");
+        if (img) { img.removeAttribute("src"); img.hidden = true; }
+        var txt = slots[s].querySelector(".photo-slot-text");
+        if (txt) txt.style.display = "";
+      }
     }
 
     function submitProperty() {
@@ -164,12 +173,13 @@
         unit_size: (form.querySelector("[name=unit_size]") && form.querySelector("[name=unit_size]").value) || null,
         description: (form.querySelector("[name=description]") && form.querySelector("[name=description]").value.trim()) || null,
       };
-      var img1 = form.querySelector("[name=image1]") && form.querySelector("[name=image1]").value.trim();
-      var img2 = form.querySelector("[name=image2]") && form.querySelector("[name=image2]").value.trim();
-      var img3 = form.querySelector("[name=image3]") && form.querySelector("[name=image3]").value.trim();
-      var img4 = form.querySelector("[name=image4]") && form.querySelector("[name=image4]").value.trim();
-      if (img1 || img2 || img3 || img4) {
-        payload.image_urls = JSON.stringify([img1 || "", img2 || "", img3 || "", img4 || ""].filter(Boolean));
+      if (unitImageDataUrls[0] || unitImageDataUrls[1] || unitImageDataUrls[2] || unitImageDataUrls[3]) {
+        payload.image_urls = JSON.stringify([
+          unitImageDataUrls[0] || "",
+          unitImageDataUrls[1] || "",
+          unitImageDataUrls[2] || "",
+          unitImageDataUrls[3] || "",
+        ]);
       }
       if (!payload.unit_number) {
         alert("Unit number is required.");
@@ -242,6 +252,34 @@
         if (newTowerFields) newTowerFields.style.display = towerSelect.value === "__new__" ? "grid" : "none";
       });
     }
+
+    (function setupPhotoSlots() {
+      if (!form) return;
+      var slots = form.querySelectorAll("[data-photo-slot]");
+      var inputs = form.querySelectorAll("[data-photo-input]");
+      for (var i = 0; i < slots.length && i < inputs.length; i++) {
+        (function (idx) {
+          var slot = slots[idx];
+          var input = inputs[idx];
+          if (!slot || !input) return;
+          slot.addEventListener("click", function () { input.click(); });
+          input.addEventListener("change", function () {
+            var file = input.files && input.files[0];
+            if (!file || !file.type.match(/^image\//)) return;
+            var reader = new FileReader();
+            reader.onload = function () {
+              unitImageDataUrls[idx] = reader.result;
+              var preview = slot.querySelector(".photo-slot-preview");
+              var text = slot.querySelector(".photo-slot-text");
+              if (preview) { preview.src = reader.result; preview.hidden = false; }
+              if (text) text.style.display = "none";
+            };
+            reader.readAsDataURL(file);
+            input.value = "";
+          });
+        })(i);
+      }
+    })();
 
     if (openBtn) openBtn.addEventListener("click", openModal);
     if (closeBtn) closeBtn.addEventListener("click", closeModal);

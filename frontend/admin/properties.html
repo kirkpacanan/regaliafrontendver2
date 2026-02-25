@@ -174,11 +174,29 @@
           </div>
 
           <div class="form-step" data-step="3" data-title="Unit images">
-            <p class="photo-title">Add up to 4 images for the unit <span>(first image is the cover)</span></p>
-            <label>Image 1 (cover) <input type="url" placeholder="https://..." name="image1" /></label>
-            <label>Image 2 <input type="url" placeholder="https://..." name="image2" /></label>
-            <label>Image 3 <input type="url" placeholder="https://..." name="image3" /></label>
-            <label>Image 4 <input type="url" placeholder="https://..." name="image4" /></label>
+            <div class="photo-title">Add 4 images <span>(first image is the cover)</span></div>
+            <div class="photo-grid" data-photo-grid>
+              <button type="button" class="photo-slot" data-photo-slot="0">
+                <span class="photo-slot-text">Add image</span>
+                <img class="photo-slot-preview" alt="" hidden />
+              </button>
+              <button type="button" class="photo-slot" data-photo-slot="1">
+                <span class="photo-slot-text">Add image</span>
+                <img class="photo-slot-preview" alt="" hidden />
+              </button>
+              <button type="button" class="photo-slot" data-photo-slot="2">
+                <span class="photo-slot-text">Add image</span>
+                <img class="photo-slot-preview" alt="" hidden />
+              </button>
+              <button type="button" class="photo-slot" data-photo-slot="3">
+                <span class="photo-slot-text">Add image</span>
+                <img class="photo-slot-preview" alt="" hidden />
+              </button>
+            </div>
+            <input type="file" accept="image/*" data-photo-input data-slot="0" class="photo-input-hidden" aria-hidden="true" />
+            <input type="file" accept="image/*" data-photo-input data-slot="1" class="photo-input-hidden" aria-hidden="true" />
+            <input type="file" accept="image/*" data-photo-input data-slot="2" class="photo-input-hidden" aria-hidden="true" />
+            <input type="file" accept="image/*" data-photo-input data-slot="3" class="photo-input-hidden" aria-hidden="true" />
           </div>
 
           <div class="step-actions">
