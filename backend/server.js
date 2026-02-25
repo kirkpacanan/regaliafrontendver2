@@ -14,7 +14,6 @@ app.use(cors());
 app.use(express.json()); // Parse JSON bodies
 
 // ---------------- DB Connection ----------------
-const fs = require("fs");
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
   user: process.env.DB_USER,
@@ -134,7 +133,7 @@ app.post("/api/towers", async (req, res) => {
     res.status(201).json({ tower_id: result.insertId, tower_name, number_floors });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Failed to create tower" });
+    res.status(500).json({ error: err.message || "Failed to create tower" });
   }
 });
 
@@ -150,13 +149,6 @@ app.get("/api/units", async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    if (err.code === "ER_BAD_FIELD_ERROR" && err.message.includes("image_urls")) {
-      const [rowsWithout] = await db.promise().query(
-        `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-          t.tower_name FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id ORDER BY t.tower_name, u.floor_number, u.unit_number`
-      );
-      return res.json(rowsWithout.map(r => ({ ...r, image_urls: null })));
-    }
     console.error(err);
     res.status(500).json({ error: "Failed to fetch units" });
   }
@@ -200,13 +192,8 @@ app.post("/api/units", async (req, res) => {
       unit_number: String(unit_number).trim(),
     });
   } catch (err) {
-    if (err.code === "ER_BAD_FIELD_ERROR" && err.message.includes("image_urls")) {
-      return res.status(500).json({
-        error: "Database UNIT table has no image_urls column. Add it in Aiven (e.g. image_urls TEXT) to save images.",
-      });
-    }
     console.error(err);
-    res.status(500).json({ error: "Failed to create unit" });
+    res.status(500).json({ error: err.message || "Failed to create unit" });
   }
 });
 
@@ -222,13 +209,6 @@ app.get("/api/properties", async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    if (err.code === "ER_BAD_FIELD_ERROR" && err.message.includes("image_urls")) {
-      const [rowsWithout] = await db.promise().query(
-        `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-          t.tower_name, t.number_floors FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id ORDER BY t.tower_name, u.floor_number, u.unit_number`
-      );
-      return res.json(rowsWithout.map(r => ({ ...r, image_urls: null })));
-    }
     console.error(err);
     res.status(500).json({ error: "Failed to fetch properties" });
   }
@@ -246,14 +226,6 @@ app.get("/api/employees", async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    if (err.code === "ER_NO_SUCH_TABLE" && err.message.includes("EMPLOYEE_TOWER")) {
-      const [rows] = await db.promise().query(
-        `SELECT e.employee_id, e.full_name, e.username, e.contact_number, e.email, e.address,
-          (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) AS role_type
-         FROM EMPLOYEE e ORDER BY e.full_name`
-      );
-      return res.json(rows.map(r => ({ ...r, assigned_tower: null })));
-    }
     console.error(err);
     res.status(500).json({ error: "Failed to fetch employees" });
   }
@@ -290,28 +262,19 @@ app.post("/api/employees", async (req, res) => {
   }
 });
 
-// Assign employee to tower (optional EMPLOYEE_TOWER table)
+// Assign employee to tower (EMPLOYEE_TOWER)
 app.put("/api/employees/:id/assign-tower", async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     const { tower_id } = req.body;
     if (!tower_id) return res.status(400).json({ error: "tower_id required" });
 
-    await db.promise().query(
-      "DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?",
-      [employeeId]
-    );
-    await db.promise().query(
-      "INSERT INTO EMPLOYEE_TOWER (employee_id, tower_id) VALUES (?, ?)",
-      [employeeId, Number(tower_id)]
-    );
+    await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [employeeId]);
+    await db.promise().query("INSERT INTO EMPLOYEE_TOWER (employee_id, tower_id) VALUES (?, ?)", [employeeId, Number(tower_id)]);
     res.json({ message: "Assignment saved" });
   } catch (err) {
-    if (err.code === "ER_NO_SUCH_TABLE" && err.message.includes("EMPLOYEE_TOWER")) {
-      return res.status(501).json({ error: "EMPLOYEE_TOWER table not found. Add it in Aiven (see README or schema)." });
-    }
     console.error(err);
-    res.status(500).json({ error: "Failed to assign tower" });
+    res.status(500).json({ error: err.message || "Failed to assign tower" });
   }
 });
 
