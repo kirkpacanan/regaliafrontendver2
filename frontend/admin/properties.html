@@ -223,6 +223,34 @@
       </div>
     </div>
 
+    <!-- Property overview sidebar (like Assign Building) -->
+    <div class="assign-sidebar" id="propertyOverviewSidebar" data-property-overview-sidebar aria-hidden="true">
+      <div class="assign-sidebar__backdrop" data-close-property-overview></div>
+      <div class="assign-sidebar__content" id="propertyOverviewSidebarContent">
+        <div class="assign-sidebar__header">
+          <h3 class="assign-sidebar__title">Property</h3>
+          <button class="icon-button" type="button" data-close-property-overview aria-label="Close">
+            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+          </button>
+        </div>
+        <div class="assign-sidebar__body">
+          <div class="assign-sidebar__employee assign-sidebar__property-overview">
+            <div class="assign-sidebar__avatar-wrap">
+              <img class="assign-sidebar__avatar assign-sidebar__property-img" id="propertyOverviewImg" src="" alt="" />
+              <span class="assign-sidebar__property-placeholder" id="propertyOverviewPlaceholder"></span>
+            </div>
+            <h4 class="assign-sidebar__name" id="propertyOverviewName">Unit</h4>
+            <p class="assign-sidebar__role" id="propertyOverviewTower">Tower</p>
+            <p class="assign-sidebar__id" id="propertyOverviewMeta">—</p>
+          </div>
+          <div class="assign-sidebar__actions-row">
+            <button type="button" class="submit-button ghost" data-property-edit-details>Edit details</button>
+            <button type="button" class="submit-button danger" data-property-delete-unit>Delete unit</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Edit Unit sidebar (employee-style) -->
     <div class="assign-sidebar" id="editUnitSidebar" data-update-sidebar aria-hidden="true">
       <div class="assign-sidebar__backdrop" data-close-update></div>

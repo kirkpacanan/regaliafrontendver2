@@ -109,6 +109,15 @@
     var openLinkBtn = document.querySelector("[data-open-link]");
     var updateForm = document.querySelector("[data-update-form]");
     var deleteUnitBtn = document.querySelector("[data-delete-unit]");
+    var propertyOverviewSidebar = document.querySelector("[data-property-overview-sidebar]");
+    var propertyOverviewContent = document.getElementById("propertyOverviewSidebarContent");
+    var propertyOverviewImg = document.getElementById("propertyOverviewImg");
+    var propertyOverviewPlaceholder = document.getElementById("propertyOverviewPlaceholder");
+    var propertyOverviewName = document.getElementById("propertyOverviewName");
+    var propertyOverviewTower = document.getElementById("propertyOverviewTower");
+    var propertyOverviewMeta = document.getElementById("propertyOverviewMeta");
+    var propertyEditDetailsBtn = document.querySelector("[data-property-edit-details]");
+    var propertyDeleteUnitBtn = document.querySelector("[data-property-delete-unit]");
 
     var properties = [];
     var towers = [];
@@ -514,7 +523,70 @@
         var card = e.target.closest("[data-unit-id]");
         if (!card) return;
         var unit = properties.find(function (u) { return String(u.unit_id) === card.dataset.unitId; });
-        if (unit) openUpdateModal(unit);
+        if (unit) openPropertyOverview(unit);
+      });
+    }
+
+    function openPropertyOverview(unit) {
+      activeUnit = unit;
+      if (!propertyOverviewSidebar || !propertyOverviewContent) return;
+      if (propertyOverviewName) propertyOverviewName.textContent = unit.unit_number || String(unit.unit_id);
+      if (propertyOverviewTower) propertyOverviewTower.textContent = unit.tower_name || "—";
+      var metaParts = [unit.unit_type, unit.unit_size ? unit.unit_size + " sqm" : ""].filter(Boolean);
+      if (unit.price != null && unit.price !== "") metaParts.push("₱ " + unit.price);
+      if (propertyOverviewMeta) propertyOverviewMeta.textContent = metaParts.length ? metaParts.join(" · ") : "—";
+      var imgSrc = getFirstImageUrl(unit);
+      var avatarWrap = propertyOverviewImg && propertyOverviewImg.closest(".assign-sidebar__avatar-wrap");
+      if (propertyOverviewImg) {
+        if (imgSrc) {
+          propertyOverviewImg.src = imgSrc;
+          propertyOverviewImg.style.display = "";
+          if (avatarWrap) avatarWrap.classList.remove("has-placeholder");
+        } else {
+          propertyOverviewImg.removeAttribute("src");
+          propertyOverviewImg.style.display = "none";
+          if (avatarWrap) avatarWrap.classList.add("has-placeholder");
+        }
+      }
+      propertyOverviewSidebar.classList.add("is-open");
+      propertyOverviewSidebar.setAttribute("aria-hidden", "false");
+      requestAnimationFrame(function () { if (propertyOverviewContent) propertyOverviewContent.classList.add("is-visible"); });
+    }
+
+    function closePropertyOverview() {
+      if (propertyOverviewContent) propertyOverviewContent.classList.remove("is-visible");
+      setTimeout(function () {
+        if (propertyOverviewSidebar) {
+          propertyOverviewSidebar.classList.remove("is-open");
+          propertyOverviewSidebar.setAttribute("aria-hidden", "true");
+        }
+      }, 300);
+    }
+
+    var closeOverviewBtns = document.querySelectorAll("[data-close-property-overview]");
+    closeOverviewBtns.forEach(function (btn) { btn.addEventListener("click", closePropertyOverview); });
+    if (propertyOverviewSidebar && propertyOverviewSidebar.querySelector(".assign-sidebar__backdrop")) {
+      propertyOverviewSidebar.querySelector(".assign-sidebar__backdrop").addEventListener("click", closePropertyOverview);
+    }
+    if (propertyEditDetailsBtn) {
+      propertyEditDetailsBtn.addEventListener("click", function () {
+        closePropertyOverview();
+        setTimeout(function () {
+          if (activeUnit) openUpdateModal(activeUnit);
+        }, 320);
+      });
+    }
+    if (propertyDeleteUnitBtn) {
+      propertyDeleteUnitBtn.addEventListener("click", function () {
+        if (!activeUnit) return;
+        if (!confirm("Delete unit " + (activeUnit.unit_number || activeUnit.unit_id) + "? This cannot be undone.")) return;
+        fetch(API + "/units/" + activeUnit.unit_id, { method: "DELETE" })
+          .then(function (r) {
+            if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed to delete"); });
+            closePropertyOverview();
+            loadProperties();
+          })
+          .catch(function (err) { alert(err.message || "Failed to delete unit."); });
       });
     }
 
