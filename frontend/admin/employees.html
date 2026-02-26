@@ -164,6 +164,38 @@
       </div>
     </div>
 
+    <!-- Edit Employee modal -->
+    <div class="modal-overlay" data-edit-employee-modal>
+      <div class="modal-card">
+        <div class="modal-header">
+          <h2>Edit Employee</h2>
+          <button class="icon-button" type="button" data-close-edit-employee aria-label="Close">
+            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+          </button>
+        </div>
+        <form class="modal-form" data-edit-employee-form>
+          <label>Full name <input type="text" name="full_name" data-edit-full-name required /></label>
+          <label>Email <input type="email" name="email" data-edit-email required /></label>
+          <label>Contact number <input type="text" name="contact_number" data-edit-contact placeholder="Contact" /></label>
+          <label>Address <input type="text" name="address" data-edit-address placeholder="Address" /></label>
+          <label>Role
+            <select name="role_type" data-edit-role>
+              <option value="Front Desk">Front Desk</option>
+              <option value="Property Manager">Property Manager</option>
+              <option value="Admin">Admin</option>
+              <option value="Security">Security</option>
+              <option value="Maintenance">Maintenance</option>
+              <option value="OWNER">OWNER</option>
+            </select>
+          </label>
+          <div class="step-actions">
+            <button class="submit-button danger" type="button" data-delete-employee>Delete Employee</button>
+            <button class="submit-button" type="button" data-save-edit-employee>Save changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
     <!-- Assign Building sidebar -->
     <div class="assign-sidebar" id="assignSidebar" aria-hidden="true">
       <div class="assign-sidebar__backdrop" data-close-assign></div>
@@ -185,6 +217,10 @@
             <h4 class="assign-sidebar__name" id="assignModalName">Employee Name</h4>
             <p class="assign-sidebar__role" id="assignModalRole">Role</p>
             <p class="assign-sidebar__id" id="assignModalID">ID: REG-000</p>
+          </div>
+          <div class="assign-sidebar__actions-row">
+            <button type="button" class="submit-button ghost" data-edit-employee-btn>Edit details</button>
+            <button type="button" class="submit-button danger" data-delete-employee-btn>Delete employee</button>
           </div>
           <div class="assign-sidebar__towers">
             <label class="assign-sidebar__label">Select Assignable Tower</label>

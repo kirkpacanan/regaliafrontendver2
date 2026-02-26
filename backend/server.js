@@ -200,17 +200,74 @@ app.post("/api/units", async (req, res) => {
 // ---------------- Properties = units with tower (for admin list) ----------------
 app.get("/api/properties", async (req, res) => {
   try {
-    const [rows] = await db.promise().query(
-      `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-        u.image_urls, t.tower_name, t.number_floors
-       FROM UNIT u
-       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-       ORDER BY t.tower_name, u.floor_number, u.unit_number`
-    );
+    let rows;
+    try {
+      [rows] = await db.promise().query(
+        `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+          u.image_urls, u.price, t.tower_name, t.number_floors
+         FROM UNIT u
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         ORDER BY t.tower_name, u.floor_number, u.unit_number`
+      );
+    } catch (colErr) {
+      if (colErr.code === "ER_BAD_FIELD_ERROR" && /price/.test(colErr.message)) {
+        [rows] = await db.promise().query(
+          `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+            u.image_urls, t.tower_name, t.number_floors
+           FROM UNIT u
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           ORDER BY t.tower_name, u.floor_number, u.unit_number`
+        );
+        rows.forEach(r => (r.price = null));
+      } else throw colErr;
+    }
     res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch properties" });
+  }
+});
+
+// Update unit (price optional – add column with: ALTER TABLE UNIT ADD COLUMN price DECIMAL(10,2) NULL;)
+app.put("/api/units/:id", async (req, res) => {
+  try {
+    const unitId = Number(req.params.id);
+    const { unit_number, floor_number, unit_type, unit_size, description, image_urls, price } = req.body;
+    if (!unit_number) return res.status(400).json({ error: "unit_number required" });
+
+    const updates = [];
+    const values = [];
+    if (unit_number != null) { updates.push("unit_number = ?"); values.push(String(unit_number).trim()); }
+    if (floor_number !== undefined) { updates.push("floor_number = ?"); values.push(floor_number === "" || floor_number == null ? null : String(floor_number).trim()); }
+    if (unit_type !== undefined) { updates.push("unit_type = ?"); values.push(unit_type === "" || unit_type == null ? null : String(unit_type).trim()); }
+    if (unit_size !== undefined) { updates.push("unit_size = ?"); values.push(unit_size === "" || unit_size == null ? null : Number(unit_size)); }
+    if (description !== undefined) { updates.push("description = ?"); values.push(description === "" || description == null ? null : String(description).trim()); }
+    if (image_urls !== undefined) { updates.push("image_urls = ?"); values.push(image_urls === "" || image_urls == null ? null : (typeof image_urls === "string" ? image_urls : JSON.stringify(image_urls))); }
+    if (price !== undefined) { updates.push("price = ?"); values.push(price === "" || price == null ? null : Number(price)); }
+
+    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
+    values.push(unitId);
+    await db.promise().query(
+      `UPDATE UNIT SET ${updates.join(", ")} WHERE unit_id = ?`,
+      values
+    );
+    res.json({ message: "Unit updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to update unit" });
+  }
+});
+
+// Delete unit
+app.delete("/api/units/:id", async (req, res) => {
+  try {
+    const unitId = Number(req.params.id);
+    const [result] = await db.promise().query("DELETE FROM UNIT WHERE unit_id = ?", [unitId]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Unit not found" });
+    res.json({ message: "Unit deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to delete unit" });
   }
 });
 
@@ -275,6 +332,42 @@ app.put("/api/employees/:id/assign-tower", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to assign tower" });
+  }
+});
+
+// Update employee (full_name, contact_number, email, address, role_type)
+app.put("/api/employees/:id", async (req, res) => {
+  try {
+    const employeeId = Number(req.params.id);
+    const { full_name, contact_number, email, address, role_type } = req.body;
+
+    if (full_name != null) await db.promise().query("UPDATE EMPLOYEE SET full_name = ? WHERE employee_id = ?", [String(full_name).trim(), employeeId]);
+    if (contact_number !== undefined) await db.promise().query("UPDATE EMPLOYEE SET contact_number = ? WHERE employee_id = ?", [contact_number === "" || contact_number == null ? null : String(contact_number).trim(), employeeId]);
+    if (email != null) await db.promise().query("UPDATE EMPLOYEE SET email = ? WHERE employee_id = ?", [String(email).trim(), employeeId]);
+    if (address !== undefined) await db.promise().query("UPDATE EMPLOYEE SET address = ? WHERE employee_id = ?", [address === "" || address == null ? null : String(address).trim(), employeeId]);
+    if (role_type != null) {
+      await db.promise().query("UPDATE EMPLOYEE_ROLE SET status = 'inactive' WHERE employee_id = ?", [employeeId]);
+      await db.promise().query("INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, ?, 'active')", [employeeId, String(role_type).trim()]);
+    }
+    res.json({ message: "Employee updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to update employee" });
+  }
+});
+
+// Delete employee (removes EMPLOYEE_ROLE and EMPLOYEE_TOWER via FK, then EMPLOYEE)
+app.delete("/api/employees/:id", async (req, res) => {
+  try {
+    const employeeId = Number(req.params.id);
+    await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [employeeId]);
+    await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [employeeId]);
+    const [result] = await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [employeeId]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Employee not found" });
+    res.json({ message: "Employee deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to delete employee" });
   }
 });
 

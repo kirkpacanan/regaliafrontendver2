@@ -18,8 +18,11 @@ CREATE TABLE IF NOT EXISTS UNIT (
   unit_size DECIMAL(10,2) NULL,
   description TEXT NULL,
   image_urls LONGTEXT NULL,
+  price DECIMAL(10,2) NULL,
   FOREIGN KEY (tower_id) REFERENCES TOWER(tower_id) ON DELETE CASCADE
 );
+
+-- If UNIT already exists without price, run: ALTER TABLE UNIT ADD COLUMN price DECIMAL(10,2) NULL;
 
 -- Optional: if you want to assign employees to towers (Assign Building in admin)
 CREATE TABLE IF NOT EXISTS EMPLOYEE_TOWER (

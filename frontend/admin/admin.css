@@ -472,31 +472,29 @@ body {
 .property-card {
   background: rgba(255, 255, 255, 0.18);
   border-radius: 12px;
-  padding: 0.5rem 0.6rem;
-  display: grid;
-  gap: 0.25rem;
-}
-
-.property-card--clickable {
+  padding: 0;
   border: none;
   width: 100%;
   text-align: left;
   cursor: pointer;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: grid;
+  gap: 0;
+  overflow: hidden;
 }
 
 .property-card--clickable:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.24);
 }
 
 .property-card__media {
   width: 100%;
-  aspect-ratio: 1 / 1;
-  border-radius: 10px;
+  aspect-ratio: 1;
+  border-radius: 0;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.2);
-  margin-bottom: 0.25rem;
 }
 
 .property-card__media img {
@@ -506,14 +504,24 @@ body {
   display: block;
 }
 
+.property-card__body {
+  padding: 1rem 1rem 1.1rem;
+}
+
 .property-card__title {
+  margin: 0 0 0.2rem;
   font-weight: 600;
-  font-size: 0.8rem;
+  font-size: 1rem;
+  color: var(--text);
 }
 
 .property-card__meta {
   color: var(--muted);
-  font-size: 0.7rem;
+  font-size: 0.85rem;
+}
+
+.property-card__meta:last-of-type {
+  margin-top: 0.25rem;
 }
 
 .property-card__meta.status--available {
@@ -558,6 +566,38 @@ body {
 .submit-button.danger {
   background: linear-gradient(90deg, #d6455d, #f28da8);
   box-shadow: 0 10px 20px rgba(214, 69, 93, 0.25);
+}
+
+.modal-card--wide {
+  max-width: 640px;
+}
+
+.update-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.update-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.update-form-images .photo-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.update-booking-label {
+  margin-bottom: 1rem;
+}
+
+.step-actions--between {
+  justify-content: space-between;
+  flex-wrap: wrap;
 }
 
 .panel h3 {
@@ -809,6 +849,13 @@ body {
   letter-spacing: 0.06em;
   color: rgba(79, 127, 132, 0.75);
   margin-bottom: 0.75rem;
+}
+
+.assign-sidebar__actions-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
 
 .assign-sidebar__towers {

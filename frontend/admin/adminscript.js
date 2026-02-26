@@ -25,11 +25,12 @@
     var updateModal = document.querySelector("[data-update-modal]");
     var updateCloseBtn = document.querySelector("[data-close-update]");
     var updateTitle = document.querySelector("[data-update-title]");
-    var unitInfo = document.querySelector("[data-unit-info]");
     var bookingLinkInput = document.querySelector("[data-booking-link]");
     var saveUpdateBtn = document.querySelector("[data-save-update]");
     var copyBtn = document.querySelector("[data-copy-link]");
     var openLinkBtn = document.querySelector("[data-open-link]");
+    var updateForm = document.querySelector("[data-update-form]");
+    var deleteUnitBtn = document.querySelector("[data-delete-unit]");
 
     var properties = [];
     var towers = [];
@@ -37,6 +38,7 @@
     var activeUnit = null;
     var selectedTowerIdOrNew = null; // "__new__" or number; set when leaving step 1
     var unitImageDataUrls = [null, null, null, null]; // base64 data URLs for 4 slots
+    var updateImageDataUrls = [null, null, null, null]; // for edit modal
 
     function buildBookingLink(unit) {
       var base = window.location.origin + (window.location.pathname.indexOf("/admin") !== -1 ? "/admin" : "") + "/../guest/booking.html";
@@ -116,6 +118,19 @@
         });
     }
 
+    function getFirstImageUrl(unit) {
+      var raw = unit.image_urls;
+      if (!raw) return null;
+      try {
+        var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(arr) && arr.length) {
+          var first = arr[0];
+          return first && (typeof first === "string" ? first : first.url || first.src) ? first : null;
+        }
+      } catch (e) {}
+      return null;
+    }
+
     function renderProperties() {
       if (!propertiesList) return;
       propertiesList.innerHTML = "";
@@ -128,14 +143,29 @@
         card.type = "button";
         card.className = "property-card property-card--clickable";
         card.dataset.unitId = unit.unit_id;
+        var imgSrc = getFirstImageUrl(unit);
+        var mediaHtml = "<div class=\"property-card__media\">";
+        if (imgSrc) mediaHtml += "<img src=\"" + escapeHtml(imgSrc) + "\" alt=\"\" />";
+        else mediaHtml += "<span class=\"property-card__placeholder\"></span>";
+        mediaHtml += "</div>";
         var meta = [unit.unit_type, unit.unit_size ? unit.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
+        var priceLine = unit.price != null && unit.price !== "" ? "<div class=\"property-card__meta\">₱ " + escapeHtml(String(unit.price)) + "</div>" : "";
         card.innerHTML =
-          "<div class=\"property-card__media\"><span class=\"property-card__placeholder\"></span></div>" +
-          "<div class=\"property-card__title\">" + (unit.unit_number || unit.unit_id) + "</div>" +
-          "<div class=\"property-card__meta\">" + (unit.tower_name || "—") + "</div>" +
-          "<div class=\"property-card__meta\">" + meta + "</div>";
+          mediaHtml +
+          "<div class=\"property-card__body\">" +
+            "<h4 class=\"property-card__title\">" + escapeHtml(unit.unit_number || String(unit.unit_id)) + "</h4>" +
+            "<p class=\"property-card__meta\">" + escapeHtml(unit.tower_name || "—") + "</p>" +
+            "<div class=\"property-card__meta\">" + escapeHtml(meta) + "</div>" +
+            priceLine +
+          "</div>";
         propertiesList.appendChild(card);
       });
+    }
+
+    function escapeHtml(s) {
+      var div = document.createElement("div");
+      div.textContent = s;
+      return div.innerHTML;
     }
 
     function openModal() {
@@ -236,8 +266,44 @@
     function openUpdateModal(unit) {
       activeUnit = unit;
       if (updateModal) updateModal.classList.add("is-open");
-      if (updateTitle) updateTitle.textContent = "Unit " + (unit.unit_number || unit.unit_id);
-      if (unitInfo) unitInfo.textContent = (unit.tower_name || "—") + " · Unit " + (unit.unit_number || "—") + (unit.unit_type ? " · " + unit.unit_type : "");
+      if (updateTitle) updateTitle.textContent = "Edit Unit " + (unit.unit_number || unit.unit_id);
+      if (updateForm) {
+        var num = updateForm.querySelector("[data-update-unit-number]");
+        var floor = updateForm.querySelector("[data-update-floor]");
+        var type = updateForm.querySelector("[data-update-unit-type]");
+        var size = updateForm.querySelector("[data-update-unit-size]");
+        var price = updateForm.querySelector("[data-update-price]");
+        var desc = updateForm.querySelector("[data-update-description]");
+        if (num) num.value = unit.unit_number || "";
+        if (floor) floor.value = unit.floor_number || "";
+        if (type) type.value = unit.unit_type || "";
+        if (size) size.value = unit.unit_size != null ? unit.unit_size : "";
+        if (price) price.value = unit.price != null && unit.price !== "" ? unit.price : "";
+        if (desc) desc.value = unit.description || "";
+      }
+      updateImageDataUrls = [null, null, null, null];
+      try {
+        var raw = unit.image_urls;
+        if (raw) {
+          var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (Array.isArray(arr)) for (var i = 0; i < 4 && i < arr.length; i++) if (arr[i]) updateImageDataUrls[i] = typeof arr[i] === "string" ? arr[i] : (arr[i].url || arr[i].src);
+        }
+      } catch (e) {}
+      var grid = updateModal && updateModal.querySelector("[data-update-photo-grid]");
+      if (grid) {
+        var slots = grid.querySelectorAll("[data-update-photo-slot]");
+        for (var j = 0; j < slots.length && j < 4; j++) {
+          var preview = slots[j].querySelector(".photo-slot-preview");
+          var text = slots[j].querySelector(".photo-slot-text");
+          if (updateImageDataUrls[j]) {
+            if (preview) { preview.src = updateImageDataUrls[j]; preview.hidden = false; }
+            if (text) text.style.display = "none";
+          } else {
+            if (preview) { preview.removeAttribute("src"); preview.hidden = true; }
+            if (text) text.style.display = "";
+          }
+        }
+      }
       var link = buildBookingLink(unit);
       if (bookingLinkInput) bookingLinkInput.value = link;
     }
@@ -245,6 +311,62 @@
     function closeUpdateModal() {
       if (updateModal) updateModal.classList.remove("is-open");
       activeUnit = null;
+    }
+
+    function saveUnitUpdate() {
+      if (!activeUnit || !updateForm) return;
+      var numEl = updateForm.querySelector("[data-update-unit-number]");
+      var unit_number = numEl ? numEl.value.trim() : "";
+      if (!unit_number) { alert("Unit number is required."); return; }
+      var payload = {
+        unit_number: unit_number,
+        floor_number: (updateForm.querySelector("[data-update-floor]") && updateForm.querySelector("[data-update-floor]").value.trim()) || null,
+        unit_type: (updateForm.querySelector("[data-update-unit-type]") && updateForm.querySelector("[data-update-unit-type]").value) || null,
+        unit_size: (updateForm.querySelector("[data-update-unit-size]") && updateForm.querySelector("[data-update-unit-size]").value) || null,
+        description: (updateForm.querySelector("[data-update-description]") && updateForm.querySelector("[data-update-description]").value.trim()) || null,
+        price: (updateForm.querySelector("[data-update-price]") && updateForm.querySelector("[data-update-price]").value) || null,
+      };
+      if (updateImageDataUrls[0] || updateImageDataUrls[1] || updateImageDataUrls[2] || updateImageDataUrls[3]) {
+        payload.image_urls = JSON.stringify([
+          updateImageDataUrls[0] || "",
+          updateImageDataUrls[1] || "",
+          updateImageDataUrls[2] || "",
+          updateImageDataUrls[3] || "",
+        ]);
+      }
+      fetch(API + "/units/" + activeUnit.unit_id, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed to update"); });
+          return r.json();
+        })
+        .then(function () {
+          closeUpdateModal();
+          loadProperties();
+        })
+        .catch(function (err) {
+          alert(err.message || "Failed to update unit.");
+        });
+    }
+
+    function deleteUnit() {
+      if (!activeUnit) return;
+      if (!confirm("Delete this unit? This cannot be undone.")) return;
+      fetch(API + "/units/" + activeUnit.unit_id, { method: "DELETE" })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed to delete"); });
+          return r.json();
+        })
+        .then(function () {
+          closeUpdateModal();
+          loadProperties();
+        })
+        .catch(function (err) {
+          alert(err.message || "Failed to delete unit.");
+        });
     }
 
     if (towerSelect) {
@@ -313,7 +435,37 @@
 
     if (updateCloseBtn) updateCloseBtn.addEventListener("click", closeUpdateModal);
     if (updateModal) updateModal.addEventListener("click", function (e) { if (e.target === updateModal) closeUpdateModal(); });
-    if (saveUpdateBtn) saveUpdateBtn.addEventListener("click", closeUpdateModal);
+    if (saveUpdateBtn) saveUpdateBtn.addEventListener("click", saveUnitUpdate);
+    if (deleteUnitBtn) deleteUnitBtn.addEventListener("click", deleteUnit);
+    (function setupUpdatePhotoSlots() {
+      if (!updateModal) return;
+      var grid = updateModal.querySelector("[data-update-photo-grid]");
+      var inputs = updateModal.querySelectorAll("[data-update-photo-input]");
+      if (!grid || !inputs.length) return;
+      var slots = grid.querySelectorAll("[data-update-photo-slot]");
+      for (var i = 0; i < slots.length && i < inputs.length; i++) {
+        (function (idx) {
+          var slot = slots[idx];
+          var input = inputs[idx];
+          if (!slot || !input) return;
+          slot.addEventListener("click", function () { input.click(); });
+          input.addEventListener("change", function () {
+            var file = input.files && input.files[0];
+            if (!file || !file.type.match(/^image\//)) return;
+            var reader = new FileReader();
+            reader.onload = function () {
+              updateImageDataUrls[idx] = reader.result;
+              var preview = slot.querySelector(".photo-slot-preview");
+              var text = slot.querySelector(".photo-slot-text");
+              if (preview) { preview.src = reader.result; preview.hidden = false; }
+              if (text) text.style.display = "none";
+            };
+            reader.readAsDataURL(file);
+            input.value = "";
+          });
+        })(i);
+      }
+    })();
     if (openLinkBtn) openLinkBtn.addEventListener("click", function () {
       if (bookingLinkInput && bookingLinkInput.value) window.open(bookingLinkInput.value, "_blank");
     });
@@ -340,6 +492,13 @@
     var assignTowersContainer = document.querySelector("[data-assign-towers]");
     var saveAssignmentBtn = document.querySelector("[data-save-assignment]");
     var closeAssignButtons = document.querySelectorAll("[data-close-assign]");
+    var editEmployeeModal = document.querySelector("[data-edit-employee-modal]");
+    var editEmployeeForm = document.querySelector("[data-edit-employee-form]");
+    var closeEditEmployeeBtn = document.querySelector("[data-close-edit-employee]");
+    var saveEditEmployeeBtn = document.querySelector("[data-save-edit-employee]");
+    var deleteEmployeeBtn = document.querySelector("[data-delete-employee]");
+    var editEmployeeBtn = document.querySelector("[data-edit-employee-btn]");
+    var deleteEmployeeSidebarBtn = document.querySelector("[data-delete-employee-btn]");
 
     var employees = [];
     var towers = [];
@@ -522,6 +681,71 @@
       }, 300);
     }
 
+    function openEditEmployeeModal() {
+      var emp = employees.find(function (e) { return String(e.employee_id) === String(activeEmployeeId); });
+      if (!emp || !editEmployeeModal || !editEmployeeForm) return;
+      var fullName = editEmployeeForm.querySelector("[data-edit-full-name]");
+      var email = editEmployeeForm.querySelector("[data-edit-email]");
+      var contact = editEmployeeForm.querySelector("[data-edit-contact]");
+      var address = editEmployeeForm.querySelector("[data-edit-address]");
+      var role = editEmployeeForm.querySelector("[data-edit-role]");
+      if (fullName) fullName.value = emp.full_name || "";
+      if (email) email.value = emp.email || "";
+      if (contact) contact.value = emp.contact_number || "";
+      if (address) address.value = emp.address || "";
+      if (role) role.value = emp.role_type || "Front Desk";
+      editEmployeeModal.classList.add("is-open");
+    }
+
+    function closeEditEmployeeModal() {
+      if (editEmployeeModal) editEmployeeModal.classList.remove("is-open");
+    }
+
+    function saveEditEmployee() {
+      if (!activeEmployeeId || !editEmployeeForm) return;
+      var full_name = editEmployeeForm.querySelector("[data-edit-full-name]") && editEmployeeForm.querySelector("[data-edit-full-name]").value.trim();
+      var email = editEmployeeForm.querySelector("[data-edit-email]") && editEmployeeForm.querySelector("[data-edit-email]").value.trim();
+      var contact_number = editEmployeeForm.querySelector("[data-edit-contact]") && editEmployeeForm.querySelector("[data-edit-contact]").value.trim() || null;
+      var address = editEmployeeForm.querySelector("[data-edit-address]") && editEmployeeForm.querySelector("[data-edit-address]").value.trim() || null;
+      var role_type = editEmployeeForm.querySelector("[data-edit-role]") && editEmployeeForm.querySelector("[data-edit-role]").value || "Front Desk";
+      if (!full_name || !email) { alert("Full name and email are required."); return; }
+      fetch(API + "/employees/" + activeEmployeeId, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ full_name: full_name, email: email, contact_number: contact_number, address: address, role_type: role_type }),
+      })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+          return r.json();
+        })
+        .then(function () {
+          closeEditEmployeeModal();
+          closeAssignModal();
+          loadEmployees();
+        })
+        .catch(function (err) {
+          alert(err.message || "Failed to update employee.");
+        });
+    }
+
+    function deleteEmployeeAction() {
+      if (!activeEmployeeId) return;
+      if (!confirm("Delete this employee? This cannot be undone.")) return;
+      fetch(API + "/employees/" + activeEmployeeId, { method: "DELETE" })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+          return r.json();
+        })
+        .then(function () {
+          closeEditEmployeeModal();
+          closeAssignModal();
+          loadEmployees();
+        })
+        .catch(function (err) {
+          alert(err.message || "Failed to delete employee.");
+        });
+    }
+
     if (addEmployeeBtn) addEmployeeBtn.addEventListener("click", openAddEmployeeModal);
     if (employeeModalClose) employeeModalClose.addEventListener("click", closeAddEmployeeModal);
     if (employeeModal && employeeModal.querySelector(".modal-overlay")) {
@@ -554,6 +778,17 @@
     if (assignSidebar && assignSidebar.querySelector(".assign-sidebar__backdrop")) {
       assignSidebar.querySelector(".assign-sidebar__backdrop").addEventListener("click", closeAssignModal);
     }
+
+    if (editEmployeeBtn) editEmployeeBtn.addEventListener("click", function () { openEditEmployeeModal(); });
+    if (deleteEmployeeSidebarBtn) deleteEmployeeSidebarBtn.addEventListener("click", deleteEmployeeAction);
+    if (closeEditEmployeeBtn) closeEditEmployeeBtn.addEventListener("click", closeEditEmployeeModal);
+    if (editEmployeeModal && editEmployeeModal.querySelector(".modal-overlay")) {
+      editEmployeeModal.querySelector(".modal-overlay").addEventListener("click", function (e) {
+        if (e.target === editEmployeeModal.querySelector(".modal-overlay")) closeEditEmployeeModal();
+      });
+    }
+    if (saveEditEmployeeBtn) saveEditEmployeeBtn.addEventListener("click", saveEditEmployee);
+    if (deleteEmployeeBtn) deleteEmployeeBtn.addEventListener("click", deleteEmployeeAction);
 
     if (saveAssignmentBtn) {
       saveAssignmentBtn.addEventListener("click", function () {
