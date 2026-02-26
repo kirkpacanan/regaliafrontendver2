@@ -110,20 +110,22 @@
       </main>
     </div>
 
-    <div class="modal-overlay" data-booking-detail-modal>
-      <div class="modal-card modal-card--wide">
-        <div class="modal-header">
-          <h2 data-booking-detail-title>Booking details</h2>
+    <!-- Booking detail sidebar (employee-style) -->
+    <div class="assign-sidebar" id="bookingDetailSidebar" data-booking-detail-sidebar aria-hidden="true">
+      <div class="assign-sidebar__backdrop" data-close-booking-detail></div>
+      <div class="assign-sidebar__content" id="bookingDetailSidebarContent">
+        <div class="assign-sidebar__header">
+          <h3 class="assign-sidebar__title" data-booking-detail-title>Booking details</h3>
           <button class="icon-button" type="button" data-close-booking-detail aria-label="Close">
             <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
           </button>
         </div>
-        <div class="modal-form">
+        <div class="assign-sidebar__body assign-sidebar__body--scroll">
           <div class="booking-detail-body" data-booking-detail-body></div>
-          <div class="booking-detail-actions" data-booking-detail-actions>
-            <button class="submit-button danger" type="button" data-reject-booking>Reject booking</button>
-            <button class="submit-button" type="button" data-confirm-booking>Confirm booking</button>
-          </div>
+        </div>
+        <div class="assign-sidebar__footer" data-booking-detail-actions>
+          <button class="submit-button danger" type="button" data-reject-booking>Reject booking</button>
+          <button class="submit-button full" type="button" data-confirm-booking>Confirm booking</button>
         </div>
       </div>
     </div>

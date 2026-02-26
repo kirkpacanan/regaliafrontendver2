@@ -24,8 +24,9 @@
     var propertiesList = document.querySelector("[data-properties]");
     var towerSelect = document.querySelector("[data-tower-select]");
     var newTowerFields = document.querySelector("[data-new-tower]");
-    var updateModal = document.querySelector("[data-update-modal]");
-    var updateCloseBtn = document.querySelector("[data-close-update]");
+    var updateSidebar = document.querySelector("[data-update-sidebar]");
+    var updateContent = document.getElementById("editUnitSidebarContent");
+    var updateCloseBtns = document.querySelectorAll("[data-close-update]");
     var updateTitle = document.querySelector("[data-update-title]");
     var bookingLinkInput = document.querySelector("[data-booking-link]");
     var saveUpdateBtn = document.querySelector("[data-save-update]");
@@ -262,7 +263,11 @@
 
     function openUpdateModal(unit) {
       activeUnit = unit;
-      if (updateModal) updateModal.classList.add("is-open");
+      if (updateSidebar) {
+        updateSidebar.classList.add("is-open");
+        updateSidebar.setAttribute("aria-hidden", "false");
+        if (updateContent) requestAnimationFrame(function () { updateContent.classList.add("is-visible"); });
+      }
       if (updateTitle) updateTitle.textContent = "Edit Unit " + (unit.unit_number || unit.unit_id);
       if (updateForm) {
         var num = updateForm.querySelector("[data-update-unit-number]");
@@ -286,7 +291,7 @@
           if (Array.isArray(arr)) for (var i = 0; i < 4 && i < arr.length; i++) if (arr[i]) updateImageDataUrls[i] = typeof arr[i] === "string" ? arr[i] : (arr[i].url || arr[i].src);
         }
       } catch (e) {}
-      var grid = updateModal && updateModal.querySelector("[data-update-photo-grid]");
+      var grid = updateSidebar && updateSidebar.querySelector("[data-update-photo-grid]");
       if (grid) {
         var slots = grid.querySelectorAll("[data-update-photo-slot]");
         for (var j = 0; j < slots.length && j < 4; j++) {
@@ -306,8 +311,14 @@
     }
 
     function closeUpdateModal() {
-      if (updateModal) updateModal.classList.remove("is-open");
-      activeUnit = null;
+      if (updateContent) updateContent.classList.remove("is-visible");
+      setTimeout(function () {
+        if (updateSidebar) {
+          updateSidebar.classList.remove("is-open");
+          updateSidebar.setAttribute("aria-hidden", "true");
+        }
+        activeUnit = null;
+      }, 300);
     }
 
     function saveUnitUpdate() {
@@ -430,13 +441,15 @@
       });
     }
 
-    if (updateCloseBtn) updateCloseBtn.addEventListener("click", closeUpdateModal);
-    if (updateModal) updateModal.addEventListener("click", function (e) { if (e.target === updateModal) closeUpdateModal(); });
+    updateCloseBtns.forEach(function (btn) { btn.addEventListener("click", closeUpdateModal); });
+    if (updateSidebar && updateSidebar.querySelector(".assign-sidebar__backdrop")) {
+      updateSidebar.querySelector(".assign-sidebar__backdrop").addEventListener("click", closeUpdateModal);
+    }
     if (saveUpdateBtn) saveUpdateBtn.addEventListener("click", saveUnitUpdate);
     if (deleteUnitBtn) deleteUnitBtn.addEventListener("click", deleteUnit);
     (function setupUpdatePhotoSlots() {
-      if (!updateModal) return;
-      var grid = updateModal.querySelector("[data-update-photo-grid]");
+      if (!updateSidebar) return;
+      var grid = updateSidebar.querySelector("[data-update-photo-grid]");
       var inputs = updateModal.querySelectorAll("[data-update-photo-input]");
       if (!grid || !inputs.length) return;
       var slots = grid.querySelectorAll("[data-update-photo-slot]");
@@ -833,11 +846,12 @@
     var listMonth = document.querySelector("[data-list=\"month\"]");
     var listLater = document.querySelector("[data-list=\"later\"]");
     var emptyEl = document.querySelector("[data-bookings-empty]");
-    var detailModal = document.querySelector("[data-booking-detail-modal]");
+    var detailSidebar = document.querySelector("[data-booking-detail-sidebar]");
+    var detailContent = document.getElementById("bookingDetailSidebarContent");
     var detailTitle = document.querySelector("[data-booking-detail-title]");
     var detailBody = document.querySelector("[data-booking-detail-body]");
     var detailActions = document.querySelector("[data-booking-detail-actions]");
-    var closeDetailBtn = document.querySelector("[data-close-booking-detail]");
+    var closeDetailBtns = document.querySelectorAll("[data-close-booking-detail]");
     var confirmBtn = document.querySelector("[data-confirm-booking]");
     var rejectBtn = document.querySelector("[data-reject-booking]");
     var rejectModal = document.querySelector("[data-reject-reason-modal]");
@@ -1000,7 +1014,11 @@
           }
           detailBody.innerHTML = html;
           if (detailActions) detailActions.style.display = b.status === "pending" ? "flex" : "none";
-          if (detailModal) detailModal.classList.add("is-open");
+          if (detailSidebar) {
+            detailSidebar.classList.add("is-open");
+            detailSidebar.setAttribute("aria-hidden", "false");
+            if (detailContent) requestAnimationFrame(function () { detailContent.classList.add("is-visible"); });
+          }
         })
         .catch(function () {
           alert("Could not load booking details.");
@@ -1008,8 +1026,14 @@
     }
 
     function closeDetailModal() {
-      if (detailModal) detailModal.classList.remove("is-open");
-      activeBookingId = null;
+      if (detailContent) detailContent.classList.remove("is-visible");
+      setTimeout(function () {
+        if (detailSidebar) {
+          detailSidebar.classList.remove("is-open");
+          detailSidebar.setAttribute("aria-hidden", "true");
+        }
+        activeBookingId = null;
+      }, 300);
     }
 
     function confirmBooking() {
@@ -1072,9 +1096,9 @@
         });
       });
     }
-    if (closeDetailBtn) closeDetailBtn.addEventListener("click", closeDetailModal);
-    if (detailModal && detailModal.querySelector(".modal-overlay")) {
-      detailModal.addEventListener("click", function (e) { if (e.target === detailModal) closeDetailModal(); });
+    closeDetailBtns.forEach(function (btn) { btn.addEventListener("click", closeDetailModal); });
+    if (detailSidebar && detailSidebar.querySelector(".assign-sidebar__backdrop")) {
+      detailSidebar.querySelector(".assign-sidebar__backdrop").addEventListener("click", closeDetailModal);
     }
     if (confirmBtn) confirmBtn.addEventListener("click", confirmBooking);
     if (rejectBtn) rejectBtn.addEventListener("click", openRejectModal);

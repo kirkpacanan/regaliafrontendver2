@@ -107,6 +107,8 @@ body {
 
 .main {
   padding: 2.2rem 2.6rem 2.6rem;
+  overflow-y: auto;
+  min-height: 0;
 }
 
 .topbar {
@@ -624,11 +626,15 @@ body {
 .bookings-content {
   max-width: 42rem;
   margin: 0 auto;
-  padding: 0 0 2rem;
+  padding: 2.5rem 0 2rem;
 }
 
 .bookings-section {
   margin-bottom: 2rem;
+}
+
+.bookings-section:first-child {
+  margin-top: 0;
 }
 
 .bookings-section-title {
@@ -1123,6 +1129,42 @@ body {
   padding: 1.25rem 1.5rem;
   border-top: 1px solid rgba(79, 127, 132, 0.12);
   background: rgba(79, 127, 132, 0.06);
+}
+
+.assign-sidebar__footer[data-booking-detail-actions] {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.assign-sidebar__body--scroll {
+  overflow-y: auto;
+  max-height: 60vh;
+}
+
+.assign-sidebar-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.assign-sidebar-form .update-form-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.assign-sidebar-form .update-form-images .photo-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.assign-sidebar__footer--actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 @media (max-width: 1100px) {
