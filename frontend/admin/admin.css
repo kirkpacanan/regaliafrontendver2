@@ -468,7 +468,7 @@ body {
 .properties-list {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 1rem;
 }
 
 .property-card {
@@ -510,20 +510,45 @@ body {
   padding: 1rem 1rem 1.1rem;
 }
 
-.property-card__title {
+.property-card__title,
+.property-card__name {
   margin: 0 0 0.2rem;
   font-weight: 600;
   font-size: 1rem;
   color: var(--text);
 }
 
+.property-card__role {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 .property-card__meta {
   color: var(--muted);
   font-size: 0.85rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.property-card--employee-style .property-card__meta {
+  font-size: 0.75rem;
 }
 
 .property-card__meta:last-of-type {
-  margin-top: 0.25rem;
+  margin-top: 0.75rem;
+}
+
+.property-card__edit-label {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .property-card__meta.status--available {

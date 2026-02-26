@@ -18,7 +18,11 @@
     var API = "/api";
     var emptyEl = document.querySelector("[data-dashboard-empty]");
     var listEl = document.querySelector("[data-dashboard-properties]");
-    var totalPropEl = document.querySelector(".stats .stat-card:nth-child(4) .value");
+    var totalBookingEl = document.querySelector("[data-dashboard-total-booking]");
+    var availableEl = document.querySelector("[data-dashboard-available]");
+    var occupiedEl = document.querySelector("[data-dashboard-occupied]");
+    var totalPropEl = document.querySelector("[data-dashboard-total-properties]");
+    function setStat(el, val) { if (el) el.textContent = val; }
     function esc(s) {
       if (s == null || s === undefined) return "";
       var d = document.createElement("div");
@@ -37,39 +41,50 @@
       } catch (e) {}
       return null;
     }
-    fetch(API + "/properties")
-      .then(function (r) { return r.ok ? r.json() : []; })
-      .then(function (data) {
-        if (totalPropEl) totalPropEl.textContent = data.length;
-        if (emptyEl) emptyEl.style.display = data.length ? "none" : "block";
-        if (!listEl) return;
-        listEl.innerHTML = "";
-        data.forEach(function (unit) {
-          var card = document.createElement("div");
-          card.className = "property-card";
-          var imgSrc = firstImg(unit);
-          var mediaHtml = "<div class=\"property-card__media\">";
-          if (imgSrc) mediaHtml += "<img src=\"" + esc(imgSrc) + "\" alt=\"\" />";
-          else mediaHtml += "<span class=\"property-card__placeholder\"></span>";
-          mediaHtml += "</div>";
-          var meta = [unit.unit_type, unit.unit_size ? unit.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
-          var priceLine = unit.price != null && unit.price !== "" ? "<div class=\"property-card__meta\">₱ " + esc(String(unit.price)) + "</div>" : "";
-          card.innerHTML =
-            mediaHtml +
-            "<div class=\"property-card__body\">" +
-              "<h4 class=\"property-card__title\">" + esc(unit.unit_number || String(unit.unit_id)) + "</h4>" +
-              "<p class=\"property-card__meta\">" + esc(unit.tower_name || "—") + "</p>" +
-              "<div class=\"property-card__meta\">" + esc(meta) + "</div>" +
-              priceLine +
-            "</div>";
-          listEl.appendChild(card);
-        });
-      })
-      .catch(function () {
-        if (totalPropEl) totalPropEl.textContent = "0";
-        if (emptyEl) emptyEl.style.display = "block";
-        if (listEl) listEl.innerHTML = "";
+    Promise.all([
+      fetch(API + "/properties").then(function (r) { return r.ok ? r.json() : []; }),
+      fetch(API + "/bookings").then(function (r) { return r.ok ? r.json() : []; })
+    ]).then(function (results) {
+      var data = results[0];
+      var bookings = results[1] || [];
+      var confirmed = bookings.filter(function (b) { return b.status === "confirmed"; }).length;
+      setStat(totalBookingEl, bookings.length);
+      setStat(totalPropEl, data.length);
+      setStat(occupiedEl, confirmed);
+      setStat(availableEl, Math.max(0, data.length - confirmed));
+      if (emptyEl) emptyEl.style.display = data.length ? "none" : "block";
+      if (!listEl) return;
+      listEl.innerHTML = "";
+      data.forEach(function (unit) {
+        var card = document.createElement("div");
+        card.className = "property-card property-card--employee-style";
+        var imgSrc = firstImg(unit);
+        var mediaHtml = "<div class=\"property-card__media\">";
+        if (imgSrc) mediaHtml += "<img src=\"" + esc(imgSrc) + "\" alt=\"\" />";
+        else mediaHtml += "<span class=\"property-card__placeholder\"></span>";
+        mediaHtml += "</div>";
+        var meta = [unit.unit_type, unit.unit_size ? unit.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
+        var priceLine = unit.price != null && unit.price !== "" ? " ₱ " + esc(String(unit.price)) : "";
+        card.innerHTML =
+          mediaHtml +
+          "<div class=\"property-card__body\">" +
+            "<h4 class=\"property-card__name\">" + esc(unit.unit_number || String(unit.unit_id)) + "</h4>" +
+            "<p class=\"property-card__role\">" + esc(unit.tower_name || "—") + "</p>" +
+            "<div class=\"property-card__meta\">" +
+              "<span>" + esc(meta) + priceLine + "</span>" +
+              "<span class=\"property-card__edit-label\">Edit details</span>" +
+            "</div>" +
+          "</div>";
+        listEl.appendChild(card);
       });
+    }).catch(function () {
+      setStat(totalBookingEl, "0");
+      setStat(availableEl, "0");
+      setStat(occupiedEl, "0");
+      setStat(totalPropEl, "0");
+      if (emptyEl) emptyEl.style.display = "block";
+      if (listEl) listEl.innerHTML = "";
+    });
   }
 
   function initProperties() {
@@ -199,7 +214,7 @@
       properties.forEach(function (unit) {
         var card = document.createElement("button");
         card.type = "button";
-        card.className = "property-card property-card--clickable";
+        card.className = "property-card property-card--clickable property-card--employee-style";
         card.dataset.unitId = unit.unit_id;
         var imgSrc = getFirstImageUrl(unit);
         var mediaHtml = "<div class=\"property-card__media\">";
@@ -207,14 +222,16 @@
         else mediaHtml += "<span class=\"property-card__placeholder\"></span>";
         mediaHtml += "</div>";
         var meta = [unit.unit_type, unit.unit_size ? unit.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
-        var priceLine = unit.price != null && unit.price !== "" ? "<div class=\"property-card__meta\">₱ " + escapeHtml(String(unit.price)) + "</div>" : "";
+        var priceLine = unit.price != null && unit.price !== "" ? " ₱ " + escapeHtml(String(unit.price)) : "";
         card.innerHTML =
           mediaHtml +
           "<div class=\"property-card__body\">" +
-            "<h4 class=\"property-card__title\">" + escapeHtml(unit.unit_number || String(unit.unit_id)) + "</h4>" +
-            "<p class=\"property-card__meta\">" + escapeHtml(unit.tower_name || "—") + "</p>" +
-            "<div class=\"property-card__meta\">" + escapeHtml(meta) + "</div>" +
-            priceLine +
+            "<h4 class=\"property-card__name\">" + escapeHtml(unit.unit_number || String(unit.unit_id)) + "</h4>" +
+            "<p class=\"property-card__role\">" + escapeHtml(unit.tower_name || "—") + "</p>" +
+            "<div class=\"property-card__meta\">" +
+              "<span>" + escapeHtml(meta) + priceLine + "</span>" +
+              "<span class=\"property-card__edit-label\">Edit details</span>" +
+            "</div>" +
           "</div>";
         propertiesList.appendChild(card);
       });
