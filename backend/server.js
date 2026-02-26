@@ -166,6 +166,27 @@ app.get("/api/units", async (req, res) => {
   }
 });
 
+// Single unit by id (for guest booking page – public, no auth)
+app.get("/api/units/:id", async (req, res) => {
+  try {
+    const unitId = Number(req.params.id);
+    const [rows] = await db.promise().query(
+      `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+        u.image_urls, u.price, t.tower_name, t.number_floors
+       FROM UNIT u
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE u.unit_id = ?`,
+      [unitId]
+    );
+    if (!rows || rows.length === 0)
+      return res.status(404).json({ error: "Unit not found" });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch unit" });
+  }
+});
+
 app.post("/api/units", async (req, res) => {
   try {
     const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls } = req.body;
@@ -414,6 +435,141 @@ app.delete("/api/employees/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to delete employee" });
+  }
+});
+
+// ---------------- Bookings (guest submissions) ----------------
+app.get("/api/bookings", async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
+        b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
+        u.unit_number, u.unit_type, t.tower_name
+       FROM BOOKING b
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       ORDER BY b.check_in_date ASC, b.created_at DESC`
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch bookings" });
+  }
+});
+
+app.get("/api/bookings/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [rows] = await db.promise().query(
+      `SELECT b.*, u.unit_number, u.unit_type, t.tower_name
+       FROM BOOKING b
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE b.booking_id = ?`,
+      [id]
+    );
+    if (!rows || rows.length === 0) return res.status(404).json({ error: "Booking not found" });
+    res.json(rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch booking" });
+  }
+});
+
+app.post("/api/bookings", async (req, res) => {
+  try {
+    const {
+      unit_id,
+      guest_name,
+      permanent_address,
+      age,
+      nationality,
+      relation_to_owner,
+      occupation,
+      email,
+      contact_number,
+      owner_name,
+      owner_contact,
+      inclusive_dates,
+      check_in_date,
+      check_out_date,
+      purpose_of_stay,
+      paid_yes_no,
+      amount_paid,
+      booking_platform,
+      payment_method,
+      id_document,
+      payment_proof,
+      signature_data,
+    } = req.body;
+    if (!unit_id || !guest_name || !email)
+      return res.status(400).json({ error: "unit_id, guest_name, and email required" });
+
+    await db.promise().query(
+      `INSERT INTO BOOKING (
+        unit_id, guest_name, permanent_address, age, nationality, relation_to_owner, occupation,
+        email, contact_number, owner_name, owner_contact, inclusive_dates, check_in_date, check_out_date,
+        purpose_of_stay, paid_yes_no, amount_paid, booking_platform, payment_method,
+        id_document, payment_proof, signature_data, status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [
+        Number(unit_id),
+        String(guest_name || "").trim(),
+        permanent_address ? String(permanent_address).trim() : null,
+        age ? String(age).trim() : null,
+        nationality ? String(nationality).trim() : null,
+        relation_to_owner ? String(relation_to_owner).trim() : null,
+        occupation ? String(occupation).trim() : null,
+        String(email || "").trim(),
+        contact_number ? String(contact_number).trim() : null,
+        owner_name ? String(owner_name).trim() : null,
+        owner_contact ? String(owner_contact).trim() : null,
+        inclusive_dates ? String(inclusive_dates).trim() : null,
+        check_in_date || null,
+        check_out_date || null,
+        purpose_of_stay ? String(purpose_of_stay).trim() : null,
+        paid_yes_no ? String(paid_yes_no).trim() : null,
+        amount_paid != null && amount_paid !== "" ? String(amount_paid).trim() : null,
+        booking_platform ? String(booking_platform).trim() : null,
+        payment_method ? String(payment_method).trim() : null,
+        id_document || null,
+        payment_proof || null,
+        signature_data || null,
+      ]
+    );
+    const [r] = await db.promise().query("SELECT LAST_INSERT_ID() AS id");
+    res.status(201).json({ message: "Booking submitted", booking_id: r[0].id });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to submit booking" });
+  }
+});
+
+app.put("/api/bookings/:id/confirm", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [result] = await db.promise().query("UPDATE BOOKING SET status = 'confirmed', rejection_reason = NULL WHERE booking_id = ?", [id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found" });
+    res.json({ message: "Booking confirmed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to confirm" });
+  }
+});
+
+app.put("/api/bookings/:id/reject", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { reason } = req.body;
+    const [result] = await db.promise().query(
+      "UPDATE BOOKING SET status = 'rejected', rejection_reason = ? WHERE booking_id = ?",
+      [reason ? String(reason).trim() : null, id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found" });
+    res.json({ message: "Booking rejected" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to reject" });
   }
 });
 

@@ -8,6 +8,8 @@
     initProperties();
   } else if (page === "employees") {
     initEmployees();
+  } else if (page === "bookings") {
+    initBookings();
   }
 
   function initProperties() {
@@ -42,12 +44,7 @@
 
     function buildBookingLink(unit) {
       var base = window.location.origin + (window.location.pathname.indexOf("/admin") !== -1 ? "/admin" : "") + "/../guest/booking.html";
-      var params = new URLSearchParams({
-        unit: unit.unit_number || unit.unit_id,
-        tower: unit.tower_name || "",
-        unit_type: unit.unit_type || "",
-      });
-      return base.replace("/admin/../", "/") + "?" + params.toString();
+      return base.replace("/admin/../", "/") + "?unit_id=" + (unit.unit_id || unit.unit_number);
     }
 
     var totalSteps = 3; // Tower, Unit details, Images
@@ -829,5 +826,265 @@
     }
 
     loadEmployees();
+  }
+
+  function initBookings() {
+    var listNext7 = document.querySelector("[data-list=\"next7\"]");
+    var listMonth = document.querySelector("[data-list=\"month\"]");
+    var listLater = document.querySelector("[data-list=\"later\"]");
+    var emptyEl = document.querySelector("[data-bookings-empty]");
+    var detailModal = document.querySelector("[data-booking-detail-modal]");
+    var detailTitle = document.querySelector("[data-booking-detail-title]");
+    var detailBody = document.querySelector("[data-booking-detail-body]");
+    var detailActions = document.querySelector("[data-booking-detail-actions]");
+    var closeDetailBtn = document.querySelector("[data-close-booking-detail]");
+    var confirmBtn = document.querySelector("[data-confirm-booking]");
+    var rejectBtn = document.querySelector("[data-reject-booking]");
+    var rejectModal = document.querySelector("[data-reject-reason-modal]");
+    var rejectReasonInput = document.querySelector("[data-reject-reason]");
+    var closeRejectBtn = document.querySelector("[data-close-reject-modal]");
+    var cancelRejectBtn = document.querySelector("[data-cancel-reject]");
+    var submitRejectBtn = document.querySelector("[data-submit-reject]");
+
+    var bookings = [];
+    var activeBookingId = null;
+
+    function escapeHtml(s) {
+      if (s == null || s === undefined) return "";
+      var div = document.createElement("div");
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function getInitials(name) {
+      if (!name || !name.trim()) return "—";
+      var parts = name.trim().split(/\s+/);
+      if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+      return (parts[0][0] || "?").toUpperCase();
+    }
+
+    function formatDate(d) {
+      if (!d) return "—";
+      try {
+        var date = new Date(d);
+        return isNaN(date.getTime()) ? d : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+      } catch (e) { return d; }
+    }
+
+    function getSection(checkIn) {
+      if (!checkIn) return "later";
+      var d = new Date(checkIn);
+      if (isNaN(d.getTime())) return "later";
+      var today = new Date();
+      today.setHours(0, 0, 0, 0);
+      var in7 = new Date(today);
+      in7.setDate(in7.getDate() + 7);
+      var endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+      if (d >= today && d <= in7) return "next7";
+      if (d <= endOfMonth) return "month";
+      return "later";
+    }
+
+    function statusClass(s) {
+      if (s === "confirmed") return "booking-status--confirmed";
+      if (s === "rejected") return "booking-status--rejected";
+      return "booking-status--pending";
+    }
+
+    function statusLabel(s) {
+      if (s === "confirmed") return "Confirmed";
+      if (s === "rejected") return "Cancelled";
+      return "Pending";
+    }
+
+    function loadBookings() {
+      return fetch(API + "/bookings")
+        .then(function (r) { return r.ok ? r.json() : []; })
+        .then(function (data) {
+          bookings = data || [];
+          renderBookings();
+        })
+        .catch(function () {
+          bookings = [];
+          renderBookings();
+        });
+    }
+
+    function renderBookings() {
+      var next7 = [];
+      var month = [];
+      var later = [];
+      bookings.forEach(function (b) {
+        var section = getSection(b.check_in_date);
+        if (section === "next7") next7.push(b);
+        else if (section === "month") month.push(b);
+        else later.push(b);
+      });
+
+      function renderList(container, list) {
+        if (!container) return;
+        container.innerHTML = "";
+        list.forEach(function (b) {
+          var card = document.createElement("button");
+          card.type = "button";
+          card.className = "booking-card";
+          card.dataset.bookingId = b.booking_id;
+          var dates = (b.check_in_date && b.check_out_date)
+            ? "Check-in: " + formatDate(b.check_in_date) + " - Check-out: " + formatDate(b.check_out_date)
+            : (b.inclusive_dates || "—");
+          var unitInfo = [b.unit_number, b.unit_type].filter(Boolean).join(" - ") || "Unit";
+          card.innerHTML =
+            "<div class=\"booking-card__left\">" +
+              "<div class=\"booking-card__avatar\">" + getInitials(b.guest_name) + "</div>" +
+              "<div class=\"booking-card__info\">" +
+                "<p class=\"booking-card__name\">" + escapeHtml(b.guest_name) + " - " + escapeHtml(unitInfo) + "</p>" +
+                "<p class=\"booking-card__dates\">" + escapeHtml(dates) + "</p>" +
+              "</div>" +
+            "</div>" +
+            "<div class=\"booking-card__status " + statusClass(b.status) + "\">" +
+              "<span class=\"booking-status-dot\"></span>" +
+              "<span>" + statusLabel(b.status) + "</span>" +
+            "</div>";
+          container.appendChild(card);
+        });
+      }
+
+      renderList(listNext7, next7);
+      renderList(listMonth, month);
+      renderList(listLater, later);
+
+      var total = bookings.length;
+      if (emptyEl) emptyEl.style.display = total ? "none" : "block";
+    }
+
+    function openDetailModal(bookingId) {
+      activeBookingId = bookingId;
+      fetch(API + "/bookings/" + bookingId)
+        .then(function (r) {
+          if (!r.ok) throw new Error("Not found");
+          return r.json();
+        })
+        .then(function (b) {
+          if (!detailTitle || !detailBody) return;
+          detailTitle.textContent = "Booking – " + (b.guest_name || "Guest") + " · " + (b.unit_number || "") + (b.tower_name ? " " + b.tower_name : "");
+          var unitInfo = [b.unit_number, b.unit_type, b.tower_name].filter(Boolean).join(" · ") || "—";
+          var html =
+            "<div class=\"booking-detail-grid\">" +
+              "<div class=\"booking-detail-block\"><h4>Personal information</h4>" +
+              "<p><strong>Name:</strong> " + escapeHtml(b.guest_name) + "</p>" +
+              "<p><strong>Address:</strong> " + escapeHtml(b.permanent_address) + "</p>" +
+              "<p><strong>Age:</strong> " + escapeHtml(b.age) + " &nbsp; <strong>Nationality:</strong> " + escapeHtml(b.nationality) + "</p>" +
+              "<p><strong>Relation to owner:</strong> " + escapeHtml(b.relation_to_owner) + "</p>" +
+              "<p><strong>Occupation:</strong> " + escapeHtml(b.occupation) + "</p>" +
+              "<p><strong>Email:</strong> " + escapeHtml(b.email) + "</p>" +
+              "<p><strong>Contact:</strong> " + escapeHtml(b.contact_number) + "</p>" +
+              "</div>" +
+              "<div class=\"booking-detail-block\"><h4>Unit &amp; stay</h4>" +
+              "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +
+              "<p><strong>Owner name:</strong> " + escapeHtml(b.owner_name) + "</p>" +
+              "<p><strong>Owner contact:</strong> " + escapeHtml(b.owner_contact) + "</p>" +
+              "<p><strong>Inclusive dates:</strong> " + escapeHtml(b.inclusive_dates) + "</p>" +
+              "<p><strong>Check-in:</strong> " + formatDate(b.check_in_date) + " &nbsp; <strong>Check-out:</strong> " + formatDate(b.check_out_date) + "</p>" +
+              "<p><strong>Purpose of stay:</strong> " + escapeHtml(b.purpose_of_stay) + "</p>" +
+              "<p><strong>Paid:</strong> " + escapeHtml(b.paid_yes_no) + (b.amount_paid ? " – " + escapeHtml(b.amount_paid) : "") + "</p>" +
+              "<p><strong>Booking platform:</strong> " + escapeHtml(b.booking_platform) + "</p>" +
+              "<p><strong>Payment method:</strong> " + escapeHtml(b.payment_method) + "</p>" +
+              "</div>" +
+              "<div class=\"booking-detail-block\"><h4>Status</h4>" +
+              "<p><strong>" + statusLabel(b.status) + "</strong></p>" +
+              (b.rejection_reason ? "<p class=\"booking-rejection-reason\"><strong>Rejection reason:</strong> " + escapeHtml(b.rejection_reason) + "</p>" : "") +
+              "</div>" +
+              "</div>";
+          if (b.signature_data) {
+            html += "<div class=\"booking-detail-block\"><h4>Signature</h4><img src=\"" + escapeHtml(b.signature_data) + "\" alt=\"Signature\" class=\"booking-signature-img\" /></div>";
+          }
+          detailBody.innerHTML = html;
+          if (detailActions) detailActions.style.display = b.status === "pending" ? "flex" : "none";
+          if (detailModal) detailModal.classList.add("is-open");
+        })
+        .catch(function () {
+          alert("Could not load booking details.");
+        });
+    }
+
+    function closeDetailModal() {
+      if (detailModal) detailModal.classList.remove("is-open");
+      activeBookingId = null;
+    }
+
+    function confirmBooking() {
+      if (!activeBookingId) return;
+      fetch(API + "/bookings/" + activeBookingId + "/confirm", { method: "PUT" })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+          return r.json();
+        })
+        .then(function () {
+          closeDetailModal();
+          loadBookings();
+        })
+        .catch(function (err) {
+          alert(err.message || "Failed to confirm.");
+        });
+    }
+
+    function openRejectModal() {
+      if (rejectReasonInput) rejectReasonInput.value = "";
+      if (rejectModal) rejectModal.classList.add("is-open");
+    }
+
+    function closeRejectModal() {
+      if (rejectModal) rejectModal.classList.remove("is-open");
+    }
+
+    function submitReject() {
+      var reason = rejectReasonInput && rejectReasonInput.value.trim();
+      if (!reason) {
+        alert("Please provide a reason for rejection.");
+        return;
+      }
+      if (!activeBookingId) return;
+      fetch(API + "/bookings/" + activeBookingId + "/reject", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: reason }),
+      })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+          return r.json();
+        })
+        .then(function () {
+          closeRejectModal();
+          closeDetailModal();
+          loadBookings();
+        })
+        .catch(function (err) {
+          alert(err.message || "Failed to reject.");
+        });
+    }
+
+    if (listNext7 && listMonth && listLater) {
+      var lists = document.querySelectorAll(".bookings-list");
+      lists.forEach(function (list) {
+        list.addEventListener("click", function (e) {
+          var card = e.target.closest("[data-booking-id]");
+          if (card) openDetailModal(card.dataset.bookingId);
+        });
+      });
+    }
+    if (closeDetailBtn) closeDetailBtn.addEventListener("click", closeDetailModal);
+    if (detailModal && detailModal.querySelector(".modal-overlay")) {
+      detailModal.addEventListener("click", function (e) { if (e.target === detailModal) closeDetailModal(); });
+    }
+    if (confirmBtn) confirmBtn.addEventListener("click", confirmBooking);
+    if (rejectBtn) rejectBtn.addEventListener("click", openRejectModal);
+    if (closeRejectBtn) closeRejectBtn.addEventListener("click", closeRejectModal);
+    if (cancelRejectBtn) cancelRejectBtn.addEventListener("click", closeRejectModal);
+    if (rejectModal && rejectModal.querySelector(".modal-overlay")) {
+      rejectModal.addEventListener("click", function (e) { if (e.target === rejectModal) closeRejectModal(); });
+    }
+    if (submitRejectBtn) submitRejectBtn.addEventListener("click", submitReject);
+
+    loadBookings();
   }
 })();

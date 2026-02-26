@@ -68,6 +68,17 @@
         box-shadow: 0 18px 36px rgba(0, 0, 0, 0.12);
       }
 
+      .card-loading,
+      .card-error {
+        color: rgba(255, 255, 255, 0.9);
+        text-align: center;
+        padding: 1.5rem;
+      }
+
+      .card-error {
+        color: rgba(255, 255, 255, 0.85);
+      }
+
       .image-grid {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -315,22 +326,25 @@
         <p>Guest Booking Form</p>
       </div>
 
-      <section class="card">
-        <div class="image-grid" data-images></div>
-        <div class="details">
-          <h2 data-unit>Unit</h2>
-          <div class="detail-grid">
-            <div><span>Location:</span> <span data-location></span></div>
-            <div><span>Price:</span> <span data-price></span></div>
-            <div><span>Room Type:</span> <span data-room></span></div>
-            <div><span>Check-in/Check-out:</span> <span data-time></span></div>
-            <div><span>Description:</span> <span data-description></span></div>
-            <div><span>Rules:</span> <span data-rules></span></div>
+      <section class="card" data-unit-card>
+        <div class="card-loading" data-unit-loading>Loading property…</div>
+        <div class="card-content" data-unit-content style="display: none;">
+          <div class="image-grid" data-images></div>
+          <div class="details">
+            <h2 data-unit>Unit</h2>
+            <div class="detail-grid">
+              <div><span>Location:</span> <span data-location></span></div>
+              <div><span>Price:</span> <span data-price></span></div>
+              <div><span>Room Type:</span> <span data-room></span></div>
+              <div><span>Size:</span> <span data-size></span></div>
+              <div><span>Description:</span> <span data-description></span></div>
+            </div>
           </div>
         </div>
+        <div class="card-error" data-unit-error style="display: none;">No property selected. Use the link from the property listing.</div>
       </section>
 
-      <section class="form">
+      <section class="form" data-booking-form>
         <div class="field-group">
           <div class="section-title">
             <svg viewBox="0 0 24 24">
@@ -340,26 +354,26 @@
             Personal Information
           </div>
           <div class="field-row">
-            <input type="text" placeholder="Name" />
-            <input type="text" placeholder="Permanent Address" />
+            <input type="text" name="guest_name" placeholder="Name" required />
+            <input type="text" name="permanent_address" placeholder="Permanent Address" />
           </div>
           <div class="field-row">
-            <input type="text" placeholder="Age" />
-            <input type="text" placeholder="Nationality" />
+            <input type="text" name="age" placeholder="Age" />
+            <input type="text" name="nationality" placeholder="Nationality" />
           </div>
           <div class="field-row">
-            <input type="text" placeholder="Relation to the Unit Owner" />
-            <input type="text" placeholder="Occupation" />
+            <input type="text" name="relation_to_owner" placeholder="Relation to the Unit Owner" />
+            <input type="text" name="occupation" placeholder="Occupation" />
           </div>
           <div class="field-row">
-            <input type="email" placeholder="E-mail Address" />
-            <input type="text" placeholder="Contact Number" />
+            <input type="email" name="email" placeholder="E-mail Address" required />
+            <input type="text" name="contact_number" placeholder="Contact Number" />
           </div>
           <div class="field-note">
             Kindly attach a copy of any government issued identification card.
           </div>
           <div class="field-row">
-            <input type="file" accept="image/*" multiple />
+            <input type="file" name="id_document" data-id-document accept="image/*" />
           </div>
         </div>
 
@@ -373,12 +387,16 @@
             Unit Details
           </div>
           <div class="field-row">
-            <input type="text" placeholder="Unit Number/Tower" />
-            <input type="text" placeholder="Name of Owner" />
+            <input type="text" placeholder="Unit Number/Tower" data-prefill-unit readonly />
+            <input type="text" name="owner_name" placeholder="Name of Owner" />
           </div>
           <div class="field-row">
-            <input type="text" placeholder="Contact Number/s" />
-            <input type="text" placeholder="Inclusive Dates" />
+            <input type="text" name="owner_contact" placeholder="Contact Number/s" />
+            <input type="text" name="inclusive_dates" placeholder="Inclusive Dates (e.g. Nov 20 - Nov 27)" />
+          </div>
+          <div class="field-row">
+            <input type="date" name="check_in_date" placeholder="Check-in date" />
+            <input type="date" name="check_out_date" placeholder="Check-out date" />
           </div>
         </div>
 
@@ -391,21 +409,18 @@
             Length of Stay
           </div>
           <div class="field-row">
-            <input type="text" placeholder="Purpose of Stay" />
+            <input type="text" name="purpose_of_stay" placeholder="Purpose of Stay" />
             <div class="radio-group">
               <span>Did you pay for your stay?</span>
               <div class="radio-options">
-                <label><input type="radio" name="paid" /> Yes</label>
-                <label><input type="radio" name="paid" /> No</label>
+                <label><input type="radio" name="paid" value="Yes" /> Yes</label>
+                <label><input type="radio" name="paid" value="No" /> No</label>
               </div>
             </div>
           </div>
           <div class="field-row">
-            <input type="text" placeholder="If YES, how much did you pay?" />
-            <input
-              type="text"
-              placeholder="Which booking platform did you booked your stay?"
-            />
+            <input type="text" name="amount_paid" placeholder="If YES, how much did you pay?" />
+            <input type="text" name="booking_platform" placeholder="Which booking platform did you booked your stay?" />
           </div>
         </div>
 
@@ -419,11 +434,11 @@
             Proof of Payment
           </div>
           <div class="field-row">
-            <select data-payment-method>
+            <select name="payment_method" data-payment-method>
               <option value="upload">Upload Proof</option>
               <option value="cash">Cash</option>
             </select>
-            <input type="file" data-payment-upload accept="image/*" />
+            <input type="file" data-payment-upload accept="image/*" name="payment_proof" />
           </div>
         </div>
 
@@ -474,57 +489,183 @@
         </div>
 
         <div class="actions">
-          <button class="btn secondary" type="button">Cancel</button>
-          <button class="btn primary" type="button">Submit Booking</button>
+          <button class="btn secondary" type="button" data-cancel-booking>Cancel</button>
+          <button class="btn primary" type="button" data-submit-booking>Submit Booking</button>
         </div>
       </section>
     </div>
 
     <script>
-      const params = new URLSearchParams(window.location.search);
-      const get = (key, fallback) => params.get(key) || fallback;
+      (function () {
+        const params = new URLSearchParams(window.location.search);
+        const unitId = params.get("unit_id");
 
-      const unit = get("unit", "Unit");
-      const beds = get("beds", "");
-      const price = get("price", "");
-      const roomType = get("roomType", "");
-      const checkin = get("checkin", "");
-      const checkout = get("checkout", "");
-      const description = get("description", "");
-      const rules = get("rules", "");
-      const img = get("img", "");
+        const card = document.querySelector("[data-unit-card]");
+        const loadingEl = document.querySelector("[data-unit-loading]");
+        const contentEl = document.querySelector("[data-unit-content]");
+        const errorEl = document.querySelector("[data-unit-error]");
+        const imagesEl = document.querySelector("[data-images]");
+        const prefillUnit = document.querySelector("[data-prefill-unit]");
 
-      const images = document.querySelector("[data-images]");
-      const imageList = img ? [img, img, img, img] : [];
-      if (images) {
-        if (!imageList.length) {
-          images.innerHTML =
-            "<div style='color: rgba(255,255,255,0.7)'>No images</div>";
-        } else {
-          imageList.forEach((src) => {
-            const el = document.createElement("img");
-            el.src = src;
-            el.alt = unit;
-            images.appendChild(el);
-          });
+        function setText(selector, value) {
+          const el = document.querySelector(selector);
+          if (el) el.textContent = value || "—";
         }
+
+        function showContent() {
+          if (loadingEl) loadingEl.style.display = "none";
+          if (errorEl) errorEl.style.display = "none";
+          if (contentEl) contentEl.style.display = "";
+        }
+
+        function showError() {
+          if (loadingEl) loadingEl.style.display = "none";
+          if (contentEl) contentEl.style.display = "none";
+          if (errorEl) errorEl.style.display = "block";
+        }
+
+        if (!unitId) {
+          showError();
+        } else {
+          fetch("/api/units/" + unitId)
+            .then(function (r) {
+              if (!r.ok) throw new Error("Unit not found");
+              return r.json();
+            })
+            .then(function (unit) {
+              showContent();
+              setText("[data-unit]", unit.unit_number ? "Unit " + unit.unit_number : "Unit");
+              setText("[data-location]", unit.tower_name || "");
+              setText("[data-price]", unit.price != null && unit.price !== "" ? "₱ " + unit.price : "—");
+              setText("[data-room]", unit.unit_type || "");
+              setText("[data-size]", unit.unit_size != null ? unit.unit_size + " sqm" : "—");
+              setText("[data-description]", unit.description || "");
+
+              if (imagesEl) {
+                imagesEl.innerHTML = "";
+                var urls = [];
+                try {
+                  if (unit.image_urls) {
+                    var arr = typeof unit.image_urls === "string" ? JSON.parse(unit.image_urls) : unit.image_urls;
+                    if (Array.isArray(arr)) urls = arr.filter(function (s) { return s && (typeof s === "string" ? s : s.url || s.src); }).map(function (s) { return typeof s === "string" ? s : (s.url || s.src); });
+                  }
+                } catch (e) {}
+                if (urls.length === 0) {
+                  imagesEl.innerHTML = "<div style='color: rgba(255,255,255,0.7)'>No images</div>";
+                } else {
+                  urls.forEach(function (src) {
+                    var img = document.createElement("img");
+                    img.src = src;
+                    img.alt = unit.unit_number || "Unit";
+                    imagesEl.appendChild(img);
+                  });
+                }
+              }
+
+              if (prefillUnit) prefillUnit.value = (unit.unit_number || "") + (unit.tower_name ? " · " + unit.tower_name : "");
+              var formEl = document.querySelector("[data-booking-form]");
+              if (formEl) formEl.dataset.unitId = unit.unit_id;
+            })
+            .catch(function () {
+              showError();
+            });
+        }
+      })();
+
+      function getFormData() {
+        var form = document.querySelector("[data-booking-form]");
+        var unitId = form && form.dataset.unitId;
+        var getVal = function (name) {
+          var el = form && form.querySelector("[name=\"" + name + "\"]");
+          return el ? el.value.trim() : "";
+        };
+        var paidEl = form && form.querySelector("input[name=\"paid\"]:checked");
+        var data = {
+          unit_id: unitId || null,
+          guest_name: getVal("guest_name"),
+          permanent_address: getVal("permanent_address") || null,
+          age: getVal("age") || null,
+          nationality: getVal("nationality") || null,
+          relation_to_owner: getVal("relation_to_owner") || null,
+          occupation: getVal("occupation") || null,
+          email: getVal("email"),
+          contact_number: getVal("contact_number") || null,
+          owner_name: getVal("owner_name") || null,
+          owner_contact: getVal("owner_contact") || null,
+          inclusive_dates: getVal("inclusive_dates") || null,
+          check_in_date: getVal("check_in_date") || null,
+          check_out_date: getVal("check_out_date") || null,
+          purpose_of_stay: getVal("purpose_of_stay") || null,
+          paid_yes_no: paidEl ? paidEl.value : null,
+          amount_paid: getVal("amount_paid") || null,
+          booking_platform: getVal("booking_platform") || null,
+          payment_method: (form && form.querySelector("[data-payment-method]")) ? form.querySelector("[data-payment-method]").value : null,
+          signature_data: null
+        };
+        var canvas = document.querySelector("[data-signature]");
+        if (canvas && canvas.width && canvas.height) {
+          try { data.signature_data = canvas.toDataURL("image/png"); } catch (e) {}
+        }
+        return data;
       }
 
-      const setText = (selector, value) => {
-        const el = document.querySelector(selector);
-        if (el) el.textContent = value;
-      };
+      function fileToBase64(file, cb) {
+        if (!file) { cb(null); return; }
+        var reader = new FileReader();
+        reader.onload = function () { cb(reader.result); };
+        reader.onerror = function () { cb(null); };
+        reader.readAsDataURL(file);
+      }
 
-      setText("[data-unit]", unit);
-      setText("[data-location]", beds);
-      setText("[data-price]", price);
-      setText("[data-room]", roomType);
-      setText(
-        "[data-time]",
-        checkin || checkout ? `${checkin} • ${checkout}` : ""
-      );
-      setText("[data-description]", description || "—");
-      setText("[data-rules]", rules || "—");
+      var submitBtn = document.querySelector("[data-submit-booking]");
+      if (submitBtn) {
+        submitBtn.addEventListener("click", function () {
+          var form = document.querySelector("[data-booking-form]");
+          var unitId = form && form.dataset.unitId;
+          if (!unitId) {
+            alert("No property selected. Use the booking link from the property listing.");
+            return;
+          }
+          var data = getFormData();
+          if (!data.guest_name || !data.email) {
+            alert("Name and email are required.");
+            return;
+          }
+          var idFile = form && form.querySelector("[data-id-document]");
+          var paymentFile = form && form.querySelector("[data-payment-upload]");
+          var done = function () {
+            fetch("/api/bookings", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(data)
+            })
+              .then(function (r) {
+                if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+                return r.json();
+              })
+              .then(function () {
+                alert("Booking submitted. The owner will review and confirm or reject.");
+                if (form) form.reset();
+                var canvas = document.querySelector("[data-signature]");
+                if (canvas) { var ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); }
+              })
+              .catch(function (err) {
+                alert(err.message || "Failed to submit booking.");
+              });
+          };
+          if (idFile && idFile.files && idFile.files[0]) {
+            fileToBase64(idFile.files[0], function (b64) { data.id_document = b64; next(); });
+          } else { data.id_document = null; next(); }
+          function next() {
+            if (paymentFile && paymentFile.files && paymentFile.files[0]) {
+              fileToBase64(paymentFile.files[0], function (b64) { data.payment_proof = b64; done(); });
+            } else { data.payment_proof = null; done(); }
+          }
+        });
+      }
+
+      var cancelBtn = document.querySelector("[data-cancel-booking]");
+      if (cancelBtn) cancelBtn.addEventListener("click", function () { window.history.back(); });
 
       const paymentMethod = document.querySelector("[data-payment-method]");
       const paymentUpload = document.querySelector("[data-payment-upload]");
