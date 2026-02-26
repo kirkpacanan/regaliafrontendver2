@@ -599,6 +599,12 @@ body {
   max-width: 640px;
 }
 
+.modal-card--edit-unit {
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.6rem 1.7rem 1.8rem;
+}
+
 .update-form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

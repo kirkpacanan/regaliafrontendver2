@@ -251,64 +251,60 @@
       </div>
     </div>
 
-    <!-- Edit Unit sidebar (employee-style) -->
-    <div class="assign-sidebar" id="editUnitSidebar" data-update-sidebar aria-hidden="true">
-      <div class="assign-sidebar__backdrop" data-close-update></div>
-      <div class="assign-sidebar__content" id="editUnitSidebarContent">
-        <div class="assign-sidebar__header">
-          <h3 class="assign-sidebar__title" data-update-title>Edit Unit</h3>
+    <!-- Edit Unit modal (same as Edit Employee popup) -->
+    <div class="modal-overlay" data-update-sidebar aria-hidden="true">
+      <div class="modal-card modal-card--wide modal-card--edit-unit">
+        <div class="modal-header">
+          <h2 data-update-title>Edit Unit</h2>
           <button class="icon-button" type="button" data-close-update aria-label="Close">
             <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
           </button>
         </div>
-        <div class="assign-sidebar__body assign-sidebar__body--scroll">
-          <form class="assign-sidebar-form" data-update-form>
-            <div class="update-form-fields">
-              <label>Unit number <input type="text" name="unit_number" data-update-unit-number required /></label>
-              <label>Floor number <input type="text" name="floor_number" data-update-floor placeholder="e.g. 5" /></label>
-              <label>Unit type
-                <select name="unit_type" data-update-unit-type>
-                  <option value="">— Select —</option>
-                  <option value="Studio Type">Studio Type</option>
-                  <option value="1 Bedroom">1 Bedroom</option>
-                  <option value="2 Bedroom">2 Bedroom</option>
-                  <option value="3 Bedroom">3 Bedroom</option>
-                  <option value="Penthouse">Penthouse</option>
-                  <option value="Duplex">Duplex</option>
-                </select>
-              </label>
-              <label>Unit size (sqm) <input type="number" step="0.01" name="unit_size" data-update-unit-size placeholder="e.g. 45" /></label>
-              <label>Price (optional) <input type="number" step="0.01" name="price" data-update-price placeholder="e.g. 50000" /></label>
-              <label>Description <textarea name="description" data-update-description placeholder="Description"></textarea></label>
-            </div>
-            <div class="update-form-images">
-              <p class="photo-title">Images <span>(first is cover)</span></p>
-              <div class="photo-grid" data-update-photo-grid>
-                <button type="button" class="photo-slot" data-update-photo-slot="0"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
-                <button type="button" class="photo-slot" data-update-photo-slot="1"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
-                <button type="button" class="photo-slot" data-update-photo-slot="2"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
-                <button type="button" class="photo-slot" data-update-photo-slot="3"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
-              </div>
-              <input type="file" accept="image/*" data-update-photo-input data-slot="0" class="photo-input-hidden" aria-hidden="true" />
-              <input type="file" accept="image/*" data-update-photo-input data-slot="1" class="photo-input-hidden" aria-hidden="true" />
-              <input type="file" accept="image/*" data-update-photo-input data-slot="2" class="photo-input-hidden" aria-hidden="true" />
-              <input type="file" accept="image/*" data-update-photo-input data-slot="3" class="photo-input-hidden" aria-hidden="true" />
-            </div>
-            <label class="update-booking-label">
-              Booking Link
-              <div class="link-field">
-                <input type="text" data-booking-link readonly />
-                <button class="icon-button" type="button" data-copy-link><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"></rect><rect x="2" y="2" width="13" height="13" rx="2"></rect></svg></button>
-                <button class="icon-button" type="button" data-open-link><svg viewBox="0 0 24 24"><path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M5 7v14h14v-5"></path></svg></button>
-              </div>
+        <form class="modal-form assign-sidebar-form" data-update-form>
+          <div class="update-form-fields">
+            <label>Unit number <input type="text" name="unit_number" data-update-unit-number required /></label>
+            <label>Floor number <input type="text" name="floor_number" data-update-floor placeholder="e.g. 5" /></label>
+            <label>Unit type
+              <select name="unit_type" data-update-unit-type>
+                <option value="">— Select —</option>
+                <option value="Studio Type">Studio Type</option>
+                <option value="1 Bedroom">1 Bedroom</option>
+                <option value="2 Bedroom">2 Bedroom</option>
+                <option value="3 Bedroom">3 Bedroom</option>
+                <option value="Penthouse">Penthouse</option>
+                <option value="Duplex">Duplex</option>
+              </select>
             </label>
-          </form>
-        </div>
-        <div class="assign-sidebar__footer assign-sidebar__footer--actions">
-          <button class="submit-button danger" type="button" data-delete-unit>Delete Unit</button>
-          <button class="submit-button ghost" type="button" data-close-update>Cancel</button>
-          <button class="submit-button full" type="button" data-save-update>Save changes</button>
-        </div>
+            <label>Unit size (sqm) <input type="number" step="0.01" name="unit_size" data-update-unit-size placeholder="e.g. 45" /></label>
+            <label>Price (optional) <input type="number" step="0.01" name="price" data-update-price placeholder="e.g. 50000" /></label>
+            <label>Description <textarea name="description" data-update-description placeholder="Description"></textarea></label>
+          </div>
+          <div class="update-form-images">
+            <p class="photo-title">Images <span>(first is cover)</span></p>
+            <div class="photo-grid" data-update-photo-grid>
+              <button type="button" class="photo-slot" data-update-photo-slot="0"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
+              <button type="button" class="photo-slot" data-update-photo-slot="1"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
+              <button type="button" class="photo-slot" data-update-photo-slot="2"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
+              <button type="button" class="photo-slot" data-update-photo-slot="3"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
+            </div>
+            <input type="file" accept="image/*" data-update-photo-input data-slot="0" class="photo-input-hidden" aria-hidden="true" />
+            <input type="file" accept="image/*" data-update-photo-input data-slot="1" class="photo-input-hidden" aria-hidden="true" />
+            <input type="file" accept="image/*" data-update-photo-input data-slot="2" class="photo-input-hidden" aria-hidden="true" />
+            <input type="file" accept="image/*" data-update-photo-input data-slot="3" class="photo-input-hidden" aria-hidden="true" />
+          </div>
+          <label class="update-booking-label">
+            Booking Link
+            <div class="link-field">
+              <input type="text" data-booking-link readonly />
+              <button class="icon-button" type="button" data-copy-link><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"></rect><rect x="2" y="2" width="13" height="13" rx="2"></rect></svg></button>
+              <button class="icon-button" type="button" data-open-link><svg viewBox="0 0 24 24"><path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M5 7v14h14v-5"></path></svg></button>
+            </div>
+          </label>
+          <div class="step-actions">
+            <button class="submit-button danger" type="button" data-delete-unit>Delete Unit</button>
+            <button class="submit-button" type="button" data-save-update>Save changes</button>
+          </div>
+        </form>
       </div>
     </div>
 

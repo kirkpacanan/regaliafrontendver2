@@ -594,6 +594,11 @@
     if (updateSidebar && updateSidebar.querySelector(".assign-sidebar__backdrop")) {
       updateSidebar.querySelector(".assign-sidebar__backdrop").addEventListener("click", closeUpdateModal);
     }
+    if (updateSidebar && updateSidebar.classList.contains("modal-overlay")) {
+      updateSidebar.addEventListener("click", function (e) {
+        if (e.target === updateSidebar) closeUpdateModal();
+      });
+    }
     if (saveUpdateBtn) saveUpdateBtn.addEventListener("click", saveUnitUpdate);
     if (deleteUnitBtn) deleteUnitBtn.addEventListener("click", deleteUnit);
     (function setupUpdatePhotoSlots() {
