@@ -585,10 +585,30 @@ body {
   gap: 0.75rem;
 }
 
+.update-form-images {
+  overflow: hidden;
+  min-width: 0;
+}
+
 .update-form-images .photo-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
+  overflow: hidden;
+  max-width: 100%;
+}
+
+.update-form-images .photo-slot {
+  min-width: 0;
+  overflow: hidden;
+  max-height: 80px;
+  aspect-ratio: 1;
+}
+
+.update-form-images .photo-slot-preview {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: cover;
 }
 
 .update-booking-label {

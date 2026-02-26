@@ -504,8 +504,18 @@
     var towers = [];
     var activeEmployeeId = null;
 
+    function getAuthHeaders(withJson) {
+      var h = {};
+      if (withJson) h["Content-Type"] = "application/json";
+      try {
+        var t = localStorage && localStorage.getItem("token");
+        if (t) h.Authorization = "Bearer " + t;
+      } catch (e) {}
+      return h;
+    }
+
     function loadEmployees() {
-      return fetch(API + "/employees")
+      return fetch(API + "/employees", { headers: getAuthHeaders() })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (data) {
           employees = data;
@@ -586,7 +596,7 @@
       }
       fetch(API + "/employees", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({
           full_name: full_name,
           username: username,

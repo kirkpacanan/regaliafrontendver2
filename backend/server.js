@@ -13,6 +13,18 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" })); // Allow large payloads (e.g. 4 base64 unit images)
 
+// Optional auth: set req.user = { employee_id, role } from Bearer token (no 401 if missing)
+function optionalAuth(req, res, next) {
+  req.user = null;
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) return next();
+  try {
+    const decoded = jwt.verify(auth.slice(7), process.env.JWT_SECRET);
+    req.user = { employee_id: decoded.employee_id, role: decoded.role };
+  } catch (e) { /* invalid or expired */ }
+  next();
+}
+
 // ---------------- DB Connection ----------------
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
@@ -272,15 +284,31 @@ app.delete("/api/units/:id", async (req, res) => {
 });
 
 // ---------------- Employees (ERD: EMPLOYEE + EMPLOYEE_ROLE) ----------------
-app.get("/api/employees", async (req, res) => {
+// optionalAuth: if Bearer token present, req.user = { employee_id, role }. Owner sees only employees they added (created_by_employee_id) and OWNER role is hidden.
+app.get("/api/employees", optionalAuth, async (req, res) => {
   try {
-    const [rows] = await db.promise().query(
-      `SELECT e.employee_id, e.full_name, e.username, e.contact_number, e.email, e.address,
-        (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) AS role_type,
-        (SELECT t.tower_name FROM EMPLOYEE_TOWER et JOIN TOWER t ON t.tower_id = et.tower_id WHERE et.employee_id = e.employee_id LIMIT 1) AS assigned_tower
-       FROM EMPLOYEE e
-       ORDER BY e.full_name`
-    );
+    const baseSelect = `SELECT e.employee_id, e.full_name, e.username, e.contact_number, e.email, e.address,
+      (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) AS role_type,
+      (SELECT t.tower_name FROM EMPLOYEE_TOWER et JOIN TOWER t ON t.tower_id = et.tower_id WHERE et.employee_id = e.employee_id LIMIT 1) AS assigned_tower
+     FROM EMPLOYEE e`;
+    let rows;
+    if (req.user && req.user.role === "OWNER") {
+      try {
+        const [r] = await db.promise().query(
+          baseSelect + ` WHERE e.created_by_employee_id = ? AND (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) != 'OWNER' ORDER BY e.full_name`,
+          [req.user.employee_id]
+        );
+        rows = r;
+      } catch (colErr) {
+        if (colErr.code === "ER_BAD_FIELD_ERROR" && /created_by_employee_id/.test(colErr.message)) {
+          const [r] = await db.promise().query(baseSelect + ` ORDER BY e.full_name`);
+          rows = (r || []).filter(e => e.role_type !== "OWNER");
+        } else throw colErr;
+      }
+    } else {
+      const [r] = await db.promise().query(baseSelect + ` ORDER BY e.full_name`);
+      rows = (r || []).filter(e => e.role_type !== "OWNER");
+    }
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -288,7 +316,7 @@ app.get("/api/employees", async (req, res) => {
   }
 });
 
-app.post("/api/employees", async (req, res) => {
+app.post("/api/employees", optionalAuth, async (req, res) => {
   try {
     const { full_name, address, username, password, contact_number, email, role_type } = req.body;
     if (!full_name || !username || !password || !email)
@@ -302,10 +330,28 @@ app.post("/api/employees", async (req, res) => {
       return res.status(400).json({ error: "Username or email already exists" });
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const [result] = await db.promise().query(
-      "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email) VALUES (?, ?, ?, ?, ?, ?)",
-      [full_name, address || null, username, hashedPassword, contact_number || null, email]
-    );
+    const creatorId = req.user && req.user.employee_id ? req.user.employee_id : null;
+    let result;
+    if (creatorId) {
+      try {
+        [result] = await db.promise().query(
+          "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email, created_by_employee_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [full_name, address || null, username, hashedPassword, contact_number || null, email, creatorId]
+        );
+      } catch (colErr) {
+        if (colErr.code === "ER_BAD_FIELD_ERROR" && /created_by_employee_id/.test(colErr.message)) {
+          [result] = await db.promise().query(
+            "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email) VALUES (?, ?, ?, ?, ?, ?)",
+            [full_name, address || null, username, hashedPassword, contact_number || null, email]
+          );
+        } else throw colErr;
+      }
+    } else {
+      [result] = await db.promise().query(
+        "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email) VALUES (?, ?, ?, ?, ?, ?)",
+        [full_name, address || null, username, hashedPassword, contact_number || null, email]
+      );
+    }
     const employeeId = result.insertId;
     const role = role_type || "Front Desk";
     await db.promise().query(

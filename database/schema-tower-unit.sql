@@ -32,3 +32,6 @@ CREATE TABLE IF NOT EXISTS EMPLOYEE_TOWER (
   FOREIGN KEY (employee_id) REFERENCES EMPLOYEE(employee_id) ON DELETE CASCADE,
   FOREIGN KEY (tower_id) REFERENCES TOWER(tower_id) ON DELETE CASCADE
 );
+
+-- For "Staff Directory only shows employees this owner added" (run if EMPLOYEE already exists):
+-- ALTER TABLE EMPLOYEE ADD COLUMN created_by_employee_id INT NULL;
