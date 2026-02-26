@@ -740,9 +740,25 @@ body {
 }
 
 .booking-detail-block {
-  padding: 1rem;
+  padding: 1rem 1.25rem;
   background: rgba(79, 127, 132, 0.08);
   border-radius: 12px;
+}
+
+/* Sidebar has white bg – use dark text for headings and content */
+.assign-sidebar__body .booking-detail-block h4 {
+  margin: 0 0 0.6rem;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #2f5f67;
+  font-weight: 600;
+}
+
+.assign-sidebar__body .booking-detail-block p {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+  color: #3b5b5f;
 }
 
 .booking-detail-block h4 {
@@ -758,16 +774,47 @@ body {
   font-size: 0.9rem;
 }
 
+/* Extra spacing for Status and Signature sections */
+.booking-detail-block.booking-detail-block--status,
+.booking-detail-block.booking-detail-block--signature {
+  margin-top: 0.5rem;
+}
+
+.booking-detail-block--signature {
+  margin-top: 0.25rem;
+}
+
+.booking-detail-block--signature h4 {
+  margin-bottom: 0.75rem;
+}
+
+.booking-detail-block--signature .booking-signature-img {
+  margin-top: 0.25rem;
+}
+
 .booking-rejection-reason {
   margin-top: 0.5rem;
-  color: #fca5a5;
+  color: #c53030;
 }
 
 .booking-signature-img {
   max-width: 100%;
   height: auto;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(47, 95, 103, 0.2);
+  display: block;
+}
+
+.booking-payment-proof-img {
+  max-width: 100%;
+  max-height: 200px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid rgba(47, 95, 103, 0.2);
+  margin-top: 0.5rem;
+  display: block;
 }
 
 .booking-detail-actions {

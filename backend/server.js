@@ -231,6 +231,12 @@ app.post("/api/units", async (req, res) => {
 });
 
 // ---------------- Properties = units with tower (for admin list) ----------------
+const PROPERTIES_MINIMAL_SQL = `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+  t.tower_name, t.number_floors
+ FROM UNIT u
+ LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+ ORDER BY t.tower_name, u.floor_number, u.unit_number`;
+
 app.get("/api/properties", async (req, res) => {
   try {
     let rows;
@@ -243,15 +249,12 @@ app.get("/api/properties", async (req, res) => {
          ORDER BY t.tower_name, u.floor_number, u.unit_number`
       );
     } catch (colErr) {
-      if (colErr.code === "ER_BAD_FIELD_ERROR" && /price/.test(colErr.message)) {
-        [rows] = await db.promise().query(
-          `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-            u.image_urls, t.tower_name, t.number_floors
-           FROM UNIT u
-           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-           ORDER BY t.tower_name, u.floor_number, u.unit_number`
-        );
-        rows.forEach(r => (r.price = null));
+      if (colErr.code === "ER_BAD_FIELD_ERROR") {
+        [rows] = await db.promise().query(PROPERTIES_MINIMAL_SQL);
+        rows.forEach(r => {
+          if (r.price === undefined) r.price = null;
+          if (r.image_urls === undefined) r.image_urls = null;
+        });
       } else throw colErr;
     }
     res.json(rows);

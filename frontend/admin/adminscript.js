@@ -1002,15 +1002,20 @@
               "<p><strong>Purpose of stay:</strong> " + escapeHtml(b.purpose_of_stay) + "</p>" +
               "<p><strong>Paid:</strong> " + escapeHtml(b.paid_yes_no) + (b.amount_paid ? " – " + escapeHtml(b.amount_paid) : "") + "</p>" +
               "<p><strong>Booking platform:</strong> " + escapeHtml(b.booking_platform) + "</p>" +
-              "<p><strong>Payment method:</strong> " + escapeHtml(b.payment_method) + "</p>" +
+              (function () {
+                if (b.payment_method === "upload" && b.payment_proof) {
+                  return "<p><strong>Payment method:</strong> Online</p><img src=\"" + escapeHtml(b.payment_proof) + "\" alt=\"Payment proof\" class=\"booking-payment-proof-img\" />";
+                }
+                return "<p><strong>Payment method:</strong> " + escapeHtml(b.payment_method === "cash" || !b.payment_method ? "Cash" : b.payment_method) + "</p>";
+              })() +
               "</div>" +
-              "<div class=\"booking-detail-block\"><h4>Status</h4>" +
+              "<div class=\"booking-detail-block booking-detail-block--status\"><h4>Status</h4>" +
               "<p><strong>" + statusLabel(b.status) + "</strong></p>" +
               (b.rejection_reason ? "<p class=\"booking-rejection-reason\"><strong>Rejection reason:</strong> " + escapeHtml(b.rejection_reason) + "</p>" : "") +
               "</div>" +
               "</div>";
           if (b.signature_data) {
-            html += "<div class=\"booking-detail-block\"><h4>Signature</h4><img src=\"" + escapeHtml(b.signature_data) + "\" alt=\"Signature\" class=\"booking-signature-img\" /></div>";
+            html += "<div class=\"booking-detail-block booking-detail-block--signature\"><h4>Signature</h4><img src=\"" + escapeHtml(b.signature_data) + "\" alt=\"Signature\" class=\"booking-signature-img\" /></div>";
           }
           detailBody.innerHTML = html;
           if (detailActions) detailActions.style.display = b.status === "pending" ? "flex" : "none";
