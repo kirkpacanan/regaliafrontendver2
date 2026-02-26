@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="./admin.css" />
   </head>
-  <body>
+  <body data-page="dashboard">
     <div class="dashboard">
       <aside class="sidebar">
         <div class="brand">
@@ -149,9 +149,13 @@
 
         <section class="panel">
           <h3>Available Properties</h3>
-          <div class="empty-state">No properties available.</div>
+          <div class="dashboard-properties-wrap">
+            <div class="empty-state" data-dashboard-empty>No properties available.</div>
+            <div class="properties-list" data-dashboard-properties></div>
+          </div>
         </section>
       </main>
     </div>
+    <script src="./adminscript.js"></script>
   </body>
 </html>

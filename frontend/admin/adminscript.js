@@ -4,12 +4,72 @@
   var API = "/api";
   var page = document.body.getAttribute("data-page");
 
-  if (page === "properties") {
+  if (page === "dashboard") {
+    initDashboard();
+  } else if (page === "properties") {
     initProperties();
   } else if (page === "employees") {
     initEmployees();
   } else if (page === "bookings") {
     initBookings();
+  }
+
+  function initDashboard() {
+    var API = "/api";
+    var emptyEl = document.querySelector("[data-dashboard-empty]");
+    var listEl = document.querySelector("[data-dashboard-properties]");
+    var totalPropEl = document.querySelector(".stats .stat-card:nth-child(4) .value");
+    function esc(s) {
+      if (s == null || s === undefined) return "";
+      var d = document.createElement("div");
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
+    function firstImg(unit) {
+      var raw = unit && unit.image_urls;
+      if (!raw) return null;
+      try {
+        var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (Array.isArray(arr) && arr.length) {
+          var first = arr[0];
+          return first && (typeof first === "string" ? first : first.url || first.src) ? first : null;
+        }
+      } catch (e) {}
+      return null;
+    }
+    fetch(API + "/properties")
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (data) {
+        if (totalPropEl) totalPropEl.textContent = data.length;
+        if (emptyEl) emptyEl.style.display = data.length ? "none" : "block";
+        if (!listEl) return;
+        listEl.innerHTML = "";
+        data.forEach(function (unit) {
+          var card = document.createElement("div");
+          card.className = "property-card";
+          var imgSrc = firstImg(unit);
+          var mediaHtml = "<div class=\"property-card__media\">";
+          if (imgSrc) mediaHtml += "<img src=\"" + esc(imgSrc) + "\" alt=\"\" />";
+          else mediaHtml += "<span class=\"property-card__placeholder\"></span>";
+          mediaHtml += "</div>";
+          var meta = [unit.unit_type, unit.unit_size ? unit.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
+          var priceLine = unit.price != null && unit.price !== "" ? "<div class=\"property-card__meta\">₱ " + esc(String(unit.price)) + "</div>" : "";
+          card.innerHTML =
+            mediaHtml +
+            "<div class=\"property-card__body\">" +
+              "<h4 class=\"property-card__title\">" + esc(unit.unit_number || String(unit.unit_id)) + "</h4>" +
+              "<p class=\"property-card__meta\">" + esc(unit.tower_name || "—") + "</p>" +
+              "<div class=\"property-card__meta\">" + esc(meta) + "</div>" +
+              priceLine +
+            "</div>";
+          listEl.appendChild(card);
+        });
+      })
+      .catch(function () {
+        if (totalPropEl) totalPropEl.textContent = "0";
+        if (emptyEl) emptyEl.style.display = "block";
+        if (listEl) listEl.innerHTML = "";
+      });
   }
 
   function initProperties() {
@@ -450,7 +510,7 @@
     (function setupUpdatePhotoSlots() {
       if (!updateSidebar) return;
       var grid = updateSidebar.querySelector("[data-update-photo-grid]");
-      var inputs = updateModal.querySelectorAll("[data-update-photo-input]");
+      var inputs = updateSidebar.querySelectorAll("[data-update-photo-input]");
       if (!grid || !inputs.length) return;
       var slots = grid.querySelectorAll("[data-update-photo-slot]");
       for (var i = 0; i < slots.length && i < inputs.length; i++) {
