@@ -5,9 +5,13 @@ const mysql = require("mysql2");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const path = require("path");
+const QRCode = require("qrcode");
+const { Resend } = require("resend");
 require("dotenv").config();
+require("dotenv").config({ path: path.join(__dirname, "aiven.env") });
 
 const app = express();
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
 
 // ---------------- Middleware ----------------
 app.use(cors());
@@ -553,12 +557,63 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
     const id = Number(req.params.id);
     const [result] = await db.promise().query("UPDATE BOOKING SET status = 'confirmed', rejection_reason = NULL WHERE booking_id = ?", [id]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found" });
+
+    // Fetch booking for email
+    const [rows] = await db.promise().query(
+      `SELECT b.booking_id, b.guest_name, b.email, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
+       FROM BOOKING b
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE b.booking_id = ?`,
+      [id]
+    );
+    const booking = rows[0];
+    if (booking && booking.email && resend) {
+      try {
+        const appUrl = process.env.APP_URL || req.protocol + "://" + req.get("host");
+        const checkInPayload = JSON.stringify({ booking_id: id, type: "check-in" });
+        const qrPng = await QRCode.toDataURL(checkInPayload, { type: "image/png", margin: 2, width: 260 });
+        const from = process.env.RESEND_FROM || "Regalia <onboarding@resend.dev>";
+        const html = `
+          <h2>Booking confirmed</h2>
+          <p>Hi ${escapeHtml(booking.guest_name || "Guest")},</p>
+          <p>Your booking has been confirmed.</p>
+          <ul>
+            <li><strong>Unit:</strong> ${escapeHtml(booking.unit_number || "")} ${escapeHtml(booking.tower_name || "")}</li>
+            <li><strong>Check-in:</strong> ${escapeHtml(String(booking.check_in_date || ""))}</li>
+            <li><strong>Check-out:</strong> ${escapeHtml(String(booking.check_out_date || ""))}</li>
+          </ul>
+          <p>Use the QR code below at check-in and check-out:</p>
+          <p><img src="${qrPng}" alt="Booking QR Code" width="260" height="260" style="display:block;margin:1rem 0;" /></p>
+          <p>Booking ID: ${id}</p>
+          <p>— Regalia</p>
+        `;
+        await resend.emails.send({
+          from,
+          to: booking.email.trim(),
+          subject: "Booking confirmed – Regalia",
+          html,
+        });
+      } catch (emailErr) {
+        console.error("Confirm email send failed:", emailErr);
+      }
+    }
+
     res.json({ message: "Booking confirmed" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to confirm" });
   }
 });
+
+function escapeHtml(s) {
+  if (s == null || s === undefined) return "";
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
 
 app.put("/api/bookings/:id/reject", async (req, res) => {
   try {
