@@ -1187,7 +1187,10 @@
     function closeDetailModal() {
       if (detailContent) detailContent.classList.remove("is-visible");
       // Move focus out before aria-hidden so assistive tech doesn't get blocked
-      if (detailSidebar && detailSidebar.contains(document.activeElement)) document.body.focus();
+      if (detailSidebar && detailSidebar.contains(document.activeElement)) {
+        document.body.setAttribute("tabindex", "-1");
+        document.body.focus();
+      }
       setTimeout(function () {
         if (detailSidebar) {
           detailSidebar.classList.remove("is-open");
@@ -1204,9 +1207,16 @@
           if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
           return r.json();
         })
-        .then(function () {
+        .then(function (data) {
           closeDetailModal();
           loadBookings();
+          if (data.emailSent) {
+            alert("Booking confirmed. Confirmation email with QR code sent to the guest.");
+          } else if (data.emailError) {
+            alert("Booking confirmed, but no email was sent: " + data.emailError);
+          } else {
+            alert("Booking confirmed.");
+          }
         })
         .catch(function (err) {
           alert(err.message || "Failed to confirm.");
