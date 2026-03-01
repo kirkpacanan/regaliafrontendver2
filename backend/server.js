@@ -12,6 +12,8 @@ require("dotenv").config({ path: path.join(__dirname, "aiven.env") });
 
 const app = express();
 const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+if (!process.env.RESEND_API_KEY) console.warn("RESEND_API_KEY not set – confirmation emails will not be sent.");
+else console.log("Resend loaded – confirmation emails enabled.");
 
 // ---------------- Middleware ----------------
 app.use(cors());
@@ -568,9 +570,14 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
       [id]
     );
     const booking = rows[0];
-    if (booking && booking.email && resend) {
+    if (!booking || !booking.email) {
+      console.log("Confirm: no guest email for booking " + id + " – skip email.");
+    } else if (!resend) {
+      console.log("Confirm: Resend not configured – skip email to " + booking.email);
+    } else {
       try {
-        const appUrl = process.env.APP_URL || req.protocol + "://" + req.get("host");
+        const toEmail = booking.email.trim();
+        console.log("Sending confirmation email to " + toEmail + " for booking " + id + "...");
         const checkInPayload = JSON.stringify({ booking_id: id, type: "check-in" });
         const qrPng = await QRCode.toDataURL(checkInPayload, { type: "image/png", margin: 2, width: 260 });
         const from = process.env.RESEND_FROM || "Regalia <onboarding@resend.dev>";
@@ -588,14 +595,19 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
           <p>Booking ID: ${id}</p>
           <p>— Regalia</p>
         `;
-        await resend.emails.send({
+        const data = await resend.emails.send({
           from,
-          to: booking.email.trim(),
+          to: toEmail,
           subject: "Booking confirmed – Regalia",
           html,
         });
+        if (data.error) {
+          console.error("Resend error:", data.error);
+        } else {
+          console.log("Confirmation email sent to " + toEmail);
+        }
       } catch (emailErr) {
-        console.error("Confirm email send failed:", emailErr);
+        console.error("Confirm email send failed:", emailErr.message || emailErr);
       }
     }
 
