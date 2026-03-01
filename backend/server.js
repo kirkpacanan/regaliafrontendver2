@@ -447,17 +447,34 @@ app.delete("/api/employees/:id", async (req, res) => {
 });
 
 // ---------------- Bookings (guest submissions) ----------------
+const BOOKINGS_BASE_SQL = `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
+  b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
+  u.unit_number, u.unit_type, t.tower_name
+ FROM BOOKING b
+ LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+ LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+ ORDER BY b.check_in_date ASC, b.created_at DESC`;
+
 app.get("/api/bookings", async (req, res) => {
   try {
-    const [rows] = await db.promise().query(
-      `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
-        b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
-        u.unit_number, u.unit_type, t.tower_name
-       FROM BOOKING b
-       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
-       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-       ORDER BY b.check_in_date ASC, b.created_at DESC`
-    );
+    let rows;
+    try {
+      [rows] = await db.promise().query(
+        `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
+          b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
+          b.checked_in_at, b.checked_out_at,
+          u.unit_number, u.unit_type, t.tower_name
+         FROM BOOKING b
+         LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         ORDER BY b.check_in_date ASC, b.created_at DESC`
+      );
+    } catch (colErr) {
+      if (colErr.code === "ER_BAD_FIELD_ERROR") {
+        [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
+        rows.forEach((r) => { r.checked_in_at = null; r.checked_out_at = null; });
+      } else throw colErr;
+    }
     res.json(rows || []);
   } catch (err) {
     console.error(err);
@@ -649,6 +666,59 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
   }
 });
 
+// Staff: resend confirmation email with QR (for already confirmed booking)
+app.post("/api/bookings/:id/resend-qr", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [rows] = await db.promise().query(
+      `SELECT b.booking_id, b.guest_name, b.email, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
+       FROM BOOKING b
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE b.booking_id = ? AND b.status = 'confirmed'`,
+      [id]
+    );
+    const booking = rows[0];
+    if (!booking) return res.status(404).json({ error: "Booking not found or not confirmed" });
+    if (!booking.email || !BREVO_API_KEY) {
+      return res.json({ sent: false, message: "No email or Brevo not configured" });
+    }
+    const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || "https://regalia-eon6.onrender.com";
+    const qrImageUrl = baseUrl + "/api/bookings/" + id + "/qr";
+    const bookingRef = "REG-" + String(id).padStart(5, "0");
+    const checkInStr = formatDateForEmail(booking.check_in_date);
+    const checkOutStr = formatDateForEmail(booking.check_out_date);
+    const nights = getNights(booking.check_in_date, booking.check_out_date);
+    const stayDatesText = nights > 0 ? checkInStr + " — " + checkOutStr + " (" + nights + " Night" + (nights !== 1 ? "s" : "") + ")" : checkInStr + " — " + checkOutStr;
+    const html = buildConfirmationEmailHtml({
+      guestName: escapeHtml(booking.guest_name || "Guest"),
+      bookingRef,
+      unitNumber: escapeHtml(booking.unit_number || "—"),
+      towerName: escapeHtml(booking.tower_name || "—"),
+      stayDatesText: escapeHtml(stayDatesText),
+      qrImageUrl,
+    });
+    const senderEmail = process.env.BREVO_FROM_EMAIL || "regalia@example.com";
+    const senderName = process.env.BREVO_FROM_NAME || "Regalia";
+    const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: { "accept": "application/json", "content-type": "application/json", "api-key": BREVO_API_KEY },
+      body: JSON.stringify({
+        sender: { name: senderName, email: senderEmail },
+        to: [{ email: booking.email.trim() }],
+        subject: "Your Regalia entry pass (resend)",
+        htmlContent: html,
+      }),
+    });
+    const brevoData = await brevoRes.json().catch(() => ({}));
+    if (!brevoRes.ok) return res.status(500).json({ error: brevoData.message || "Email send failed" });
+    res.json({ message: "QR email resent", sent: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to resend" });
+  }
+});
+
 function formatDateForEmail(d) {
   if (!d) return "";
   const date = new Date(d);
@@ -700,7 +770,13 @@ function buildConfirmationEmailHtml(data) {
             <img src="${qrImageUrl}" alt="Booking QR Code" width="160" height="160" style="display:block;width:100%;height:100%;object-fit:contain;"/>
           </div>
           <h3 style="margin:0 0 4px;font-size:1.25rem;font-weight:700;">Your Digital Entry Pass</h3>
-          <p style="margin:0 0 24px;color:${slate500};text-align:center;font-size:14px;max-width:360px;">Scan this QR code at the tower entrance or lift lobby to gain access to the premises.</p>
+          <p style="margin:0 0 20px;color:${slate500};text-align:center;font-size:14px;max-width:360px;">Scan this QR code at the tower entrance or lift lobby to gain access to the premises.</p>
+          <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
+            <tr>
+              <td style="padding:0 8px 0 0;"><a href="${qrImageUrl}" download="regalia-entry-pass.png" style="display:inline-block;background:linear-gradient(90deg,#0098b2 0%,#7ed957 100%);color:#fff!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">Download Pass</a></td>
+              <td style="padding:0 0 0 8px;"><a href="${qrImageUrl}" target="_blank" style="display:inline-block;background:#e2e8f0;color:#334155!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">View in App</a></td>
+            </tr>
+          </table>
         </div>
         <div style="padding:32px;background:rgba(0,152,178,0.05);">
           <h4 style="margin:0 0 24px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${primary};">Booking Details</h4>
@@ -732,11 +808,12 @@ function buildConfirmationEmailHtml(data) {
         <div style="background:rgba(0,152,178,0.12);width:48px;height:48px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">ℹ</div>
         <div style="flex:1;min-width:200px;">
           <p style="margin:0 0 4px;font-size:14px;font-weight:500;color:${slate900};">Important Note:</p>
-          <p style="margin:0;font-size:12px;color:${slate500};">Check-in time starts at 3:00 PM. Please ensure you have a valid ID matching your booking name for verification by security.</p>
+          <p style="margin:0;font-size:12px;color:${slate500};">Check-in time starts at 3:00 PM. Please ensure you have a valid ID matching your booking name for verification by security. <a href="#" style="color:${primary};font-weight:700;">House Rules</a></p>
         </div>
       </div>
     </main>
     <footer style="padding:40px 32px;background:#f8fafc;border-top:1px solid #f1f5f9;text-align:center;">
+      <p style="margin:0 0 16px;color:${slate400};font-size:14px;">&#9432; &nbsp; &#9993; &nbsp; &#9742;</p>
       <p style="margin:0 0 8px;color:${slate500};font-size:14px;">Need assistance with your booking?</p>
       <p style="margin:0 0 32px;color:${slate400};font-size:12px;">Contact our 24/7 support at support@regalia.com or call +1 (800) REGALIA</p>
       <div style="opacity:0.6;margin-bottom:16px;">
@@ -771,6 +848,48 @@ app.put("/api/bookings/:id/reject", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to reject" });
+  }
+});
+
+// Staff: record check-in (requires BOOKING.checked_in_at column)
+app.post("/api/bookings/:id/check-in", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [result] = await db.promise().query(
+      "UPDATE BOOKING SET checked_in_at = COALESCE(checked_in_at, NOW()) WHERE booking_id = ? AND status = 'confirmed'",
+      [id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not confirmed" });
+    const [rows] = await db.promise().query(
+      "SELECT booking_id, guest_name, unit_id, checked_in_at FROM BOOKING WHERE booking_id = ?",
+      [id]
+    );
+    res.json({ message: "Check-in recorded", booking: rows[0] });
+  } catch (err) {
+    if (err.code === "ER_BAD_FIELD_ERROR") return res.status(500).json({ error: "Add checked_in_at DATETIME NULL to BOOKING table" });
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to record check-in" });
+  }
+});
+
+// Staff: record check-out (requires BOOKING.checked_out_at column)
+app.post("/api/bookings/:id/check-out", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [result] = await db.promise().query(
+      "UPDATE BOOKING SET checked_out_at = COALESCE(checked_out_at, NOW()) WHERE booking_id = ? AND status = 'confirmed'",
+      [id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not confirmed" });
+    const [rows] = await db.promise().query(
+      "SELECT booking_id, guest_name, unit_id, checked_out_at FROM BOOKING WHERE booking_id = ?",
+      [id]
+    );
+    res.json({ message: "Check-out recorded", booking: rows[0] });
+  } catch (err) {
+    if (err.code === "ER_BAD_FIELD_ERROR") return res.status(500).json({ error: "Add checked_out_at DATETIME NULL to BOOKING table" });
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to record check-out" });
   }
 });
 

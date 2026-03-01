@@ -128,109 +128,31 @@
         <section class="stats section">
           <div class="stat-card">
             <div class="label">Today’s Check-ins</div>
-            <div class="value">12</div>
+            <div class="value" data-stats-today-checkins>0</div>
           </div>
           <div class="stat-card">
             <div class="label">Today’s Check-outs</div>
-            <div class="value">8</div>
+            <div class="value" data-stats-today-checkouts>0</div>
           </div>
           <div class="stat-card">
             <div class="label">Current Occupancy</div>
-            <div class="value">85%</div>
+            <div class="value" data-stats-occupancy>—</div>
           </div>
           <div class="stat-card highlight">
             <div class="label">Assigned Property</div>
-            <div class="value">The Grand Suite</div>
+            <div class="value" data-stats-property>—</div>
           </div>
         </section>
 
         <section class="content-grid section">
           <div class="panel">
             <h3>Upcoming Arrivals & Departures</h3>
-            <div class="list">
-              <div class="list-item">
-                <div>
-                  Michael Scott (Unit 101)
-                  <small>Arrival: 2:00 PM</small>
-                </div>
-                <span class="icon">
-                  <svg viewBox="0 0 24 24">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </span>
-              </div>
-              <div class="list-item">
-                <div>
-                  Pamela Beesly (Unit 204)
-                  <small>Departure: 11:00 AM</small>
-                </div>
-                <span class="icon">
-                  <svg viewBox="0 0 24 24">
-                    <polyline points="6 15 12 9 18 15"></polyline>
-                  </svg>
-                </span>
-              </div>
-              <div class="list-item">
-                <div>
-                  Jim Halpert (Unit G2)
-                  <small>Arrival: 3:30 PM</small>
-                </div>
-                <span class="icon">
-                  <svg viewBox="0 0 24 24">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </span>
-              </div>
-              <div class="list-item">
-                <div>
-                  Dwight Schrute (Unit 310)
-                  <small>Departure: 12:00 PM</small>
-                </div>
-                <span class="icon">
-                  <svg viewBox="0 0 24 24">
-                    <polyline points="6 15 12 9 18 15"></polyline>
-                  </svg>
-                </span>
-              </div>
-            </div>
+            <div class="list" data-dashboard-movements></div>
           </div>
 
           <div class="panel">
             <h3>Property Status</h3>
-            <div class="list">
-              <div class="list-item">
-                <div>
-                  The Grand Suite (Unit 101)
-                  <div class="status status--occupied">
-                    <span class="dot"></span>Occupied
-                  </div>
-                </div>
-              </div>
-              <div class="list-item">
-                <div>
-                  Ocean View Condo (Unit 204)
-                  <div class="status status--available">
-                    <span class="dot"></span>Available
-                  </div>
-                </div>
-              </div>
-              <div class="list-item">
-                <div>
-                  Penthouse (Unit 501)
-                  <div class="status status--maintenance">
-                    <span class="dot"></span>Maintenance
-                  </div>
-                </div>
-              </div>
-              <div class="list-item">
-                <div>
-                  Garden Apartment (Unit G2)
-                  <div class="status status--occupied">
-                    <span class="dot"></span>Occupied
-                  </div>
-                </div>
-              </div>
-            </div>
+            <div class="list" data-dashboard-units></div>
           </div>
         </section>
 
@@ -250,7 +172,7 @@
                   Ready to validate check-ins and issue access.
                 </p>
               </div>
-              <button class="btn ghost">Open Scanner</button>
+              <a href="./qr.html" class="btn ghost">Open Scanner</a>
             </div>
           </div>
           <div class="panel">
@@ -264,9 +186,9 @@
               </div>
               <div>
                 <strong>Today’s Bookings</strong>
-                <p class="muted">24 confirmed • 3 pending approvals</p>
+                <p class="muted" data-dashboard-booking-summary>0 confirmed • 0 pending</p>
               </div>
-              <button class="btn ghost">View Schedule</button>
+              <a href="./bookings.html" class="btn ghost">View Schedule</a>
             </div>
           </div>
           <div class="panel">
@@ -282,9 +204,9 @@
               </div>
               <div>
                 <strong>Active Guests</strong>
-                <p class="muted">58 checked-in • 5 VIP flagged</p>
+                <p class="muted" data-dashboard-guests-summary>0 checked-in</p>
               </div>
-              <button class="btn ghost">Open Directory</button>
+              <a href="./guests.html" class="btn ghost">Open Directory</a>
             </div>
           </div>
           <div class="panel">
@@ -297,15 +219,67 @@
               </div>
               <div>
                 <strong>Unread Updates</strong>
-                <p class="muted">7 new messages • 2 urgent alerts</p>
+                <p class="muted">Messages</p>
               </div>
-              <button class="btn ghost">Go to Inbox</button>
+              <a href="./messages.html" class="btn ghost">Go to Inbox</a>
             </div>
           </div>
         </section>
       </main>
     </div>
+    <script src="./staffscript.js"></script>
     <script>
+      (function () {
+        var R = window.RegaliaStaff;
+        if (!R) return;
+        R.getBookings().then(function (bookings) {
+          var todayKey = R.toDateKey(new Date());
+          var todayCheckins = bookings.filter(function (b) { return b.status === "confirmed" && R.toDateKey(b.check_in_date) === todayKey; }).length;
+          var todayCheckouts = bookings.filter(function (b) { return b.status === "confirmed" && R.toDateKey(b.check_out_date) === todayKey; }).length;
+          var confirmed = bookings.filter(function (b) { return b.status === "confirmed"; }).length;
+          var pending = bookings.filter(function (b) { return b.status === "pending"; }).length;
+          var activeGuests = bookings.filter(function (b) { return b.status === "confirmed" && b.checked_in_at && !b.checked_out_at; }).length;
+          var towers = {};
+          bookings.forEach(function (b) { if (b.tower_name) towers[b.tower_name] = 1; });
+          var firstTower = Object.keys(towers)[0] || "—";
+
+          var el = document.querySelector("[data-stats-today-checkins]"); if (el) el.textContent = todayCheckins;
+          el = document.querySelector("[data-stats-today-checkouts]"); if (el) el.textContent = todayCheckouts;
+          el = document.querySelector("[data-stats-occupancy]"); if (el) el.textContent = activeGuests > 0 ? activeGuests + " in" : "—";
+          el = document.querySelector("[data-stats-property]"); if (el) el.textContent = firstTower;
+          el = document.querySelector("[data-dashboard-booking-summary]"); if (el) el.textContent = confirmed + " confirmed • " + pending + " pending";
+          el = document.querySelector("[data-dashboard-guests-summary]"); if (el) el.textContent = activeGuests + " checked-in";
+
+          var movements = [];
+          bookings.filter(function (b) { return b.status === "confirmed"; }).slice(0, 20).forEach(function (b) {
+            if (R.toDateKey(b.check_in_date) === todayKey) movements.push({ type: "arrival", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name, time: "—" });
+            if (R.toDateKey(b.check_out_date) === todayKey) movements.push({ type: "departure", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name, time: "—" });
+          });
+          movements.sort(function (a, b) { return a.type === "arrival" ? -1 : 1; });
+          var listEl = document.querySelector("[data-dashboard-movements]");
+          if (listEl) {
+            listEl.innerHTML = movements.slice(0, 8).map(function (m) {
+              var label = m.type === "arrival" ? "Arrival" : "Departure";
+              return "<div class=\"list-item\"><div>" + (m.name || "Guest") + " (Unit " + (m.unit || "—") + ")<small>" + label + "</small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"6 9 12 15 18 9\"></polyline></svg></span></div>";
+            }).join("") || "<div class=\"list-item\"><div>No movements today</div></div>";
+          }
+
+          var unitMap = {};
+          bookings.forEach(function (b) {
+            var key = (b.tower_name || "") + "|" + (b.unit_number || b.unit_id);
+            if (!key || key === "|") return;
+            unitMap[key] = unitMap[key] || { tower: b.tower_name, unit: b.unit_number || b.unit_id, occupied: false };
+            if (b.status === "confirmed" && b.checked_in_at && !b.checked_out_at) unitMap[key].occupied = true;
+          });
+          var unitList = Object.keys(unitMap).slice(0, 10).map(function (k) {
+            var u = unitMap[k];
+            var status = u.occupied ? "status--occupied" : "status--available";
+            return "<div class=\"list-item\"><div>" + (u.tower || "—") + " (Unit " + u.unit + ")<div class=\"status " + status + "\"><span class=\"dot\"></span>" + (u.occupied ? "Occupied" : "Available") + "</div></div></div>";
+          }).join("");
+          listEl = document.querySelector("[data-dashboard-units]");
+          if (listEl) listEl.innerHTML = unitList || "<div class=\"list-item\"><div>No units</div></div>";
+        });
+      })();
       const toggle = document.querySelector(".topbar .menu-toggle");
       const closeButton = document.querySelector("[data-sidebar-close]");
       const overlay = document.querySelector("[data-sidebar-overlay]");

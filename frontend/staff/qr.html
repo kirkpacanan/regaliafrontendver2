@@ -176,7 +176,7 @@
                 <div class="scan-actions">
                   <button class="btn ghost" data-start-scan>Start Scan</button>
                   <button class="btn ghost" data-stop-scan>Stop Scan</button>
-                  <button class="btn ghost">Upload QR</button>
+                  <button class="btn ghost" data-upload-qr>Upload QR</button>
                 </div>
               </div>
             </div>
@@ -191,7 +191,7 @@
                 <strong>Manual Lookup</strong>
                 <p class="muted">Search reservation code or guest name.</p>
               </div>
-              <button class="btn ghost">Search Guest</button>
+              <button class="btn ghost" data-manual-lookup>Search Guest</button>
             </div>
             <div class="quick-card">
               <div class="quick-icon">
@@ -204,91 +204,204 @@
                 <strong>Resend QR</strong>
                 <p class="muted">Send QR check-in link by email or SMS.</p>
               </div>
-              <button class="btn ghost">Resend</button>
+              <button class="btn ghost" data-resend-qr>Resend</button>
             </div>
           </div>
         </section>
 
         <section class="panel recent-section">
           <h3>Recent Scans</h3>
-          <div class="list">
-            <div class="list-item">
-              <div>
-                Unit 204 • Ocean View Condo
-                <small>Scanned 10:14 AM • Pamela Beesly</small>
-              </div>
-              <span class="icon">
-                <svg viewBox="0 0 24 24">
-                  <polyline points="5 13 9 17 19 7"></polyline>
-                </svg>
-              </span>
-            </div>
-            <div class="list-item">
-              <div>
-                Unit 310 • Corner Suite
-                <small>Scanned 9:52 AM • Dwight Schrute</small>
-              </div>
-              <span class="icon">
-                <svg viewBox="0 0 24 24">
-                  <polyline points="5 13 9 17 19 7"></polyline>
-                </svg>
-              </span>
-            </div>
-          </div>
+          <div class="list" data-recent-scans></div>
         </section>
       </main>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script src="./staffscript.js"></script>
     <script>
-      const startButton = document.querySelector("[data-start-scan]");
-      const stopButton = document.querySelector("[data-stop-scan]");
-      const scanFrame = document.querySelector(".scan-frame");
-      const scanVideo = document.querySelector(".scan-video");
-      const scanStatus = document.querySelector("[data-scan-status]");
-      let stream = null;
+      (function () {
+        var R = window.RegaliaStaff;
+        var API = R ? R.API : "/api";
+        var startButton = document.querySelector("[data-start-scan]");
+        var stopButton = document.querySelector("[data-stop-scan]");
+        var scanFrame = document.querySelector(".scan-frame");
+        var scanVideo = document.querySelector(".scan-video");
+        var scanStatus = document.querySelector("[data-scan-status]");
+        var recentList = document.querySelector("[data-recent-scans]");
+        var stream = null;
+        var scanInterval = null;
+        var recentScans = [];
 
-      const startScan = async () => {
-        if (!scanVideo || !scanFrame) return;
-        scanFrame.classList.add("is-scanning");
-        if (scanStatus) {
-          scanStatus.textContent = "Starting camera...";
-        }
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: "environment" },
-            audio: false,
+        function addRecentScan(booking) {
+          var t = new Date();
+          var timeStr = t.getHours() + ":" + (t.getMinutes() < 10 ? "0" : "") + t.getMinutes() + " " + (t.getHours() >= 12 ? "PM" : "AM");
+          recentScans.unshift({
+            unit: (booking && booking.unit_number) || (booking && booking.unit_id) || "—",
+            tower: (booking && booking.tower_name) || "",
+            name: (booking && booking.guest_name) || "Guest",
+            time: timeStr,
           });
-          scanVideo.srcObject = stream;
-          await scanVideo.play();
-          if (scanStatus) {
-            scanStatus.textContent = "Scanning... hold QR steady.";
-          }
-        } catch (error) {
-          if (scanStatus) {
-            scanStatus.textContent =
-              "Camera blocked. Scanning simulation active.";
-          }
+          recentScans = recentScans.slice(0, 20);
+          renderRecentScans();
         }
-      };
 
-      const stopScan = () => {
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
-          stream = null;
+        function renderRecentScans() {
+          if (!recentList) return;
+          recentList.innerHTML = recentScans.length === 0
+            ? "<div class=\"list-item\"><div>No scans yet</div></div>"
+            : recentScans.map(function (s) {
+                return "<div class=\"list-item\"><div>Unit " + s.unit + (s.tower ? " • " + s.tower : "") + "<small>Scanned " + s.time + " • " + s.name + "</small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
+              }).join("");
         }
-        if (scanVideo) {
-          scanVideo.pause();
-          scanVideo.srcObject = null;
-        }
-        if (scanFrame) {
-          scanFrame.classList.remove("is-scanning");
-        }
-        if (scanStatus) {
-          scanStatus.textContent = "Scan stopped.";
-        }
-      };
 
-      if (startButton) startButton.addEventListener("click", startScan);
-      if (stopButton) stopButton.addEventListener("click", stopScan);
+        function handleScannedPayload(data) {
+          var id = data.booking_id;
+          if (!id) return;
+          fetch(API + "/bookings/" + id).then(function (r) { return r.ok ? r.json() : null; }).then(function (booking) {
+            if (!booking) { if (scanStatus) scanStatus.textContent = "Booking not found."; return; }
+            if (booking.status !== "confirmed") { if (scanStatus) scanStatus.textContent = "Booking not confirmed."; return; }
+            var checkedIn = !!booking.checked_in_at;
+            var checkedOut = !!booking.checked_out_at;
+            if (!checkedIn) {
+              R.postCheckIn(id).then(function () {
+                if (scanStatus) scanStatus.textContent = "Check-in recorded: " + (booking.guest_name || "Guest");
+                addRecentScan(booking);
+              }).catch(function (e) {
+                if (scanStatus) scanStatus.textContent = e.message || "Check-in failed";
+              });
+            } else if (!checkedOut) {
+              R.postCheckOut(id).then(function () {
+                if (scanStatus) scanStatus.textContent = "Check-out recorded: " + (booking.guest_name || "Guest");
+                addRecentScan(booking);
+              }).catch(function (e) {
+                if (scanStatus) scanStatus.textContent = e.message || "Check-out failed";
+              });
+            } else {
+              if (scanStatus) scanStatus.textContent = "Already checked out.";
+            }
+          });
+        }
+
+        function tryDecodeFromVideo() {
+          if (!scanVideo || !scanVideo.videoWidth || !window.jsQR) return;
+          var canvas = document.createElement("canvas");
+          canvas.width = scanVideo.videoWidth;
+          canvas.height = scanVideo.videoHeight;
+          var ctx = canvas.getContext("2d");
+          ctx.drawImage(scanVideo, 0, 0);
+          var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          var code = jsQR(imageData.data, imageData.width, imageData.height);
+          if (code && code.data) {
+            try {
+              var data = JSON.parse(code.data);
+              if (data.booking_id) {
+                if (scanInterval) clearInterval(scanInterval);
+                scanInterval = null;
+                handleScannedPayload(data);
+              }
+            } catch (e) {}
+          }
+        }
+
+        function startScan() {
+          if (!scanVideo || !scanFrame) return;
+          scanFrame.classList.add("is-scanning");
+          if (scanStatus) scanStatus.textContent = "Starting camera...";
+          navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }).then(function (s) {
+            stream = s;
+            scanVideo.srcObject = stream;
+            scanVideo.play();
+            if (scanStatus) scanStatus.textContent = "Scanning... hold QR steady.";
+            scanInterval = setInterval(tryDecodeFromVideo, 300);
+          }).catch(function () {
+            if (scanStatus) scanStatus.textContent = "Camera blocked. Use Manual Lookup or Upload QR.";
+          });
+        }
+
+        function stopScan() {
+          if (scanInterval) { clearInterval(scanInterval); scanInterval = null; }
+          if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; }
+          if (scanVideo) { scanVideo.pause(); scanVideo.srcObject = null; }
+          if (scanFrame) scanFrame.classList.remove("is-scanning");
+          if (scanStatus) scanStatus.textContent = "Tap start scan to begin.";
+        }
+
+        if (startButton) startButton.addEventListener("click", startScan);
+        if (stopButton) stopButton.addEventListener("click", stopScan);
+
+        var uploadBtn = document.querySelector("[data-upload-qr]");
+        if (uploadBtn) {
+          var input = document.createElement("input");
+          input.type = "file";
+          input.accept = "image/*";
+          input.style.display = "none";
+          document.body.appendChild(input);
+          uploadBtn.addEventListener("click", function () { input.click(); });
+          input.addEventListener("change", function () {
+            var f = input.files && input.files[0];
+            if (!f) return;
+            var img = new Image();
+            img.onload = function () {
+              var c = document.createElement("canvas");
+              c.width = img.width;
+              c.height = img.height;
+              var ctx = c.getContext("2d");
+              ctx.drawImage(img, 0, 0);
+              try {
+                var d = ctx.getImageData(0, 0, c.width, c.height);
+                var code = jsQR(d.data, d.width, d.height);
+                if (code && code.data) {
+                  var data = JSON.parse(code.data);
+                  if (data.booking_id) handleScannedPayload(data);
+                } else if (scanStatus) scanStatus.textContent = "No QR code found in image.";
+              } catch (e) { if (scanStatus) scanStatus.textContent = "Invalid QR or image."; }
+            };
+            img.src = URL.createObjectURL(f);
+          });
+        }
+
+        var manualSearchBtn = document.querySelector("[data-manual-lookup]");
+        if (manualSearchBtn) {
+          manualSearchBtn.addEventListener("click", function () {
+            var q = prompt("Search by guest name or booking ref (e.g. REG-00008):");
+            if (!q || !R) return;
+            R.getBookings().then(function (bookings) {
+              var qq = q.trim().toLowerCase();
+              var refMatch = qq.match(/reg-?(\d+)/);
+              var id = refMatch ? parseInt(refMatch[1], 10) : null;
+              var filtered = bookings.filter(function (b) {
+                if (id && b.booking_id === id) return true;
+                return (b.guest_name && b.guest_name.toLowerCase().indexOf(qq) !== -1) ||
+                  (b.email && b.email.toLowerCase().indexOf(qq) !== -1);
+              });
+              if (filtered.length === 0) { alert("No bookings found."); return; }
+              if (filtered.length === 1) {
+                var b = filtered[0];
+                var action = b.checked_in_at && !b.checked_out_at ? "Check out" : "Check in";
+                if (!confirm(b.guest_name + " • Unit " + (b.unit_number || b.unit_id) + "\n" + action + "?")) return;
+                if (b.checked_in_at && !b.checked_out_at) R.postCheckOut(b.booking_id).then(function () { alert("Check-out recorded."); addRecentScan(b); }).catch(function (e) { alert(e.message); });
+                else R.postCheckIn(b.booking_id).then(function () { alert("Check-in recorded."); addRecentScan(b); }).catch(function (e) { alert(e.message); });
+              } else {
+                var msg = filtered.slice(0, 5).map(function (b, i) { return (i + 1) + ". " + b.guest_name + " (REG-" + String(b.booking_id).padStart(5, "0") + ")"; }).join("\n");
+                alert("Multiple matches. Refine search.\n\n" + msg);
+              }
+            });
+          });
+        }
+
+        var resendBtn = document.querySelector("[data-resend-qr]");
+        if (resendBtn) {
+          resendBtn.addEventListener("click", function () {
+            var idStr = prompt("Booking ID or ref (e.g. 8 or REG-00008):");
+            if (!idStr || !R) return;
+            var refMatch = idStr.trim().match(/reg-?(\d+)/i);
+            var id = refMatch ? parseInt(refMatch[1], 10) : parseInt(idStr, 10);
+            if (!id) { alert("Invalid ID."); return; }
+            R.resendQr(id).then(function () { alert("QR email resent."); }).catch(function (e) { alert(e.message || "Failed"); });
+          });
+        }
+
+        renderRecentScans();
+      })();
       const toggle = document.querySelector(".topbar .menu-toggle");
       const closeButton = document.querySelector("[data-sidebar-close]");
       const overlay = document.querySelector("[data-sidebar-overlay]");

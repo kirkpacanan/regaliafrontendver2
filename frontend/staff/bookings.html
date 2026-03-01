@@ -128,203 +128,193 @@
         <section class="stats">
           <div class="stat-card">
             <div class="label">Today</div>
-            <div class="value">24</div>
+            <div class="value" data-bookings-today>0</div>
           </div>
           <div class="stat-card">
             <div class="label">Pending Approval</div>
-            <div class="value">3</div>
+            <div class="value" data-bookings-pending>0</div>
           </div>
           <div class="stat-card">
             <div class="label">Upcoming Week</div>
-            <div class="value">82</div>
+            <div class="value" data-bookings-week>0</div>
           </div>
           <div class="stat-card highlight">
             <div class="label">Priority Unit</div>
-            <div class="value">Penthouse</div>
+            <div class="value" data-bookings-priority>—</div>
           </div>
         </section>
 
         <section class="panel">
           <h3>Upcoming Bookings</h3>
-          <div class="list">
-            <div class="list-item">
-              <div>
-                Unit 502 • 2 Nights
-                <small>Check-in: Feb 2 • <span class="tag tag--paid">Paid</span></small>
-              </div>
-              <span class="icon">
-                <svg viewBox="0 0 24 24">
-                  <polyline points="5 13 9 17 19 7"></polyline>
-                </svg>
-              </span>
-            </div>
-            <div class="list-item">
-              <div>
-                Unit 310 • 3 Nights
-                <small>Check-in: Feb 3 • <span class="tag tag--pending">Pending</span></small>
-              </div>
-              <span class="icon">
-                <svg viewBox="0 0 24 24">
-                  <circle cx="12" cy="12" r="9"></circle>
-                  <path d="M12 7v5l3 3"></path>
-                </svg>
-              </span>
-            </div>
-            <div class="list-item">
-              <div>
-                Unit G2 • 1 Night
-                <small>Check-in: Feb 4 • <span class="tag tag--paid">Paid</span></small>
-              </div>
-              <span class="icon">
-                <svg viewBox="0 0 24 24">
-                  <polyline points="5 13 9 17 19 7"></polyline>
-                </svg>
-              </span>
-            </div>
-          </div>
+          <div class="list" data-upcoming-list></div>
         </section>
 
         <section class="panel calendar-panel">
           <h3>Booking Calendar</h3>
           <div class="calendar">
             <div class="calendar-header">
-              <span>February 2026</span>
+              <span data-calendar-month-label>—</span>
               <div class="calendar-actions">
-                <button class="btn ghost">Prev</button>
-                <button class="btn ghost">Next</button>
+                <button class="btn ghost" type="button" data-calendar-prev>Prev</button>
+                <button class="btn ghost" type="button" data-calendar-next>Next</button>
               </div>
             </div>
-            <div class="calendar-grid">
-              <div class="calendar-day">Sun</div>
-              <div class="calendar-day">Mon</div>
-              <div class="calendar-day">Tue</div>
-              <div class="calendar-day">Wed</div>
-              <div class="calendar-day">Thu</div>
-              <div class="calendar-day">Fri</div>
-              <div class="calendar-day">Sat</div>
-
-              <div class="calendar-cell muted" data-date="2026-01-26">26</div>
-              <div class="calendar-cell muted" data-date="2026-01-27">27</div>
-              <div class="calendar-cell muted" data-date="2026-01-28">28</div>
-              <div class="calendar-cell muted" data-date="2026-01-29">29</div>
-              <div class="calendar-cell muted" data-date="2026-01-30">30</div>
-              <div class="calendar-cell muted" data-date="2026-01-31">31</div>
-              <div class="calendar-cell" data-date="2026-02-01">1</div>
-
-              <div class="calendar-cell" data-date="2026-02-02">
-                2<span class="badge">4</span>
-              </div>
-              <div class="calendar-cell" data-date="2026-02-03">
-                3<span class="badge">6</span>
-              </div>
-              <div class="calendar-cell" data-date="2026-02-04">
-                4<span class="badge">2</span>
-              </div>
-              <div class="calendar-cell" data-date="2026-02-05">5</div>
-              <div class="calendar-cell" data-date="2026-02-06">
-                6<span class="badge">1</span>
-              </div>
-              <div class="calendar-cell" data-date="2026-02-07">7</div>
-              <div class="calendar-cell" data-date="2026-02-08">8</div>
-
-              <div class="calendar-cell" data-date="2026-02-09">9</div>
-              <div class="calendar-cell" data-date="2026-02-10">10</div>
-              <div class="calendar-cell" data-date="2026-02-11">11</div>
-              <div class="calendar-cell" data-date="2026-02-12">12</div>
-              <div class="calendar-cell" data-date="2026-02-13">13</div>
-              <div class="calendar-cell" data-date="2026-02-14">14</div>
-              <div class="calendar-cell" data-date="2026-02-15">15</div>
-
-              <div class="calendar-cell" data-date="2026-02-16">16</div>
-              <div class="calendar-cell" data-date="2026-02-17">17</div>
-              <div class="calendar-cell" data-date="2026-02-18">18</div>
-              <div class="calendar-cell" data-date="2026-02-19">19</div>
-              <div class="calendar-cell" data-date="2026-02-20">20</div>
-              <div class="calendar-cell" data-date="2026-02-21">21</div>
-              <div class="calendar-cell" data-date="2026-02-22">22</div>
-
-              <div class="calendar-cell" data-date="2026-02-23">23</div>
-              <div class="calendar-cell" data-date="2026-02-24">24</div>
-              <div class="calendar-cell" data-date="2026-02-25">25</div>
-              <div class="calendar-cell" data-date="2026-02-26">26</div>
-              <div class="calendar-cell" data-date="2026-02-27">27</div>
-              <div class="calendar-cell" data-date="2026-02-28">28</div>
-              <div class="calendar-cell muted" data-date="2026-03-01">1</div>
-            </div>
+            <div class="calendar-grid" data-calendar-grid></div>
             <div class="calendar-details" data-calendar-details>
-              <div class="calendar-details__title">
-                Select a date to view bookings.
-              </div>
+              <div class="calendar-details__title">Select a date to view bookings.</div>
               <div class="list"></div>
             </div>
           </div>
         </section>
       </main>
     </div>
+    <script src="./staffscript.js"></script>
     <script>
-      const bookingsByDate = {
-        "2026-02-02": [
-          { unit: "Unit 502", note: "2 Nights • Paid" },
-          { unit: "Unit 104", note: "1 Night • Paid" },
-          { unit: "Unit 310", note: "3 Nights • Pending" },
-          { unit: "Unit G2", note: "1 Night • Paid" },
-        ],
-        "2026-02-03": [
-          { unit: "Unit 204", note: "2 Nights • Paid" },
-          { unit: "Unit 310", note: "3 Nights • Pending" },
-          { unit: "Unit 410", note: "2 Nights • Paid" },
-          { unit: "Unit 501", note: "1 Night • Paid" },
-          { unit: "Unit 602", note: "2 Nights • Paid" },
-          { unit: "Unit 702", note: "1 Night • Paid" },
-        ],
-        "2026-02-04": [
-          { unit: "Unit 115", note: "2 Nights • Paid" },
-          { unit: "Unit 318", note: "1 Night • Paid" },
-        ],
-        "2026-02-06": [{ unit: "Unit 809", note: "1 Night • Paid" }],
-      };
+      (function () {
+        var R = window.RegaliaStaff;
+        var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+        var currentCalendar = new Date();
+        var bookingsByDate = {};
+        var allBookings = [];
 
-      const calendarCells = document.querySelectorAll(".calendar-cell");
-      const details = document.querySelector("[data-calendar-details]");
-      const list = details ? details.querySelector(".list") : null;
-      const title = details
-        ? details.querySelector(".calendar-details__title")
-        : null;
-
-      const renderBookings = (date) => {
-        if (!list || !title) return;
-        list.innerHTML = "";
-        const bookings = bookingsByDate[date] || [];
-        if (!bookings.length) {
-          title.textContent = `${date} • No bookings`;
-          return;
+        function buildBookingsByDate(bookings) {
+          var map = {};
+          bookings.forEach(function (b) {
+            var start = new Date(b.check_in_date);
+            var end = new Date(b.check_out_date);
+            for (var d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+              var key = R.toDateKey(d);
+              if (!map[key]) map[key] = [];
+              map[key].push(b);
+            }
+          });
+          return map;
         }
-        title.textContent = `${date} • ${bookings.length} booking(s)`;
-        bookings.forEach((booking) => {
-          const item = document.createElement("div");
-          item.className = "list-item";
-          const tagClass = booking.note.includes("Pending")
-            ? "tag--pending"
-            : "tag--paid";
-          const noteParts = booking.note.split(" • ");
-          const detail = noteParts[0] || booking.note;
-          const status = noteParts[1] || "";
-          item.innerHTML = `<div>${booking.unit}<small>${detail} • <span class="tag ${tagClass}">${status}</span></small></div><span class="icon"><svg viewBox="0 0 24 24"><polyline points="5 13 9 17 19 7"></polyline></svg></span>`;
-          list.appendChild(item);
-        });
-      };
 
-      calendarCells.forEach((cell) => {
-        const date = cell.dataset.date;
-        if (bookingsByDate[date]) {
-          cell.classList.add("has-bookings");
+        function renderCalendar() {
+          var y = currentCalendar.getFullYear();
+          var m = currentCalendar.getMonth();
+          var label = document.querySelector("[data-calendar-month-label]");
+          if (label) label.textContent = monthNames[m] + " " + y;
+
+          var first = new Date(y, m, 1);
+          var last = new Date(y, m + 1, 0);
+          var startDay = first.getDay();
+          var daysInMonth = last.getDate();
+          var prevMonth = new Date(y, m, 0);
+          var prevDays = prevMonth.getDate();
+
+          var grid = document.querySelector("[data-calendar-grid]");
+          if (!grid) return;
+          grid.innerHTML = "";
+
+          var dayLabels = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+          dayLabels.forEach(function (d) {
+            var cell = document.createElement("div");
+            cell.className = "calendar-day";
+            cell.textContent = d;
+            grid.appendChild(cell);
+          });
+
+          for (var i = 0; i < startDay; i++) {
+            var cell = document.createElement("div");
+            cell.className = "calendar-cell muted";
+            var pd = prevDays - startDay + i + 1;
+            var prevDate = new Date(y, m - 1, pd);
+            cell.dataset.date = R.toDateKey(prevDate);
+            cell.textContent = pd;
+            grid.appendChild(cell);
+          }
+          for (var day = 1; day <= daysInMonth; day++) {
+            var cell = document.createElement("div");
+            cell.className = "calendar-cell";
+            var dateKey = y + "-" + (m + 1 < 10 ? "0" : "") + (m + 1) + "-" + (day < 10 ? "0" : "") + day;
+            cell.dataset.date = dateKey;
+            var count = (bookingsByDate[dateKey] || []).length;
+            cell.textContent = day;
+            if (count > 0) {
+              var badge = document.createElement("span");
+              badge.className = "badge";
+              badge.textContent = count;
+              cell.appendChild(badge);
+              cell.classList.add("has-bookings");
+            }
+            grid.appendChild(cell);
+          }
+          var remaining = 42 - (startDay + daysInMonth);
+          for (var j = 1; j <= remaining; j++) {
+            var cell = document.createElement("div");
+            cell.className = "calendar-cell muted";
+            cell.dataset.date = R.toDateKey(new Date(y, m + 1, j));
+            cell.textContent = j;
+            grid.appendChild(cell);
+          }
+
+          var details = document.querySelector("[data-calendar-details]");
+          var list = details ? details.querySelector(".list") : null;
+          var title = details ? details.querySelector(".calendar-details__title") : null;
+          grid.querySelectorAll(".calendar-cell").forEach(function (cell) {
+            cell.addEventListener("click", function () {
+              grid.querySelectorAll(".calendar-cell").forEach(function (c) { c.classList.remove("selected"); });
+              cell.classList.add("selected");
+              var date = cell.dataset.date;
+              var bookings = bookingsByDate[date] || [];
+              if (!list || !title) return;
+              list.innerHTML = "";
+              title.textContent = date + " • " + bookings.length + " booking(s)";
+              bookings.forEach(function (b) {
+                var item = document.createElement("div");
+                item.className = "list-item";
+                var nights = R.getNights(b.check_in_date, b.check_out_date);
+                var status = b.status === "confirmed" ? "Confirmed" : (b.status === "pending" ? "Pending" : b.status);
+                var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
+                item.innerHTML = "<div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>" + (b.guest_name || "Guest") + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span>";
+                list.appendChild(item);
+              });
+            });
+          });
         }
-        cell.addEventListener("click", () => {
-          calendarCells.forEach((item) => item.classList.remove("selected"));
-          cell.classList.add("selected");
-          renderBookings(date);
+
+        R.getBookings().then(function (bookings) {
+          allBookings = bookings;
+          bookingsByDate = buildBookingsByDate(bookings);
+          var todayKey = R.toDateKey(new Date());
+          var weekEnd = new Date();
+          weekEnd.setDate(weekEnd.getDate() + 7);
+          var weekKeyEnd = R.toDateKey(weekEnd);
+          var todayCount = (bookingsByDate[todayKey] || []).length;
+          var pending = bookings.filter(function (b) { return b.status === "pending"; }).length;
+          var weekCount = 0;
+          for (var k in bookingsByDate) { if (k >= todayKey && k <= weekKeyEnd) weekCount += bookingsByDate[k].length; }
+          var firstUnit = bookings.length && bookings[0].unit_type ? bookings[0].unit_type : "—";
+
+          var el = document.querySelector("[data-bookings-today]"); if (el) el.textContent = todayCount;
+          el = document.querySelector("[data-bookings-pending]"); if (el) el.textContent = pending;
+          el = document.querySelector("[data-bookings-week]"); if (el) el.textContent = weekCount;
+          el = document.querySelector("[data-bookings-priority]"); if (el) el.textContent = firstUnit;
+
+          var upcoming = bookings.filter(function (b) {
+            return R.toDateKey(b.check_in_date) >= todayKey && (b.status === "confirmed" || b.status === "pending");
+          }).slice(0, 10);
+          var listEl = document.querySelector("[data-upcoming-list]");
+          if (listEl) {
+            listEl.innerHTML = upcoming.map(function (b) {
+              var nights = R.getNights(b.check_in_date, b.check_out_date);
+              var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
+              var status = b.status === "confirmed" ? "Confirmed" : "Pending";
+              return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
+            }).join("") || "<div class=\"list-item\"><div>No upcoming bookings</div></div>";
+          }
+
+          currentCalendar = new Date();
+          renderCalendar();
         });
-      });
+
+        var prevBtn = document.querySelector("[data-calendar-prev]");
+        var nextBtn = document.querySelector("[data-calendar-next]");
+        if (prevBtn) prevBtn.addEventListener("click", function () { currentCalendar.setMonth(currentCalendar.getMonth() - 1); renderCalendar(); });
+        if (nextBtn) nextBtn.addEventListener("click", function () { currentCalendar.setMonth(currentCalendar.getMonth() + 1); renderCalendar(); });
+      })();
       const toggle = document.querySelector(".topbar .menu-toggle");
       const closeButton = document.querySelector("[data-sidebar-close]");
       const overlay = document.querySelector("[data-sidebar-overlay]");

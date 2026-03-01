@@ -128,62 +128,40 @@
         <section class="panel-stack">
           <div class="panel">
             <h3>Active Guests</h3>
-            <div class="list">
-              <div class="list-item">
-                <div>
-                  Angela Martin
-                  <small>VIP • Unit 101</small>
-                </div>
-                <span class="icon">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M12 2l3 7h7l-5.5 4.5L18 21l-6-4-6 4 1.5-7.5L2 9h7z"></path>
-                  </svg>
-                </span>
-              </div>
-              <div class="list-item">
-                <div>
-                  Stanley Hudson
-                  <small>Checked-in • Unit 204</small>
-                </div>
-                <span class="icon">
-                  <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="9"></circle>
-                  </svg>
-                </span>
-              </div>
-              <div class="list-item">
-                <div>
-                  Kevin Malone
-                  <small>Checked-in • Unit G2</small>
-                </div>
-                <span class="icon">
-                  <svg viewBox="0 0 24 24">
-                    <circle cx="12" cy="12" r="9"></circle>
-                  </svg>
-                </span>
-              </div>
-            </div>
+            <div class="list" data-active-guests></div>
           </div>
 
           <div class="panel">
             <h3>VIP Alerts</h3>
-            <div class="list">
-              <div class="list-item">
-                <div>
-                  CEO Arrival
-                  <small>Expected 4:00 PM • Penthouse</small>
-                </div>
-                <span class="icon">
-                  <svg viewBox="0 0 24 24">
-                    <path d="M13 2L3 14h7l-1 8 10-12h-7l1-8z"></path>
-                  </svg>
-                </span>
-              </div>
-            </div>
+            <div class="list" data-vip-alerts></div>
           </div>
         </section>
       </main>
     </div>
+    <script src="./staffscript.js"></script>
+    <script>
+      (function () {
+        var R = window.RegaliaStaff;
+        if (!R) return;
+        R.getBookings().then(function (bookings) {
+          var active = bookings.filter(function (b) {
+            return b.status === "confirmed" && b.checked_in_at && !b.checked_out_at;
+          });
+          var listEl = document.querySelector("[data-active-guests]");
+          if (listEl) {
+            listEl.innerHTML = active.length === 0
+              ? "<div class=\"list-item\"><div>No active guests</div></div>"
+              : active.map(function (b) {
+                  return "<div class=\"list-item\"><div>" + (b.guest_name || "Guest") + "<small>Checked-in • Unit " + (b.unit_number || b.unit_id) + "</small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle></svg></span></div>";
+                }).join("");
+          }
+          var vipEl = document.querySelector("[data-vip-alerts]");
+          if (vipEl) {
+            vipEl.innerHTML = "<div class=\"list-item\"><div>No VIP alerts</div></div>";
+          }
+        });
+      })();
+    </script>
     <script>
       const toggle = document.querySelector(".topbar .menu-toggle");
       const closeButton = document.querySelector("[data-sidebar-close]");
