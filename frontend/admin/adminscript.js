@@ -1186,6 +1186,8 @@
 
     function closeDetailModal() {
       if (detailContent) detailContent.classList.remove("is-visible");
+      // Move focus out before aria-hidden so assistive tech doesn't get blocked
+      if (detailSidebar && detailSidebar.contains(document.activeElement)) document.body.focus();
       setTimeout(function () {
         if (detailSidebar) {
           detailSidebar.classList.remove("is-open");

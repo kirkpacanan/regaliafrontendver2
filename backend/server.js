@@ -570,9 +570,9 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
     );
     const booking = rows[0];
     if (!booking || !booking.email) {
-      console.log("Confirm: no guest email for booking " + id + " – skip email.");
+      console.log("Confirm: no guest email for booking " + id + " – email not sent. Add guest email when creating the booking.");
     } else if (!BREVO_API_KEY) {
-      console.log("Confirm: Brevo not configured – skip email to " + booking.email);
+      console.log("Confirm: BREVO_API_KEY missing – email not sent to " + booking.email);
     } else {
       try {
         const toEmail = booking.email.trim();
@@ -611,9 +611,9 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
         });
         const brevoData = await brevoRes.json().catch(() => ({}));
         if (!brevoRes.ok) {
-          console.error("Brevo error:", brevoData.message || brevoRes.status);
+          console.error("Brevo error:", brevoRes.status, JSON.stringify(brevoData));
         } else {
-          console.log("Confirmation email sent to " + toEmail);
+          console.log("Confirmation email sent to " + toEmail + " (messageId: " + (brevoData.messageId || "ok") + ")");
         }
       } catch (emailErr) {
         console.error("Confirm email send failed:", emailErr.message || emailErr);
