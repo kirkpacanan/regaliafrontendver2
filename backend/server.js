@@ -6,14 +6,13 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const path = require("path");
 const QRCode = require("qrcode");
-const { Resend } = require("resend");
 require("dotenv").config();
 require("dotenv").config({ path: path.join(__dirname, "aiven.env") });
 
 const app = express();
-const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
-if (!process.env.RESEND_API_KEY) console.warn("RESEND_API_KEY not set – confirmation emails will not be sent.");
-else console.log("Resend loaded – confirmation emails enabled.");
+const BREVO_API_KEY = process.env.BREVO_API_KEY || null;
+if (!BREVO_API_KEY) console.warn("BREVO_API_KEY not set – confirmation emails will not be sent.");
+else console.log("Brevo loaded – confirmation emails enabled.");
 
 // ---------------- Middleware ----------------
 app.use(cors());
@@ -572,15 +571,16 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
     const booking = rows[0];
     if (!booking || !booking.email) {
       console.log("Confirm: no guest email for booking " + id + " – skip email.");
-    } else if (!resend) {
-      console.log("Confirm: Resend not configured – skip email to " + booking.email);
+    } else if (!BREVO_API_KEY) {
+      console.log("Confirm: Brevo not configured – skip email to " + booking.email);
     } else {
       try {
         const toEmail = booking.email.trim();
         console.log("Sending confirmation email to " + toEmail + " for booking " + id + "...");
         const checkInPayload = JSON.stringify({ booking_id: id, type: "check-in" });
         const qrPng = await QRCode.toDataURL(checkInPayload, { type: "image/png", margin: 2, width: 260 });
-        const from = process.env.RESEND_FROM || "Regalia <onboarding@resend.dev>";
+        const senderEmail = process.env.BREVO_FROM_EMAIL || "regalia@example.com";
+        const senderName = process.env.BREVO_FROM_NAME || "Regalia";
         const html = `
           <h2>Booking confirmed</h2>
           <p>Hi ${escapeHtml(booking.guest_name || "Guest")},</p>
@@ -595,14 +595,23 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
           <p>Booking ID: ${id}</p>
           <p>— Regalia</p>
         `;
-        const data = await resend.emails.send({
-          from,
-          to: toEmail,
-          subject: "Booking confirmed – Regalia",
-          html,
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: {
+            "accept": "application/json",
+            "content-type": "application/json",
+            "api-key": BREVO_API_KEY,
+          },
+          body: JSON.stringify({
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email: toEmail }],
+            subject: "Booking confirmed – Regalia",
+            htmlContent: html,
+          }),
         });
-        if (data.error) {
-          console.error("Resend error:", data.error);
+        const brevoData = await brevoRes.json().catch(() => ({}));
+        if (!brevoRes.ok) {
+          console.error("Brevo error:", brevoData.message || brevoRes.status);
         } else {
           console.log("Confirmation email sent to " + toEmail);
         }
