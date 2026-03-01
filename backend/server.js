@@ -553,6 +553,21 @@ app.post("/api/bookings", async (req, res) => {
   }
 });
 
+// Serve QR code image for a booking (used in confirmation email so clients display it inline)
+app.get("/api/bookings/:id/qr", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const payload = JSON.stringify({ booking_id: id, type: "check-in" });
+    const dataUrl = await QRCode.toDataURL(payload, { type: "image/png", margin: 2, width: 260 });
+    const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
+    const buffer = Buffer.from(base64, "base64");
+    res.type("png").set("Cache-Control", "public, max-age=86400").send(buffer);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("QR generation failed");
+  }
+});
+
 app.put("/api/bookings/:id/confirm", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -582,24 +597,23 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
       try {
         const toEmail = booking.email.trim();
         console.log("Sending confirmation email to " + toEmail + " for booking " + id + "...");
-        const checkInPayload = JSON.stringify({ booking_id: id, type: "check-in" });
-        const qrPng = await QRCode.toDataURL(checkInPayload, { type: "image/png", margin: 2, width: 260 });
         const senderEmail = process.env.BREVO_FROM_EMAIL || "regalia@example.com";
         const senderName = process.env.BREVO_FROM_NAME || "Regalia";
-        const html = `
-          <h2>Booking confirmed</h2>
-          <p>Hi ${escapeHtml(booking.guest_name || "Guest")},</p>
-          <p>Your booking has been confirmed.</p>
-          <ul>
-            <li><strong>Unit:</strong> ${escapeHtml(booking.unit_number || "")} ${escapeHtml(booking.tower_name || "")}</li>
-            <li><strong>Check-in:</strong> ${escapeHtml(String(booking.check_in_date || ""))}</li>
-            <li><strong>Check-out:</strong> ${escapeHtml(String(booking.check_out_date || ""))}</li>
-          </ul>
-          <p>Use the QR code below at check-in and check-out:</p>
-          <p><img src="${qrPng}" alt="Booking QR Code" width="260" height="260" style="display:block;margin:1rem 0;" /></p>
-          <p>Booking ID: ${id}</p>
-          <p>— Regalia</p>
-        `;
+        const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || "https://regalia-eon6.onrender.com";
+        const qrImageUrl = baseUrl + "/api/bookings/" + id + "/qr";
+        const bookingRef = "REG-" + String(id).padStart(5, "0");
+        const checkInStr = formatDateForEmail(booking.check_in_date);
+        const checkOutStr = formatDateForEmail(booking.check_out_date);
+        const nights = getNights(booking.check_in_date, booking.check_out_date);
+        const stayDatesText = nights > 0 ? checkInStr + " — " + checkOutStr + " (" + nights + " Night" + (nights !== 1 ? "s" : "") + ")" : checkInStr + " — " + checkOutStr;
+        const html = buildConfirmationEmailHtml({
+          guestName: escapeHtml(booking.guest_name || "Guest"),
+          bookingRef,
+          unitNumber: escapeHtml(booking.unit_number || "—"),
+          towerName: escapeHtml(booking.tower_name || "—"),
+          stayDatesText: escapeHtml(stayDatesText),
+          qrImageUrl,
+        });
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
           headers: {
@@ -634,6 +648,106 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
     res.status(500).json({ error: err.message || "Failed to confirm" });
   }
 });
+
+function formatDateForEmail(d) {
+  if (!d) return "";
+  const date = new Date(d);
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return months[date.getMonth()] + " " + date.getDate() + ", " + date.getFullYear();
+}
+
+function getNights(checkIn, checkOut) {
+  if (!checkIn || !checkOut) return 0;
+  const a = new Date(checkIn);
+  const b = new Date(checkOut);
+  return Math.max(0, Math.round((b - a) / (24 * 60 * 60 * 1000)));
+}
+
+function buildConfirmationEmailHtml(data) {
+  const { guestName, bookingRef, unitNumber, towerName, stayDatesText, qrImageUrl } = data;
+  const primary = "#0098b2";
+  const accent = "#7ed957";
+  const bgLight = "#f5f8f8";
+  const slate900 = "#0f172a";
+  const slate500 = "#64748b";
+  const slate400 = "#94a3b8";
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Booking Confirmed – Regalia</title>
+</head>
+<body style="margin:0;padding:0;background-color:${bgLight};font-family:Inter,Helvetica,Arial,sans-serif;color:${slate900};min-height:100vh;">
+  <div style="max-width:800px;margin:0 auto;min-height:100vh;box-shadow:0 1px 3px rgba(0,0,0,0.08);background:#fff;">
+    <header style="display:flex;align-items:center;justify-content:space-between;padding:24px 32px;border-bottom:1px solid rgba(0,152,178,0.15);flex-wrap:wrap;gap:12px;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div style="width:40px;height:40px;background:rgba(0,152,178,0.12);display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:24px;">🏢</div>
+        <h1 style="margin:0;font-size:1.5rem;font-weight:700;letter-spacing:-0.025em;color:${slate900};">Regalia</h1>
+      </div>
+      <div style="font-size:14px;color:${slate500};">Booking Ref: #${bookingRef}</div>
+    </header>
+    <main style="padding:40px 24px 40px 48px;">
+      <div style="text-align:center;margin-bottom:40px;">
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(126,217,87,0.2);border-radius:9999px;margin-bottom:16px;font-size:40px;">✓</div>
+        <h2 style="margin:0 0 8px;font-size:2rem;font-weight:700;color:${slate900};">Booking Confirmed!</h2>
+        <p style="margin:0;color:${slate500};font-size:1.125rem;">Your stay at Regalia is officially reserved. We look forward to hosting you.</p>
+      </div>
+      <div style="background:#fff;border:1px solid rgba(0,152,178,0.12);border-radius:12px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:40px;">
+        <div style="padding:32px;display:flex;flex-direction:column;align-items:center;border-bottom:1px solid rgba(0,152,178,0.06);">
+          <div style="width:192px;height:192px;background:#fff;padding:16px;border:2px solid #f1f5f9;border-radius:12px;margin-bottom:24px;">
+            <img src="${qrImageUrl}" alt="Booking QR Code" width="160" height="160" style="display:block;width:100%;height:100%;object-fit:contain;"/>
+          </div>
+          <h3 style="margin:0 0 4px;font-size:1.25rem;font-weight:700;">Your Digital Entry Pass</h3>
+          <p style="margin:0 0 24px;color:${slate500};text-align:center;font-size:14px;max-width:360px;">Scan this QR code at the tower entrance or lift lobby to gain access to the premises.</p>
+        </div>
+        <div style="padding:32px;background:rgba(0,152,178,0.05);">
+          <h4 style="margin:0 0 24px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${primary};">Booking Details</h4>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr>
+              <td style="padding:8px 0;vertical-align:top;width:50%;">
+                <span style="display:block;font-size:11px;font-weight:500;text-transform:uppercase;color:${slate400};margin-bottom:4px;">Guest Name</span>
+                <span style="font-weight:600;color:${slate900};">${guestName}</span>
+              </td>
+              <td style="padding:8px 0;vertical-align:top;width:50%;">
+                <span style="display:block;font-size:11px;font-weight:500;text-transform:uppercase;color:${slate400};margin-bottom:4px;">Property / Tower</span>
+                <span style="font-weight:600;color:${slate900};">${towerName}</span>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 0;vertical-align:top;">
+                <span style="display:block;font-size:11px;font-weight:500;text-transform:uppercase;color:${slate400};margin-bottom:4px;">Unit Number</span>
+                <span style="font-weight:600;color:${slate900};">${unitNumber}</span>
+              </td>
+              <td style="padding:8px 0;vertical-align:top;">
+                <span style="display:block;font-size:11px;font-weight:500;text-transform:uppercase;color:${slate400};margin-bottom:4px;">Stay Dates</span>
+                <span style="font-weight:600;color:${slate900};">${stayDatesText}</span>
+              </td>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <div style="background:#f8fafc;border-radius:8px;padding:24px;display:flex;flex-wrap:wrap;align-items:center;gap:16px;">
+        <div style="background:rgba(0,152,178,0.12);width:48px;height:48px;border-radius:9999px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;">ℹ</div>
+        <div style="flex:1;min-width:200px;">
+          <p style="margin:0 0 4px;font-size:14px;font-weight:500;color:${slate900};">Important Note:</p>
+          <p style="margin:0;font-size:12px;color:${slate500};">Check-in time starts at 3:00 PM. Please ensure you have a valid ID matching your booking name for verification by security.</p>
+        </div>
+      </div>
+    </main>
+    <footer style="padding:40px 32px;background:#f8fafc;border-top:1px solid #f1f5f9;text-align:center;">
+      <p style="margin:0 0 8px;color:${slate500};font-size:14px;">Need assistance with your booking?</p>
+      <p style="margin:0 0 32px;color:${slate400};font-size:12px;">Contact our 24/7 support at support@regalia.com or call +1 (800) REGALIA</p>
+      <div style="opacity:0.6;margin-bottom:16px;">
+        <span style="font-weight:700;">Regalia</span>
+      </div>
+      <p style="margin:0;font-size:10px;color:${slate400};text-transform:uppercase;letter-spacing:0.05em;">© ${new Date().getFullYear()} Regalia Premium Condominiums. All rights reserved.</p>
+    </footer>
+  </div>
+</body>
+</html>`;
+}
 
 function escapeHtml(s) {
   if (s == null || s === undefined) return "";
