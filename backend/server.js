@@ -5,6 +5,7 @@ const mysql = require("mysql2");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const path = require("path");
+const fs = require("fs");
 const QRCode = require("qrcode");
 require("dotenv").config();
 require("dotenv").config({ path: path.join(__dirname, "aiven.env") });
@@ -592,6 +593,46 @@ app.get("/api/bookings/:id/qr", async (req, res) => {
   }
 });
 
+// Serve booking confirmation page (Tailwind template with real QR – for "View in App" / share link)
+app.get("/booking/confirmation/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [rows] = await db.promise().query(
+      `SELECT b.booking_id, b.guest_name, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
+       FROM BOOKING b
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE b.booking_id = ? AND b.status = 'confirmed'`,
+      [id]
+    );
+    if (!rows || rows.length === 0) {
+      res.status(404).send("Booking not found or not confirmed.");
+      return;
+    }
+    const booking = rows[0];
+    const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || ("https://" + (req.get("host") || "localhost"));
+    const qrImageSrc = baseUrl + "/api/bookings/" + id + "/qr";
+    const bookingRef = "REG-" + String(id).padStart(5, "0");
+    const checkInStr = formatDateForEmail(booking.check_in_date);
+    const checkOutStr = formatDateForEmail(booking.check_out_date);
+    const nights = getNights(booking.check_in_date, booking.check_out_date);
+    const stayDatesText = nights > 0 ? checkInStr + " — " + checkOutStr + " (" + nights + " Night" + (nights !== 1 ? "s" : "") + ")" : checkInStr + " — " + checkOutStr;
+    const templatePath = path.join(__dirname, "templates", "booking-confirmation.html");
+    let html = fs.readFileSync(templatePath, "utf8");
+    html = html
+      .replace(/\{\{QR_IMAGE_SRC\}\}/g, qrImageSrc)
+      .replace(/\{\{BOOKING_REF\}\}/g, escapeHtml(bookingRef))
+      .replace(/\{\{GUEST_NAME\}\}/g, escapeHtml(booking.guest_name || "Guest"))
+      .replace(/\{\{UNIT_NUMBER\}\}/g, escapeHtml(booking.unit_number || "—"))
+      .replace(/\{\{TOWER_NAME\}\}/g, escapeHtml(booking.tower_name || "—"))
+      .replace(/\{\{STAY_DATES\}\}/g, escapeHtml(stayDatesText));
+    res.type("html").send(html);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Failed to load confirmation page.");
+  }
+});
+
 app.put("/api/bookings/:id/confirm", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -625,6 +666,7 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
         const senderName = process.env.BREVO_FROM_NAME || "Regalia";
         const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || "https://regalia-eon6.onrender.com";
         const qrImageUrl = baseUrl + "/api/bookings/" + id + "/qr";
+        const confirmationPageUrl = baseUrl + "/booking/confirmation/" + id;
         const qrDataUrl = await getQRDataUrl(id);
         const bookingRef = "REG-" + String(id).padStart(5, "0");
         const checkInStr = formatDateForEmail(booking.check_in_date);
@@ -639,6 +681,7 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
           stayDatesText: escapeHtml(stayDatesText),
           qrImageUrl,
           qrDataUrl,
+          confirmationPageUrl,
         });
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
@@ -694,6 +737,7 @@ app.post("/api/bookings/:id/resend-qr", async (req, res) => {
     }
     const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || "https://regalia-eon6.onrender.com";
     const qrImageUrl = baseUrl + "/api/bookings/" + id + "/qr";
+    const confirmationPageUrl = baseUrl + "/booking/confirmation/" + id;
     const qrDataUrl = await getQRDataUrl(id);
     const bookingRef = "REG-" + String(id).padStart(5, "0");
     const checkInStr = formatDateForEmail(booking.check_in_date);
@@ -708,6 +752,7 @@ app.post("/api/bookings/:id/resend-qr", async (req, res) => {
       stayDatesText: escapeHtml(stayDatesText),
       qrImageUrl,
       qrDataUrl,
+      confirmationPageUrl,
     });
     const senderEmail = process.env.BREVO_FROM_EMAIL || "regalia@example.com";
     const senderName = process.env.BREVO_FROM_NAME || "Regalia";
@@ -745,8 +790,9 @@ function getNights(checkIn, checkOut) {
 }
 
 function buildConfirmationEmailHtml(data) {
-  const { guestName, bookingRef, unitNumber, towerName, stayDatesText, qrImageUrl, qrDataUrl } = data;
+  const { guestName, bookingRef, unitNumber, towerName, stayDatesText, qrImageUrl, qrDataUrl, confirmationPageUrl } = data;
   const qrSrc = qrDataUrl || qrImageUrl;
+  const viewInAppUrl = confirmationPageUrl || qrImageUrl;
   const primary = "#0098b2";
   const accent = "#7ed957";
   const bgLight = "#f5f8f8";
@@ -786,7 +832,7 @@ function buildConfirmationEmailHtml(data) {
           <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
             <tr>
               <td style="padding:0 8px 0 0;"><a href="${qrImageUrl}" download="regalia-entry-pass.png" style="display:inline-block;background:linear-gradient(90deg,#0098b2 0%,#7ed957 100%);color:#fff!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">Download Pass</a></td>
-              <td style="padding:0 0 0 8px;"><a href="${qrImageUrl}" target="_blank" style="display:inline-block;background:#e2e8f0;color:#334155!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">View in App</a></td>
+              <td style="padding:0 0 0 8px;"><a href="${viewInAppUrl}" target="_blank" style="display:inline-block;background:#e2e8f0;color:#334155!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">View in App</a></td>
             </tr>
           </table>
         </div>
