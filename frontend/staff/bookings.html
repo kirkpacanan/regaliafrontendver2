@@ -145,6 +145,11 @@
         </section>
 
         <section class="panel">
+          <h3>Today Bookings</h3>
+          <div class="list" data-today-list></div>
+        </section>
+
+        <section class="panel">
           <h3>Upcoming Bookings</h3>
           <div class="list" data-upcoming-list></div>
         </section>
@@ -293,17 +298,34 @@
           el = document.querySelector("[data-bookings-week]"); if (el) el.textContent = weekCount;
           el = document.querySelector("[data-bookings-priority]"); if (el) el.textContent = firstUnit;
 
-          var upcoming = bookings.filter(function (b) {
-            return R.toDateKey(b.check_in_date) >= todayKey && (b.status === "confirmed" || b.status === "pending");
-          }).slice(0, 10);
-          var listEl = document.querySelector("[data-upcoming-list]");
+          var todayBookings = bookings.filter(function (b) {
+            return R.toDateKey(b.check_in_date) === todayKey && (b.status === "confirmed" || b.status === "pending");
+          });
+          var listEl = document.querySelector("[data-today-list]");
           if (listEl) {
-            listEl.innerHTML = upcoming.map(function (b) {
-              var nights = R.getNights(b.check_in_date, b.check_out_date);
-              var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
-              var status = b.status === "confirmed" ? "Confirmed" : "Pending";
-              return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
-            }).join("") || "<div class=\"list-item\"><div>No upcoming bookings</div></div>";
+            listEl.innerHTML = todayBookings.length === 0
+              ? "<div class=\"list-item\"><div>No bookings today</div></div>"
+              : todayBookings.map(function (b) {
+                  var nights = R.getNights(b.check_in_date, b.check_out_date);
+                  var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
+                  var status = b.status === "confirmed" ? "Confirmed" : "Pending";
+                  return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
+                }).join("");
+          }
+
+          var upcoming = bookings.filter(function (b) {
+            return R.toDateKey(b.check_in_date) > todayKey && (b.status === "confirmed" || b.status === "pending");
+          }).slice(0, 10);
+          listEl = document.querySelector("[data-upcoming-list]");
+          if (listEl) {
+            listEl.innerHTML = upcoming.length === 0
+              ? "<div class=\"list-item\"><div>No upcoming bookings</div></div>"
+              : upcoming.map(function (b) {
+                  var nights = R.getNights(b.check_in_date, b.check_out_date);
+                  var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
+                  var status = b.status === "confirmed" ? "Confirmed" : "Pending";
+                  return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
+                }).join("");
           }
 
           currentCalendar = new Date();

@@ -191,7 +191,7 @@ body::after {
 }
 
 .topbar p {
-  margin: 0.3rem 0 0;
+  margin: 0.5rem 0 0;
   color: var(--muted);
   font-size: 0.9rem;
 }
@@ -218,11 +218,23 @@ body::after {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 1.6rem;
-  margin-bottom: 2rem;
+  margin-bottom: 2.2rem;
 }
 
 .section {
   scroll-margin-top: 1.5rem;
+}
+
+.main > .section + .section {
+  margin-top: 2rem;
+}
+
+/* Bookings page: consistent spacing between stats and panels, and between panels */
+.main > .stats + .panel {
+  margin-top: 0;
+}
+.main > .panel + .panel {
+  margin-top: 1.5rem;
 }
 
 .main {
@@ -248,11 +260,13 @@ body::after {
 .stat-card .label {
   color: var(--muted);
   font-size: 0.85rem;
+  text-align: left;
 }
 
 .stat-card .value {
   font-size: 1.7rem;
   font-weight: 600;
+  text-align: left;
 }
 
 .stat-card.highlight {
@@ -279,7 +293,7 @@ body::after {
 .panel {
   background: var(--panel);
   border-radius: 20px;
-  padding: 1.6rem 1.8rem;
+  padding: 1.75rem 1.9rem;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
   animation: floatIn 0.7s ease forwards;
   opacity: 0;
@@ -530,7 +544,7 @@ body::after {
 }
 
 .calendar-panel {
-  margin-top: 1.8rem;
+  margin-top: 0;
 }
 
 .badge {
@@ -545,20 +559,25 @@ body::after {
 }
 
 .panel h3 {
-  margin: 0 0 1.1rem;
+  margin: 0 0 1rem;
   font-size: 1.05rem;
   font-weight: 500;
 }
 
+.panel h3 + .muted,
+.panel .muted:first-of-type {
+  margin-bottom: 1rem;
+}
+
 .list {
   display: grid;
-  gap: 0.9rem;
+  gap: 1rem;
 }
 
 .list-item {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 14px;
-  padding: 0.9rem 1.1rem;
+  padding: 1rem 1.2rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -573,6 +592,7 @@ body::after {
 
 .list-item small {
   display: block;
+  margin-top: 0.35rem;
   color: var(--muted);
   font-size: 0.78rem;
 }
