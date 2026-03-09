@@ -659,6 +659,7 @@ app.get("/api/bookings/:id/email-preview", async (req, res) => {
     const checkOutStr = formatDateForEmail(booking.check_out_date);
     const nights = getNights(booking.check_in_date, booking.check_out_date);
     const stayDatesText = nights > 0 ? checkInStr + " — " + checkOutStr + " (" + nights + " Night" + (nights !== 1 ? "s" : "") + ")" : checkInStr + " — " + checkOutStr;
+    const logoUrl = process.env.APP_LOGO_URL || process.env.LOGO_URL || "";
     const html = buildConfirmationEmailHtml({
       guestName: escapeHtml(booking.guest_name || "Guest"),
       bookingRef,
@@ -668,6 +669,7 @@ app.get("/api/bookings/:id/email-preview", async (req, res) => {
       qrImageUrl,
       qrDataUrl,
       confirmationPageUrl,
+      logoUrl,
     });
     res.type("html").set("X-Robots-Tag", "noindex").send(html);
   } catch (err) {
@@ -716,6 +718,7 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
         const checkOutStr = formatDateForEmail(booking.check_out_date);
         const nights = getNights(booking.check_in_date, booking.check_out_date);
         const stayDatesText = nights > 0 ? checkInStr + " — " + checkOutStr + " (" + nights + " Night" + (nights !== 1 ? "s" : "") + ")" : checkInStr + " — " + checkOutStr;
+        const logoUrl = process.env.APP_LOGO_URL || process.env.LOGO_URL || "";
         const html = buildConfirmationEmailHtml({
           guestName: escapeHtml(booking.guest_name || "Guest"),
           bookingRef,
@@ -725,6 +728,7 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
           qrImageUrl,
           qrDataUrl,
           confirmationPageUrl,
+          logoUrl,
         });
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
@@ -787,6 +791,7 @@ app.post("/api/bookings/:id/resend-qr", async (req, res) => {
     const checkOutStr = formatDateForEmail(booking.check_out_date);
     const nights = getNights(booking.check_in_date, booking.check_out_date);
     const stayDatesText = nights > 0 ? checkInStr + " — " + checkOutStr + " (" + nights + " Night" + (nights !== 1 ? "s" : "") + ")" : checkInStr + " — " + checkOutStr;
+    const logoUrl = process.env.APP_LOGO_URL || process.env.LOGO_URL || "";
     const html = buildConfirmationEmailHtml({
       guestName: escapeHtml(booking.guest_name || "Guest"),
       bookingRef,
@@ -796,6 +801,7 @@ app.post("/api/bookings/:id/resend-qr", async (req, res) => {
       qrImageUrl,
       qrDataUrl,
       confirmationPageUrl,
+      logoUrl,
     });
     const senderEmail = process.env.BREVO_FROM_EMAIL || "regalia@example.com";
     const senderName = process.env.BREVO_FROM_NAME || "Regalia";
@@ -833,8 +839,7 @@ function getNights(checkIn, checkOut) {
 }
 
 function buildConfirmationEmailHtml(data) {
-  const { guestName, bookingRef, unitNumber, towerName, stayDatesText, qrImageUrl, qrDataUrl, confirmationPageUrl } = data;
-  const qrSrc = qrDataUrl || qrImageUrl;
+  const { guestName, bookingRef, unitNumber, towerName, stayDatesText, qrImageUrl, qrDataUrl, confirmationPageUrl, logoUrl } = data;
   const viewInAppUrl = confirmationPageUrl || qrImageUrl;
   const primary = "#0098b2";
   const accent = "#7ed957";
@@ -842,6 +847,9 @@ function buildConfirmationEmailHtml(data) {
   const slate900 = "#0f172a";
   const slate500 = "#64748b";
   const slate400 = "#94a3b8";
+  const logoImg = logoUrl
+    ? `<img src="${escapeHtml(logoUrl)}" alt="Regalia" width="40" height="40" style="display:block;width:40px;height:40px;object-fit:contain;border-radius:8px;"/>`
+    : `<div style="width:40px;height:40px;background:rgba(0,152,178,0.2);border-radius:8px;text-align:center;line-height:40px;font-size:20px;font-weight:700;color:${primary};font-family:Inter,Helvetica,Arial,sans-serif;">R</div>`;
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -852,19 +860,22 @@ function buildConfirmationEmailHtml(data) {
 </head>
 <body style="margin:0;padding:0;background-color:${bgLight};font-family:Inter,Helvetica,Arial,sans-serif;color:${slate900};min-height:100vh;">
   <div style="max-width:800px;margin:0 auto;min-height:100vh;box-shadow:0 1px 3px rgba(0,0,0,0.08);background:#fff;">
-    <header style="display:flex;align-items:center;justify-content:space-between;padding:24px 32px;border-bottom:1px solid rgba(0,152,178,0.15);flex-wrap:wrap;gap:12px;">
-      <div style="display:flex;align-items:center;gap:12px;">
-        <div style="width:40px;height:40px;background:rgba(0,152,178,0.12);display:flex;align-items:center;justify-content:center;border-radius:8px;font-size:24px;">🏢</div>
-        <h1 style="margin:0;font-size:1.5rem;font-weight:700;letter-spacing:-0.025em;color:${slate900};">Regalia</h1>
-      </div>
-      <div style="font-size:14px;color:${slate500};">Booking Ref: #${bookingRef}</div>
+    <header style="padding:24px 32px;border-bottom:1px solid rgba(0,152,178,0.15);">
+      <table cellpadding="0" cellspacing="0" border="0" width="100%"><tr><td style="vertical-align:middle;">
+        <table cellpadding="0" cellspacing="0" border="0"><tr><td style="vertical-align:middle;padding-right:12px;">${logoImg}</td><td style="vertical-align:middle;">
+          <h1 style="margin:0 0 4px 0;font-size:1.5rem;font-weight:700;letter-spacing:-0.025em;color:${slate900};">Regalia</h1>
+          <div style="font-size:14px;color:${slate500};">Booking Ref: #${bookingRef}</div>
+        </td></tr></table>
+      </td></tr></table>
     </header>
     <main style="padding:40px 24px 40px 48px;">
-      <div style="text-align:center;margin-bottom:40px;">
-        <div style="display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;background:rgba(126,217,87,0.2);border-radius:9999px;margin-bottom:16px;font-size:40px;">✓</div>
-        <h2 style="margin:0 0 8px;font-size:2rem;font-weight:700;color:${slate900};">Booking Confirmed!</h2>
-        <p style="margin:0;color:${slate500};font-size:1.125rem;">Your stay at Regalia is officially reserved. We look forward to hosting you.</p>
-      </div>
+      <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:40px;"><tr><td style="text-align:center;vertical-align:top;">
+        <table cellpadding="0" cellspacing="0" border="0" align="center"><tr><td style="text-align:center;">
+          <div style="width:64px;height:64px;background:rgba(126,217,87,0.2);border-radius:9999px;margin:0 auto 16px;text-align:center;line-height:64px;font-size:40px;">✓</div>
+          <h2 style="margin:0 0 8px;font-size:2rem;font-weight:700;color:${slate900};">Booking Confirmed!</h2>
+          <p style="margin:0;color:${slate500};font-size:1.125rem;">Your stay at Regalia is officially reserved. We look forward to hosting you.</p>
+        </td></tr></table>
+      </td></tr></table>
       <div style="background:#fff;border:1px solid rgba(0,152,178,0.12);border-radius:12px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:40px;">
         <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:1px solid rgba(0,152,178,0.06);">
           <tr>
@@ -872,7 +883,7 @@ function buildConfirmationEmailHtml(data) {
               <h3 style="margin:0 0 16px;font-size:1.25rem;font-weight:700;">Your Digital Entry Pass</h3>
               <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 24px;">
                 <tr><td style="width:320px;height:320px;background:#fff;padding:20px;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">
-                  <img src="${qrSrc}" alt="Booking QR Code" width="280" height="280" style="display:block;width:280px;height:280px;max-width:280px;margin:0 auto;"/>
+                  <img src="${qrImageUrl}" alt="Booking QR Code" width="280" height="280" style="display:block;width:280px;height:280px;max-width:280px;margin:0 auto;"/>
                 </td></tr>
               </table>
               <p style="margin:0 0 24px;color:${slate500};font-size:14px;max-width:400px;margin-left:auto;margin-right:auto;">Scan this QR code at the tower entrance or lift lobby to gain access to the premises.</p>
