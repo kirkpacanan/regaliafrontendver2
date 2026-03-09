@@ -127,31 +127,40 @@
 
         <section class="stats section">
           <div class="stat-card">
-            <div class="label">Today’s Check-ins</div>
-            <div class="value" data-stats-today-checkins>0</div>
+            <div class="label">Today upcoming check-in</div>
+            <div class="value" data-stats-today-upcoming>0</div>
           </div>
           <div class="stat-card">
-            <div class="label">Today’s Check-outs</div>
-            <div class="value" data-stats-today-checkouts>0</div>
+            <div class="label">Checked in</div>
+            <div class="value" data-stats-checked-in>0</div>
           </div>
           <div class="stat-card">
-            <div class="label">Current Occupancy</div>
-            <div class="value" data-stats-occupancy>—</div>
+            <div class="label">Today checked out</div>
+            <div class="value" data-stats-today-checkedout>0</div>
           </div>
           <div class="stat-card highlight">
-            <div class="label">Assigned Property</div>
-            <div class="value" data-stats-property>—</div>
+            <div class="label">Current occupancy</div>
+            <div class="value" data-stats-occupancy>0</div>
           </div>
         </section>
 
         <section class="content-grid section">
           <div class="panel">
-            <h3>Upcoming Arrivals & Departures</h3>
+            <h3>Today: Upcoming &amp; movements</h3>
+            <p class="muted" style="margin:0 0 12px;font-size:13px;">Upcoming (not yet checked in) • Checked in • Departures</p>
             <div class="list" data-dashboard-movements></div>
           </div>
 
           <div class="panel">
-            <h3>Property Status</h3>
+            <h3>Checked in by room</h3>
+            <p class="muted" style="margin:0 0 12px;font-size:13px;">Who is in which room right now</p>
+            <div class="list" data-dashboard-checked-in-rooms></div>
+          </div>
+        </section>
+
+        <section class="content-grid section">
+          <div class="panel">
+            <h3>Property status</h3>
             <div class="list" data-dashboard-units></div>
           </div>
         </section>
@@ -234,47 +243,69 @@
         if (!R) return;
         R.getBookings().then(function (bookings) {
           var todayKey = R.toDateKey(new Date());
-          var todayCheckins = bookings.filter(function (b) { return b.status === "confirmed" && R.toDateKey(b.check_in_date) === todayKey; }).length;
-          var todayCheckouts = bookings.filter(function (b) { return b.status === "confirmed" && R.toDateKey(b.check_out_date) === todayKey; }).length;
+          var todayUpcoming = bookings.filter(function (b) {
+            return b.status === "confirmed" && R.toDateKey(b.check_in_date) === todayKey && !b.checked_in_at;
+          }).length;
+          var checkedIn = bookings.filter(function (b) {
+            return b.status === "confirmed" && b.checked_in_at && !b.checked_out_at;
+          });
+          var checkedInCount = checkedIn.length;
+          var todayCheckedOut = bookings.filter(function (b) {
+            return b.status === "confirmed" && b.checked_out_at && R.toDateKey(b.checked_out_at) === todayKey;
+          }).length;
           var confirmed = bookings.filter(function (b) { return b.status === "confirmed"; }).length;
           var pending = bookings.filter(function (b) { return b.status === "pending"; }).length;
-          var activeGuests = bookings.filter(function (b) { return b.status === "confirmed" && b.checked_in_at && !b.checked_out_at; }).length;
-          var towers = {};
-          bookings.forEach(function (b) { if (b.tower_name) towers[b.tower_name] = 1; });
-          var firstTower = Object.keys(towers)[0] || "—";
 
-          var el = document.querySelector("[data-stats-today-checkins]"); if (el) el.textContent = todayCheckins;
-          el = document.querySelector("[data-stats-today-checkouts]"); if (el) el.textContent = todayCheckouts;
-          el = document.querySelector("[data-stats-occupancy]"); if (el) el.textContent = activeGuests > 0 ? activeGuests + " in" : "—";
-          el = document.querySelector("[data-stats-property]"); if (el) el.textContent = firstTower;
+          var el = document.querySelector("[data-stats-today-upcoming]"); if (el) el.textContent = todayUpcoming;
+          el = document.querySelector("[data-stats-checked-in]"); if (el) el.textContent = checkedInCount;
+          el = document.querySelector("[data-stats-today-checkedout]"); if (el) el.textContent = todayCheckedOut;
+          el = document.querySelector("[data-stats-occupancy]"); if (el) el.textContent = checkedInCount;
           el = document.querySelector("[data-dashboard-booking-summary]"); if (el) el.textContent = confirmed + " confirmed • " + pending + " pending";
-          el = document.querySelector("[data-dashboard-guests-summary]"); if (el) el.textContent = activeGuests + " checked-in";
+          el = document.querySelector("[data-dashboard-guests-summary]"); if (el) el.textContent = checkedInCount + " checked-in";
 
           var movements = [];
-          bookings.filter(function (b) { return b.status === "confirmed"; }).slice(0, 20).forEach(function (b) {
-            if (R.toDateKey(b.check_in_date) === todayKey) movements.push({ type: "arrival", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name, time: "—" });
-            if (R.toDateKey(b.check_out_date) === todayKey) movements.push({ type: "departure", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name, time: "—" });
+          bookings.filter(function (b) { return b.status === "confirmed"; }).forEach(function (b) {
+            var ciToday = R.toDateKey(b.check_in_date) === todayKey;
+            var coToday = R.toDateKey(b.check_out_date) === todayKey;
+            var alreadyCheckedIn = !!b.checked_in_at && !b.checked_out_at;
+            if (ciToday) movements.push({ type: alreadyCheckedIn ? "checked-in" : "upcoming", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name });
+            if (coToday) movements.push({ type: "departure", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name });
           });
-          movements.sort(function (a, b) { return a.type === "arrival" ? -1 : 1; });
+          movements.sort(function (a, b) { return (a.type === "upcoming" ? 0 : a.type === "checked-in" ? 1 : 2) - (b.type === "upcoming" ? 0 : b.type === "checked-in" ? 1 : 2); });
           var listEl = document.querySelector("[data-dashboard-movements]");
           if (listEl) {
-            listEl.innerHTML = movements.slice(0, 8).map(function (m) {
-              var label = m.type === "arrival" ? "Arrival" : "Departure";
-              return "<div class=\"list-item\"><div>" + (m.name || "Guest") + " (Unit " + (m.unit || "—") + ")<small>" + label + "</small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"6 9 12 15 18 9\"></polyline></svg></span></div>";
+            listEl.innerHTML = movements.slice(0, 12).map(function (m) {
+              var label = m.type === "upcoming" ? "Today upcoming" : m.type === "checked-in" ? "Checked in" : "Departure";
+              var tag = m.type === "upcoming" ? "tag" : m.type === "checked-in" ? "tag status--occupied" : "tag";
+              return "<div class=\"list-item\"><div>" + (m.name || "Guest") + " (Unit " + (m.unit || "—") + ")<small><span class=\"" + tag + "\">" + label + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"6 9 12 15 18 9\"></polyline></svg></span></div>";
             }).join("") || "<div class=\"list-item\"><div>No movements today</div></div>";
+          }
+
+          listEl = document.querySelector("[data-dashboard-checked-in-rooms]");
+          if (listEl) {
+            listEl.innerHTML = checkedIn.length === 0
+              ? "<div class=\"list-item\"><div>No guests checked in</div></div>"
+              : checkedIn.map(function (b) {
+                  var room = (b.tower_name ? b.tower_name + " " : "") + "Unit " + (b.unit_number || b.unit_id);
+                  return "<div class=\"list-item\"><div><strong>" + (b.guest_name || "Guest") + "</strong><small>" + room + "</small></div><span class=\"status status--occupied\"><span class=\"dot\"></span>In</span></div>";
+                }).join("");
           }
 
           var unitMap = {};
           bookings.forEach(function (b) {
             var key = (b.tower_name || "") + "|" + (b.unit_number || b.unit_id);
             if (!key || key === "|") return;
-            unitMap[key] = unitMap[key] || { tower: b.tower_name, unit: b.unit_number || b.unit_id, occupied: false };
-            if (b.status === "confirmed" && b.checked_in_at && !b.checked_out_at) unitMap[key].occupied = true;
+            if (!unitMap[key]) unitMap[key] = { tower: b.tower_name, unit: b.unit_number || b.unit_id, occupied: false, guestName: null };
+            if (b.status === "confirmed" && b.checked_in_at && !b.checked_out_at) {
+              unitMap[key].occupied = true;
+              unitMap[key].guestName = b.guest_name || "Guest";
+            }
           });
-          var unitList = Object.keys(unitMap).slice(0, 10).map(function (k) {
+          var unitList = Object.keys(unitMap).slice(0, 20).map(function (k) {
             var u = unitMap[k];
             var status = u.occupied ? "status--occupied" : "status--available";
-            return "<div class=\"list-item\"><div>" + (u.tower || "—") + " (Unit " + u.unit + ")<div class=\"status " + status + "\"><span class=\"dot\"></span>" + (u.occupied ? "Occupied" : "Available") + "</div></div></div>";
+            var label = u.occupied ? "Occupied: " + (u.guestName || "Guest") : "Available";
+            return "<div class=\"list-item\"><div>" + (u.tower || "—") + " (Unit " + u.unit + ")<div class=\"status " + status + "\"><span class=\"dot\"></span>" + label + "</div></div></div>";
           }).join("");
           listEl = document.querySelector("[data-dashboard-units]");
           if (listEl) listEl.innerHTML = unitList || "<div class=\"list-item\"><div>No units</div></div>";

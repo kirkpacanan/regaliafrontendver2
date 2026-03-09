@@ -127,7 +127,8 @@
 
         <section class="panel-stack">
           <div class="panel">
-            <h3>Active Guests</h3>
+            <h3>Checked-in guests</h3>
+            <p class="muted" style="margin:0 0 12px;font-size:13px;"><span data-checked-in-count>0</span> guest(s) currently in-house</p>
             <div class="list" data-active-guests></div>
           </div>
 
@@ -147,12 +148,17 @@
           var active = bookings.filter(function (b) {
             return b.status === "confirmed" && b.checked_in_at && !b.checked_out_at;
           });
+          var countEl = document.querySelector("[data-checked-in-count]");
+          if (countEl) countEl.textContent = active.length;
           var listEl = document.querySelector("[data-active-guests]");
           if (listEl) {
+            var roomStr = function (b) {
+              return (b.tower_name ? b.tower_name + " " : "") + "Unit " + (b.unit_number || b.unit_id);
+            };
             listEl.innerHTML = active.length === 0
-              ? "<div class=\"list-item\"><div>No active guests</div></div>"
+              ? "<div class=\"list-item\"><div>No guests checked in</div></div>"
               : active.map(function (b) {
-                  return "<div class=\"list-item\"><div>" + (b.guest_name || "Guest") + "<small>Checked-in • Unit " + (b.unit_number || b.unit_id) + "</small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><circle cx=\"12\" cy=\"12\" r=\"9\"></circle></svg></span></div>";
+                  return "<div class=\"list-item\"><div><strong>" + (b.guest_name || "Guest") + "</strong><small>" + roomStr(b) + "</small></div><span class=\"status status--occupied\"><span class=\"dot\"></span>In</span></div>";
                 }).join("");
           }
           var vipEl = document.querySelector("[data-vip-alerts]");
