@@ -570,12 +570,19 @@ app.post("/api/bookings", async (req, res) => {
   }
 });
 
-// Serve QR code image for a booking (used in confirmation email so clients display it inline)
+// QR options: larger size and high error correction so scanners read reliably from screens/print
+const QR_OPTS = { type: "image/png", margin: 2, width: 320, errorCorrectionLevel: "H" };
+
+async function getQRDataUrl(bookingId) {
+  const payload = JSON.stringify({ booking_id: bookingId, type: "check-in" });
+  return await QRCode.toDataURL(payload, QR_OPTS);
+}
+
+// Serve QR code image for a booking (used for Download/View in App links)
 app.get("/api/bookings/:id/qr", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const payload = JSON.stringify({ booking_id: id, type: "check-in" });
-    const dataUrl = await QRCode.toDataURL(payload, { type: "image/png", margin: 2, width: 260 });
+    const dataUrl = await getQRDataUrl(id);
     const base64 = dataUrl.replace(/^data:image\/\w+;base64,/, "");
     const buffer = Buffer.from(base64, "base64");
     res.type("png").set("Cache-Control", "public, max-age=86400").send(buffer);
@@ -618,6 +625,7 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
         const senderName = process.env.BREVO_FROM_NAME || "Regalia";
         const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || "https://regalia-eon6.onrender.com";
         const qrImageUrl = baseUrl + "/api/bookings/" + id + "/qr";
+        const qrDataUrl = await getQRDataUrl(id);
         const bookingRef = "REG-" + String(id).padStart(5, "0");
         const checkInStr = formatDateForEmail(booking.check_in_date);
         const checkOutStr = formatDateForEmail(booking.check_out_date);
@@ -630,6 +638,7 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
           towerName: escapeHtml(booking.tower_name || "—"),
           stayDatesText: escapeHtml(stayDatesText),
           qrImageUrl,
+          qrDataUrl,
         });
         const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
           method: "POST",
@@ -685,6 +694,7 @@ app.post("/api/bookings/:id/resend-qr", async (req, res) => {
     }
     const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || "https://regalia-eon6.onrender.com";
     const qrImageUrl = baseUrl + "/api/bookings/" + id + "/qr";
+    const qrDataUrl = await getQRDataUrl(id);
     const bookingRef = "REG-" + String(id).padStart(5, "0");
     const checkInStr = formatDateForEmail(booking.check_in_date);
     const checkOutStr = formatDateForEmail(booking.check_out_date);
@@ -697,6 +707,7 @@ app.post("/api/bookings/:id/resend-qr", async (req, res) => {
       towerName: escapeHtml(booking.tower_name || "—"),
       stayDatesText: escapeHtml(stayDatesText),
       qrImageUrl,
+      qrDataUrl,
     });
     const senderEmail = process.env.BREVO_FROM_EMAIL || "regalia@example.com";
     const senderName = process.env.BREVO_FROM_NAME || "Regalia";
@@ -734,7 +745,8 @@ function getNights(checkIn, checkOut) {
 }
 
 function buildConfirmationEmailHtml(data) {
-  const { guestName, bookingRef, unitNumber, towerName, stayDatesText, qrImageUrl } = data;
+  const { guestName, bookingRef, unitNumber, towerName, stayDatesText, qrImageUrl, qrDataUrl } = data;
+  const qrSrc = qrDataUrl || qrImageUrl;
   const primary = "#0098b2";
   const accent = "#7ed957";
   const bgLight = "#f5f8f8";
@@ -765,12 +777,12 @@ function buildConfirmationEmailHtml(data) {
         <p style="margin:0;color:${slate500};font-size:1.125rem;">Your stay at Regalia is officially reserved. We look forward to hosting you.</p>
       </div>
       <div style="background:#fff;border:1px solid rgba(0,152,178,0.12);border-radius:12px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:40px;">
-        <div style="padding:32px;display:flex;flex-direction:column;align-items:center;border-bottom:1px solid rgba(0,152,178,0.06);">
-          <div style="width:192px;height:192px;background:#fff;padding:16px;border:2px solid #f1f5f9;border-radius:12px;margin-bottom:24px;">
-            <img src="${qrImageUrl}" alt="Booking QR Code" width="160" height="160" style="display:block;width:100%;height:100%;object-fit:contain;"/>
+        <div style="padding:40px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:1px solid rgba(0,152,178,0.06);">
+          <h3 style="margin:0 0 16px;font-size:1.25rem;font-weight:700;">Your Digital Entry Pass</h3>
+          <div style="width:320px;height:320px;background:#fff;padding:20px;border:2px solid #e2e8f0;border-radius:12px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;">
+            <img src="${qrSrc}" alt="Booking QR Code" width="280" height="280" style="display:block;width:280px;height:280px;object-fit:contain;"/>
           </div>
-          <h3 style="margin:0 0 4px;font-size:1.25rem;font-weight:700;">Your Digital Entry Pass</h3>
-          <p style="margin:0 0 20px;color:${slate500};text-align:center;font-size:14px;max-width:360px;">Scan this QR code at the tower entrance or lift lobby to gain access to the premises.</p>
+          <p style="margin:0 0 24px;color:${slate500};font-size:14px;max-width:400px;">Scan this QR code at the tower entrance or lift lobby to gain access to the premises.</p>
           <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
             <tr>
               <td style="padding:0 8px 0 0;"><a href="${qrImageUrl}" download="regalia-entry-pass.png" style="display:inline-block;background:linear-gradient(90deg,#0098b2 0%,#7ed957 100%);color:#fff!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">Download Pass</a></td>
