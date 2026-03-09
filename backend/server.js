@@ -633,6 +633,49 @@ app.get("/booking/confirmation/:id", async (req, res) => {
   }
 });
 
+// Preview confirmation email HTML in browser (no email sent – use for testing layout/QR)
+app.get("/api/bookings/:id/email-preview", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [rows] = await db.promise().query(
+      `SELECT b.booking_id, b.guest_name, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
+       FROM BOOKING b
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE b.booking_id = ?`,
+      [id]
+    );
+    if (!rows || rows.length === 0) {
+      res.status(404).send("Booking not found.");
+      return;
+    }
+    const booking = rows[0];
+    const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || ("https://" + (req.get("host") || "localhost"));
+    const qrImageUrl = baseUrl + "/api/bookings/" + id + "/qr";
+    const confirmationPageUrl = baseUrl + "/booking/confirmation/" + id;
+    const qrDataUrl = await getQRDataUrl(id);
+    const bookingRef = "REG-" + String(id).padStart(5, "0");
+    const checkInStr = formatDateForEmail(booking.check_in_date);
+    const checkOutStr = formatDateForEmail(booking.check_out_date);
+    const nights = getNights(booking.check_in_date, booking.check_out_date);
+    const stayDatesText = nights > 0 ? checkInStr + " — " + checkOutStr + " (" + nights + " Night" + (nights !== 1 ? "s" : "") + ")" : checkInStr + " — " + checkOutStr;
+    const html = buildConfirmationEmailHtml({
+      guestName: escapeHtml(booking.guest_name || "Guest"),
+      bookingRef,
+      unitNumber: escapeHtml(booking.unit_number || "—"),
+      towerName: escapeHtml(booking.tower_name || "—"),
+      stayDatesText: escapeHtml(stayDatesText),
+      qrImageUrl,
+      qrDataUrl,
+      confirmationPageUrl,
+    });
+    res.type("html").set("X-Robots-Tag", "noindex").send(html);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Failed to generate email preview.");
+  }
+});
+
 app.put("/api/bookings/:id/confirm", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -823,19 +866,25 @@ function buildConfirmationEmailHtml(data) {
         <p style="margin:0;color:${slate500};font-size:1.125rem;">Your stay at Regalia is officially reserved. We look forward to hosting you.</p>
       </div>
       <div style="background:#fff;border:1px solid rgba(0,152,178,0.12);border-radius:12px;box-shadow:0 10px 15px -3px rgba(0,0,0,0.06);overflow:hidden;margin-bottom:40px;">
-        <div style="padding:40px 32px;display:flex;flex-direction:column;align-items:center;text-align:center;border-bottom:1px solid rgba(0,152,178,0.06);">
-          <h3 style="margin:0 0 16px;font-size:1.25rem;font-weight:700;">Your Digital Entry Pass</h3>
-          <div style="width:320px;height:320px;background:#fff;padding:20px;border:2px solid #e2e8f0;border-radius:12px;margin:0 auto 24px;display:flex;align-items:center;justify-content:center;box-sizing:border-box;">
-            <img src="${qrSrc}" alt="Booking QR Code" width="280" height="280" style="display:block;width:280px;height:280px;object-fit:contain;"/>
-          </div>
-          <p style="margin:0 0 24px;color:${slate500};font-size:14px;max-width:400px;">Scan this QR code at the tower entrance or lift lobby to gain access to the premises.</p>
-          <table cellpadding="0" cellspacing="0" border="0" style="margin:0 auto;">
-            <tr>
-              <td style="padding:0 8px 0 0;"><a href="${qrImageUrl}" download="regalia-entry-pass.png" style="display:inline-block;background:linear-gradient(90deg,#0098b2 0%,#7ed957 100%);color:#fff!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">Download Pass</a></td>
-              <td style="padding:0 0 0 8px;"><a href="${viewInAppUrl}" target="_blank" style="display:inline-block;background:#e2e8f0;color:#334155!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">View in App</a></td>
-            </tr>
-          </table>
-        </div>
+        <table cellpadding="0" cellspacing="0" border="0" width="100%" style="border-bottom:1px solid rgba(0,152,178,0.06);">
+          <tr>
+            <td style="padding:40px 32px;text-align:center;">
+              <h3 style="margin:0 0 16px;font-size:1.25rem;font-weight:700;">Your Digital Entry Pass</h3>
+              <table cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 24px;">
+                <tr><td style="width:320px;height:320px;background:#fff;padding:20px;border:2px solid #e2e8f0;border-radius:12px;text-align:center;">
+                  <img src="${qrSrc}" alt="Booking QR Code" width="280" height="280" style="display:block;width:280px;height:280px;max-width:280px;margin:0 auto;"/>
+                </td></tr>
+              </table>
+              <p style="margin:0 0 24px;color:${slate500};font-size:14px;max-width:400px;margin-left:auto;margin-right:auto;">Scan this QR code at the tower entrance or lift lobby to gain access to the premises.</p>
+              <table cellpadding="0" cellspacing="0" border="0" align="center">
+                <tr>
+                  <td style="padding:0 8px 0 0;"><a href="${qrImageUrl}" download="regalia-entry-pass.png" style="display:inline-block;background:linear-gradient(90deg,#0098b2 0%,#7ed957 100%);color:#fff!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">Download Pass</a></td>
+                  <td style="padding:0 0 0 8px;"><a href="${viewInAppUrl}" target="_blank" style="display:inline-block;background:#e2e8f0;color:#334155!important;padding:12px 24px;border-radius:8px;font-weight:600;text-decoration:none;font-size:14px;">View in App</a></td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
         <div style="padding:32px;background:rgba(0,152,178,0.05);">
           <h4 style="margin:0 0 24px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:${primary};">Booking Details</h4>
           <table style="width:100%;border-collapse:collapse;">
