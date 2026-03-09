@@ -282,14 +282,17 @@
         }
 
         function tryDecodeFromVideo() {
-          if (!scanVideo || !scanVideo.videoWidth || !window.jsQR) return;
+          if (!scanVideo || !window.jsQR) return;
+          if (!scanVideo.videoWidth || !scanVideo.videoHeight) return;
+          var w = scanVideo.videoWidth;
+          var h = scanVideo.videoHeight;
           var canvas = document.createElement("canvas");
-          canvas.width = scanVideo.videoWidth;
-          canvas.height = scanVideo.videoHeight;
+          canvas.width = w;
+          canvas.height = h;
           var ctx = canvas.getContext("2d");
-          ctx.drawImage(scanVideo, 0, 0);
-          var imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          var code = jsQR(imageData.data, imageData.width, imageData.height);
+          ctx.drawImage(scanVideo, 0, 0, w, h);
+          var imageData = ctx.getImageData(0, 0, w, h);
+          var code = jsQR(imageData.data, w, h, { inversionAttempts: "attemptBoth" });
           if (code && code.data) {
             try {
               var data = JSON.parse(code.data);
@@ -302,19 +305,39 @@
           }
         }
 
+        function startDecodeLoop() {
+          if (scanInterval) return;
+          scanInterval = setInterval(tryDecodeFromVideo, 250);
+        }
+
         function startScan() {
           if (!scanVideo || !scanFrame) return;
           scanFrame.classList.add("is-scanning");
           if (scanStatus) scanStatus.textContent = "Starting camera...";
-          navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false }).then(function (s) {
-            stream = s;
-            scanVideo.srcObject = stream;
-            scanVideo.play();
-            if (scanStatus) scanStatus.textContent = "Scanning... hold QR steady.";
-            scanInterval = setInterval(tryDecodeFromVideo, 300);
-          }).catch(function () {
-            if (scanStatus) scanStatus.textContent = "Camera blocked. Use Manual Lookup or Upload QR.";
-          });
+          var tryMedia = function (constraints) {
+            return navigator.mediaDevices.getUserMedia(constraints || { video: { facingMode: "environment" }, audio: false });
+          };
+          tryMedia()
+            .catch(function () { return tryMedia({ video: true, audio: false }); })
+            .then(function (s) {
+              stream = s;
+              scanVideo.srcObject = stream;
+              scanVideo.play();
+              if (scanStatus) scanStatus.textContent = "Waiting for camera...";
+              function whenReady() {
+                if (scanVideo.videoWidth > 0 && scanVideo.videoHeight > 0) {
+                  if (scanStatus) scanStatus.textContent = "Scanning... hold QR steady in frame.";
+                  startDecodeLoop();
+                  return;
+                }
+                setTimeout(whenReady, 100);
+              }
+              scanVideo.addEventListener("loadeddata", whenReady, { once: true });
+              setTimeout(whenReady, 300);
+            })
+            .catch(function () {
+              if (scanStatus) scanStatus.textContent = "Camera blocked. Use Manual Lookup or Upload QR.";
+            });
         }
 
         function stopScan() {
@@ -348,7 +371,7 @@
               ctx.drawImage(img, 0, 0);
               try {
                 var d = ctx.getImageData(0, 0, c.width, c.height);
-                var code = jsQR(d.data, d.width, d.height);
+                var code = jsQR(d.data, d.width, d.height, { inversionAttempts: "attemptBoth" });
                 if (code && code.data) {
                   var data = JSON.parse(code.data);
                   if (data.booking_id) handleScannedPayload(data);
