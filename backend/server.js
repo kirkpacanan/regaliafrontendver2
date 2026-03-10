@@ -483,7 +483,43 @@ app.get("/api/bookings", async (req, res) => {
   }
 });
 
-// Staff: list rooms (bookings) available for walk-in guest registration
+// Staff: list all rooms (units) with Available / Not available; for walk-in QR use rooms that have a booking
+app.get("/api/rooms/with-availability", async (req, res) => {
+  try {
+    const [units] = await db.promise().query(
+      `SELECT u.unit_id, u.unit_number, t.tower_name
+       FROM UNIT u
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       ORDER BY t.tower_name, u.unit_number`
+    );
+    const [bookings] = await db.promise().query(
+      `SELECT booking_id, unit_id, guest_name FROM BOOKING
+       WHERE status = 'confirmed' AND (check_out_date IS NULL OR check_out_date >= CURDATE())`
+    );
+    const byUnit = {};
+    (bookings || []).forEach((b) => { byUnit[b.unit_id] = b; });
+    const list = (units || []).map((u) => {
+      const b = byUnit[u.unit_id];
+      const available = !b;
+      return {
+        unit_id: u.unit_id,
+        unit_number: u.unit_number,
+        tower_name: u.tower_name,
+        available,
+        booking_id: b ? b.booking_id : null,
+        guest_name: b ? b.guest_name : null,
+        ref: b ? "REG-" + String(b.booking_id).padStart(5, "0") : null,
+        label: [u.tower_name, u.unit_number].filter(Boolean).join(" • ") || "Unit " + u.unit_id,
+      };
+    });
+    res.json(list);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch rooms" });
+  }
+});
+
+// Staff: list rooms (bookings) available for walk-in guest registration (kept for backward compatibility)
 app.get("/api/bookings/available-for-walkin", async (req, res) => {
   try {
     const [rows] = await db.promise().query(
