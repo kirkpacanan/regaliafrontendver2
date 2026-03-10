@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Guest Registration | Regalia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <style>
+      :root { --teal: #1e9db1; --green: #7acb59; --panel: rgba(255,255,255,0.22); --text: #fff; --muted: rgba(255,255,255,0.9); }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: Poppins, system-ui, sans-serif; min-height: 100vh; color: var(--text); background: linear-gradient(90deg, var(--teal), var(--green)); padding: 2rem 1rem; }
+      .page { max-width: 440px; margin: 0 auto; }
+      .hero { text-align: center; margin-bottom: 1.5rem; }
+      .hero h1 { margin: 0 0 0.25rem; font-size: 1.5rem; }
+      .hero p { margin: 0; font-size: 0.9rem; color: var(--muted); }
+      .card { background: var(--panel); border-radius: 16px; padding: 1.5rem; box-shadow: 0 12px 24px rgba(0,0,0,0.12); }
+      .card h2 { margin: 0 0 1rem; font-size: 1.1rem; }
+      .form-group { margin-bottom: 1rem; }
+      .form-group label { display: block; margin-bottom: 0.35rem; font-size: 0.85rem; color: var(--muted); }
+      .form-group input { width: 100%; padding: 0.6rem 0.75rem; border: 1px solid rgba(255,255,255,0.35); border-radius: 10px; background: rgba(255,255,255,0.15); color: #fff; font-size: 1rem; }
+      .form-group input::placeholder { color: rgba(255,255,255,0.6); }
+      .btn { display: inline-block; padding: 0.75rem 1.5rem; border-radius: 10px; font-weight: 600; font-size: 1rem; cursor: pointer; border: none; width: 100%; margin-top: 0.5rem; }
+      .btn-primary { background: linear-gradient(90deg, var(--teal), var(--green)); color: #fff; }
+      .btn-primary:disabled { opacity: 0.7; cursor: not-allowed; }
+      .booking-info { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.25rem; padding: 0.75rem; background: rgba(0,0,0,0.1); border-radius: 10px; }
+      .msg { padding: 1rem; border-radius: 10px; text-align: center; margin-top: 1rem; }
+      .msg.success { background: rgba(126, 217, 87, 0.3); }
+      .msg.error { background: rgba(255, 100, 100, 0.25); }
+      .loading { text-align: center; color: var(--muted); padding: 2rem; }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="hero">
+        <h1>Regalia</h1>
+        <p>Guest registration</p>
+      </div>
+      <div id="loading" class="card loading">Loading…</div>
+      <div id="error" class="card msg error" style="display:none;"></div>
+      <div id="form-card" class="card" style="display:none;">
+        <h2>Register as guest</h2>
+        <div id="booking-info" class="booking-info"></div>
+        <form id="reg-form">
+          <div class="form-group">
+            <label for="full_name">Full name *</label>
+            <input type="text" id="full_name" name="full_name" required placeholder="Your full name" />
+          </div>
+          <div class="form-group">
+            <label for="email">Email</label>
+            <input type="email" id="email" name="email" placeholder="email@example.com" />
+          </div>
+          <div class="form-group">
+            <label for="contact_number">Contact number</label>
+            <input type="tel" id="contact_number" name="contact_number" placeholder="+1 234 567 8900" />
+          </div>
+          <button type="submit" class="btn btn-primary" id="submit-btn">Register</button>
+        </form>
+        <div id="form-msg" class="msg" style="display:none;"></div>
+      </div>
+      <div id="success-card" class="card msg success" style="display:none;">
+        <strong>You are registered.</strong><br />Present yourself at check-in.
+      </div>
+    </div>
+    <script>
+      (function () {
+        var API = (function () {
+          var origin = window.location.origin;
+          return origin.replace(/\/$/, "") + "/api";
+        })();
+        var params = new URLSearchParams(window.location.search);
+        var token = params.get("token") || "";
+        var bookingId = params.get("booking_id") || "";
+
+        var loadingEl = document.getElementById("loading");
+        var errorEl = document.getElementById("error");
+        var formCard = document.getElementById("form-card");
+        var successCard = document.getElementById("success-card");
+        var bookingInfoEl = document.getElementById("booking-info");
+        var form = document.getElementById("reg-form");
+        var formMsg = document.getElementById("form-msg");
+        var submitBtn = document.getElementById("submit-btn");
+
+        function showLoading() {
+          loadingEl.style.display = "block";
+          errorEl.style.display = "none";
+          formCard.style.display = "none";
+          successCard.style.display = "none";
+        }
+        function showError(msg) {
+          loadingEl.style.display = "none";
+          formCard.style.display = "none";
+          successCard.style.display = "none";
+          errorEl.style.display = "block";
+          errorEl.textContent = msg;
+        }
+        function showForm(info) {
+          loadingEl.style.display = "none";
+          errorEl.style.display = "none";
+          successCard.style.display = "none";
+          formCard.style.display = "block";
+          if (bookingInfoEl && info) {
+            var unit = info.unit || "—";
+            var tower = info.tower || "—";
+            var ref = info.booking_ref || "";
+            bookingInfoEl.innerHTML = "Booking " + (ref ? "#" + ref + " • " : "") + tower + " Unit " + unit;
+          }
+        }
+        function showSuccess() {
+          loadingEl.style.display = "none";
+          errorEl.style.display = "none";
+          formCard.style.display = "none";
+          successCard.style.display = "block";
+        }
+
+        if (!token && !bookingId) {
+          showError("Invalid link. Use the QR code or link provided by staff or the booker.");
+          loadingEl.style.display = "none";
+          return;
+        }
+
+        var query = token ? "?token=" + encodeURIComponent(token) : "?booking_id=" + encodeURIComponent(bookingId);
+        fetch(API + "/guest-register" + query)
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            if (data.error) {
+              showError(data.error);
+              return;
+            }
+            showForm(data);
+          })
+          .catch(function () {
+            showError("Could not load registration. Check your link.");
+          });
+
+        if (form) {
+          form.addEventListener("submit", function (e) {
+            e.preventDefault();
+            var payload = {
+              full_name: (document.getElementById("full_name") || {}).value.trim(),
+              email: (document.getElementById("email") || {}).value.trim() || undefined,
+              contact_number: (document.getElementById("contact_number") || {}).value.trim() || undefined,
+            };
+            if (token) payload.token = token;
+            if (bookingId) payload.booking_id = bookingId;
+            if (!payload.full_name) {
+              formMsg.style.display = "block";
+              formMsg.className = "msg error";
+              formMsg.textContent = "Full name is required.";
+              return;
+            }
+            submitBtn.disabled = true;
+            formMsg.style.display = "none";
+            fetch(API + "/guest-register", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload),
+            })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.error) {
+                  formMsg.style.display = "block";
+                  formMsg.className = "msg error";
+                  formMsg.textContent = data.error;
+                  submitBtn.disabled = false;
+                  return;
+                }
+                showSuccess();
+              })
+              .catch(function () {
+                formMsg.style.display = "block";
+                formMsg.className = "msg error";
+                formMsg.textContent = "Registration failed. Try again.";
+                submitBtn.disabled = false;
+              });
+          });
+        }
+      })();
+    </script>
+  </body>
+</html>

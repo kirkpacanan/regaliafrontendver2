@@ -67,14 +67,6 @@
             </span>
             Guests
           </a>
-          <a href="./messages.html">
-            <span class="icon">
-              <svg viewBox="0 0 24 24">
-                <path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"></path>
-              </svg>
-            </span>
-            Messages
-          </a>
         </nav>
         <div class="sidebar-footer">
           <a href="#">
@@ -206,8 +198,31 @@
               </div>
               <button class="btn ghost" data-resend-qr>Resend</button>
             </div>
+            <div class="quick-card">
+              <div class="quick-icon">
+                <svg viewBox="0 0 24 24">
+                  <path d="M7 3H3v4M7 21H3v-4M17 3h4v4M17 21h4v-4"></path>
+                  <path d="M7 7h4v4H7zM13 13h4v4h-4z"></path>
+                </svg>
+              </div>
+              <div>
+                <strong>Generate QR for guest authorization</strong>
+                <p class="muted">Guest scans to open the authorization form and register.</p>
+              </div>
+              <button class="btn ghost" data-walkin-qr>Generate QR</button>
+            </div>
           </div>
         </section>
+
+        <div class="modal-overlay" id="walkin-modal" aria-hidden="true" style="display:none;">
+          <div class="modal" style="max-width:420px;text-align:center;">
+            <h3 style="margin:0 0 8px;">Guest authorization QR</h3>
+            <p class="muted" style="margin:0 0 16px;font-size:14px;">Guest scans this to open the authorization form. Link expires in 15 min.</p>
+            <div data-walkin-qr-image style="margin:0 auto 16px;width:240px;height:240px;background:#fff;border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:center;"></div>
+            <p class="muted" style="margin:0 0 16px;font-size:12px;word-break:break-all;" data-walkin-url></p>
+            <button type="button" class="btn ghost" data-walkin-close>Close</button>
+          </div>
+        </div>
 
         <section class="panel recent-section">
           <h3>Recent Scans</h3>
@@ -259,18 +274,32 @@
           fetch(API + "/bookings/" + id).then(function (r) { return r.ok ? r.json() : null; }).then(function (booking) {
             if (!booking) { if (scanStatus) scanStatus.textContent = "Booking not found."; return; }
             if (booking.status !== "confirmed") { if (scanStatus) scanStatus.textContent = "Booking not confirmed."; return; }
+            function showGuestsAndStatus(msg, guests) {
+              if (scanStatus) {
+                var names = guests && guests.length ? guests.map(function (g) { return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name; }).join(", ");
+                scanStatus.textContent = names ? msg + " Authorized guests: " + names : msg;
+              }
+            }
             var checkedIn = !!booking.checked_in_at;
             var checkedOut = !!booking.checked_out_at;
             if (!checkedIn) {
               R.postCheckIn(id).then(function () {
-                if (scanStatus) scanStatus.textContent = "Check-in recorded: " + (booking.guest_name || "Guest");
+                fetch(API + "/bookings/" + id + "/guests").then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
+                  showGuestsAndStatus("Check-in recorded: " + (booking.guest_name || "Guest") + ".", guests);
+                }).catch(function () {
+                  if (scanStatus) scanStatus.textContent = "Check-in recorded: " + (booking.guest_name || "Guest");
+                });
                 addRecentScan(booking);
               }).catch(function (e) {
                 if (scanStatus) scanStatus.textContent = e.message || "Check-in failed";
               });
             } else if (!checkedOut) {
               R.postCheckOut(id).then(function () {
-                if (scanStatus) scanStatus.textContent = "Check-out recorded: " + (booking.guest_name || "Guest");
+                fetch(API + "/bookings/" + id + "/guests").then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
+                  showGuestsAndStatus("Check-out recorded: " + (booking.guest_name || "Guest") + ".", guests);
+                }).catch(function () {
+                  if (scanStatus) scanStatus.textContent = "Check-out recorded: " + (booking.guest_name || "Guest");
+                });
                 addRecentScan(booking);
               }).catch(function (e) {
                 if (scanStatus) scanStatus.textContent = e.message || "Check-out failed";
@@ -420,6 +449,54 @@
             var id = refMatch ? parseInt(refMatch[1], 10) : parseInt(idStr, 10);
             if (!id) { alert("Invalid ID."); return; }
             R.resendQr(id).then(function () { alert("QR email resent."); }).catch(function (e) { alert(e.message || "Failed"); });
+          });
+        }
+
+        var walkinModal = document.getElementById("walkin-modal");
+        var walkinQrImage = document.querySelector("[data-walkin-qr-image]");
+        var walkinUrlEl = document.querySelector("[data-walkin-url]");
+        var walkinBtn = document.querySelector("[data-walkin-qr]");
+        if (walkinBtn && walkinModal) {
+          walkinBtn.addEventListener("click", function () {
+            var idStr = prompt("Booking ID or ref for walk-in (e.g. 8 or REG-00008):");
+            if (!idStr) return;
+            var refMatch = idStr.trim().match(/reg-?(\d+)/i);
+            var id = refMatch ? parseInt(refMatch[1], 10) : parseInt(idStr, 10);
+            if (!id) { alert("Invalid ID."); return; }
+            fetch(API + "/walkin-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: id }) })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.error) { alert(data.error); return; }
+                if (walkinQrImage) {
+                  walkinQrImage.innerHTML = "";
+                  var img = document.createElement("img");
+                  img.src = data.qrDataUrl || "";
+                  img.alt = "Walk-in registration QR";
+                  img.style.width = "100%";
+                  img.style.height = "100%";
+                  img.style.objectFit = "contain";
+                  walkinQrImage.appendChild(img);
+                }
+                if (walkinUrlEl) walkinUrlEl.textContent = data.registerUrl || "";
+                walkinModal.style.display = "flex";
+                walkinModal.setAttribute("aria-hidden", "false");
+              })
+              .catch(function (e) { alert(e.message || "Failed to generate QR"); });
+          });
+        }
+        var walkinClose = document.querySelector("[data-walkin-close]");
+        if (walkinClose && walkinModal) {
+          walkinClose.addEventListener("click", function () {
+            walkinModal.style.display = "none";
+            walkinModal.setAttribute("aria-hidden", "true");
+          });
+        }
+        if (walkinModal) {
+          walkinModal.addEventListener("click", function (e) {
+            if (e.target === walkinModal) {
+              walkinModal.style.display = "none";
+              walkinModal.setAttribute("aria-hidden", "true");
+            }
           });
         }
 
