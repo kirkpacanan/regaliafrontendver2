@@ -198,26 +198,33 @@
               </div>
               <button class="btn ghost" data-resend-qr>Resend</button>
             </div>
-            <div class="quick-card">
+            <div class="quick-card walkin-card">
               <div class="quick-icon">
                 <svg viewBox="0 0 24 24">
                   <path d="M7 3H3v4M7 21H3v-4M17 3h4v4M17 21h4v-4"></path>
                   <path d="M7 7h4v4H7zM13 13h4v4h-4z"></path>
                 </svg>
               </div>
-              <div>
-                <strong>Generate QR for guest authorization</strong>
-                <p class="muted">Guest scans to open the authorization form and register.</p>
+              <div class="walkin-form">
+                <strong>Generate QR for walk-in</strong>
+                <p class="muted">Pick a room, then generate a QR. Guest scans to open the registration form for that room.</p>
+                <div class="form-group walkin-room-select">
+                  <label for="walkin-room">Available room</label>
+                  <select id="walkin-room" data-walkin-room aria-label="Select room for walk-in">
+                    <option value="">— Select room —</option>
+                  </select>
+                </div>
+                <button class="btn ghost" data-walkin-qr disabled>Generate QR</button>
               </div>
-              <button class="btn ghost" data-walkin-qr>Generate QR</button>
             </div>
           </div>
         </section>
 
         <div class="modal-overlay" id="walkin-modal" aria-hidden="true" style="display:none;">
           <div class="modal" style="max-width:420px;text-align:center;">
-            <h3 style="margin:0 0 8px;">Guest authorization QR</h3>
-            <p class="muted" style="margin:0 0 16px;font-size:14px;">Guest scans this to open the authorization form. Link expires in 15 min.</p>
+            <h3 style="margin:0 0 8px;">Walk-in guest registration QR</h3>
+            <p class="muted" style="margin:0 0 8px;font-size:14px;font-weight:500;" data-walkin-room-label></p>
+            <p class="muted" style="margin:0 0 16px;font-size:14px;">Guest scans to open the registration form for this room. Link expires in 15 min.</p>
             <div data-walkin-qr-image style="margin:0 auto 16px;width:240px;height:240px;background:#fff;border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:center;"></div>
             <p class="muted" style="margin:0 0 16px;font-size:12px;word-break:break-all;" data-walkin-url></p>
             <button type="button" class="btn ghost" data-walkin-close>Close</button>
@@ -455,17 +462,56 @@
         var walkinModal = document.getElementById("walkin-modal");
         var walkinQrImage = document.querySelector("[data-walkin-qr-image]");
         var walkinUrlEl = document.querySelector("[data-walkin-url]");
+        var walkinRoomLabelEl = document.querySelector("[data-walkin-room-label]");
+        var walkinRoomSelect = document.getElementById("walkin-room") || document.querySelector("[data-walkin-room]");
         var walkinBtn = document.querySelector("[data-walkin-qr]");
+        var availableRooms = [];
+
+        function esc(s) {
+          return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+        }
+        function loadWalkinRooms() {
+          if (!walkinRoomSelect) return;
+          fetch(API + "/bookings/available-for-walkin")
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (list) {
+              availableRooms = list || [];
+              var opts = availableRooms.map(function (r) {
+                var label = (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || r.booking_id) + " (" + (r.ref || "") + ")";
+                if (r.guest_name) label += " — " + r.guest_name;
+                return "<option value=\"" + r.booking_id + "\" data-label=\"" + esc(r.label || label) + "\">" + esc(label) + "</option>";
+              });
+              walkinRoomSelect.innerHTML = "<option value=\"\">— Select room —</option>" + opts.join("");
+              updateWalkinButton();
+            })
+            .catch(function () { walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms loaded —</option>"; });
+        }
+        function updateWalkinButton() {
+          if (walkinBtn && walkinRoomSelect) walkinBtn.disabled = !walkinRoomSelect.value;
+        }
+        if (walkinRoomSelect) {
+          walkinRoomSelect.addEventListener("change", updateWalkinButton);
+          loadWalkinRooms();
+        }
+
         if (walkinBtn && walkinModal) {
           walkinBtn.addEventListener("click", function () {
-            var idStr = prompt("Booking ID or ref for walk-in (e.g. 8 or REG-00008):");
-            if (!idStr) return;
-            var refMatch = idStr.trim().match(/reg-?(\d+)/i);
-            var id = refMatch ? parseInt(refMatch[1], 10) : parseInt(idStr, 10);
-            if (!id) { alert("Invalid ID."); return; }
+            var id = walkinRoomSelect ? parseInt(walkinRoomSelect.value, 10) : 0;
+            if (!id) { alert("Please select a room first."); return; }
+            var roomLabel = "";
+            if (walkinRoomSelect && walkinRoomSelect.selectedIndex >= 0) {
+              var opt = walkinRoomSelect.options[walkinRoomSelect.selectedIndex];
+              roomLabel = opt ? (opt.getAttribute("data-label") || opt.text) : "";
+            }
+            if (!roomLabel && availableRooms.length) {
+              var r = availableRooms.find(function (x) { return x.booking_id === id; });
+              roomLabel = r ? (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || id) : "Room #" + id;
+            }
+            walkinBtn.disabled = true;
             fetch(API + "/walkin-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: id }) })
               .then(function (r) { return r.json(); })
               .then(function (data) {
+                walkinBtn.disabled = false;
                 if (data.error) { alert(data.error); return; }
                 if (walkinQrImage) {
                   walkinQrImage.innerHTML = "";
@@ -478,10 +524,14 @@
                   walkinQrImage.appendChild(img);
                 }
                 if (walkinUrlEl) walkinUrlEl.textContent = data.registerUrl || "";
+                if (walkinRoomLabelEl) walkinRoomLabelEl.textContent = roomLabel ? "For: " + roomLabel : "";
                 walkinModal.style.display = "flex";
                 walkinModal.setAttribute("aria-hidden", "false");
               })
-              .catch(function (e) { alert(e.message || "Failed to generate QR"); });
+              .catch(function (e) {
+                walkinBtn.disabled = false;
+                alert(e.message || "Failed to generate QR");
+              });
           });
         }
         var walkinClose = document.querySelector("[data-walkin-close]");

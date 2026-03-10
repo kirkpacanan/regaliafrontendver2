@@ -483,6 +483,36 @@ app.get("/api/bookings", async (req, res) => {
   }
 });
 
+// Staff: list rooms (bookings) available for walk-in guest registration
+app.get("/api/bookings/available-for-walkin", async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT b.booking_id, b.unit_id, b.guest_name, b.check_in_date, b.check_out_date,
+              u.unit_number, u.unit_type, t.tower_name
+       FROM BOOKING b
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE b.status = 'confirmed' AND (b.check_out_date IS NULL OR b.check_out_date >= CURDATE())
+       ORDER BY b.check_in_date ASC, b.booking_id ASC`
+    );
+    const list = (rows || []).map((r) => ({
+      booking_id: r.booking_id,
+      guest_name: r.guest_name,
+      check_in_date: r.check_in_date,
+      check_out_date: r.check_out_date,
+      unit_number: r.unit_number,
+      unit_type: r.unit_type,
+      tower_name: r.tower_name,
+      label: [r.tower_name, r.unit_number].filter(Boolean).join(" • ") || "Unit " + (r.unit_id || r.booking_id),
+      ref: "REG-" + String(r.booking_id).padStart(5, "0"),
+    }));
+    res.json(list);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch available rooms" });
+  }
+});
+
 app.get("/api/bookings/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
