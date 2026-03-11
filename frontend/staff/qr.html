@@ -215,6 +215,7 @@
                   </select>
                 </div>
                 <button class="btn ghost" data-walkin-qr disabled>Generate QR</button>
+                <button type="button" class="btn ghost walkin-manual-btn" data-walkin-manual style="margin-top:0.5rem;">Or enter booking ID</button>
               </div>
             </div>
           </div>
@@ -240,9 +241,9 @@
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="./staffscript.js"></script>
     <script>
-      (function () {
-        var R = window.RegaliaStaff;
-        var API = R ? R.API : "/api";
+      document.addEventListener("DOMContentLoaded", function () {
+      var R = window.RegaliaStaff;
+      var API = (R && R.API) ? R.API : (typeof window.REGALIA_API_URL !== "undefined" ? window.REGALIA_API_URL : (window.location.origin && window.location.origin !== "file://" ? window.location.origin + "/api" : "/api"));
         var startButton = document.querySelector("[data-start-scan]");
         var stopButton = document.querySelector("[data-stop-scan]");
         var scanFrame = document.querySelector(".scan-frame");
@@ -348,6 +349,10 @@
 
         function startScan() {
           if (!scanVideo || !scanFrame) return;
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            if (scanStatus) scanStatus.textContent = "Camera not available. Use HTTPS or localhost, or try Manual Lookup / Upload QR.";
+            return;
+          }
           scanFrame.classList.add("is-scanning");
           if (scanStatus) scanStatus.textContent = "Starting camera...";
           var tryMedia = function (constraints) {
@@ -371,8 +376,9 @@
               scanVideo.addEventListener("loadeddata", whenReady, { once: true });
               setTimeout(whenReady, 300);
             })
-            .catch(function () {
-              if (scanStatus) scanStatus.textContent = "Camera blocked. Use Manual Lookup or Upload QR.";
+            .catch(function (err) {
+              if (scanStatus) scanStatus.textContent = "Camera blocked or error. Use Manual Lookup or Upload QR.";
+              console.warn("getUserMedia error", err);
             });
         }
 
@@ -473,20 +479,36 @@
         function loadWalkinRooms() {
           if (!walkinRoomSelect) return;
           fetch(API + "/rooms/with-availability")
-            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (r) {
+              if (r.ok) return r.json();
+              throw new Error("rooms failed");
+            })
             .then(function (list) {
               allRoomsWithAvailability = list || [];
+              if (allRoomsWithAvailability.length === 0) return fetch(API + "/units").then(function (u) { return u.ok ? u.json() : []; });
+              return allRoomsWithAvailability;
+            })
+            .then(function (list) {
+              if (list && list.length && !list[0].hasOwnProperty("available")) {
+                allRoomsWithAvailability = (list || []).map(function (u) {
+                  return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: (u.tower_name ? u.tower_name + " • " : "") + "Unit " + (u.unit_number || u.unit_id), available: true, booking_id: null };
+                });
+              } else if (list && list.length) {
+                allRoomsWithAvailability = list;
+              }
               var opts = allRoomsWithAvailability.map(function (r) {
                 var roomLabel = r.label || (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || r.unit_id);
                 var status = r.available ? "Available" : "Not available";
                 var display = roomLabel + " — " + status;
-                var value = r.available ? "" : String(r.booking_id);
+                var value = r.available ? "" : String(r.booking_id || "");
                 return "<option value=\"" + value + "\" data-booking-id=\"" + (r.booking_id || "") + "\" data-label=\"" + esc(roomLabel) + "\">" + esc(display) + "</option>";
               });
               walkinRoomSelect.innerHTML = "<option value=\"\">— Select room —</option>" + opts.join("");
               updateWalkinButton();
             })
-            .catch(function () { walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms loaded —</option>"; });
+            .catch(function () {
+              walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms loaded (check API) —</option>";
+            });
         }
         function updateWalkinButton() {
           if (walkinBtn && walkinRoomSelect) walkinBtn.disabled = !walkinRoomSelect.value;
@@ -496,11 +518,29 @@
           loadWalkinRooms();
         }
 
+        function showWalkinModal(data, roomLabel) {
+          if (!walkinModal) return;
+          if (walkinQrImage) {
+            walkinQrImage.innerHTML = "";
+            var img = document.createElement("img");
+            img.src = data.qrDataUrl || "";
+            img.alt = "Walk-in registration QR";
+            img.style.width = "100%";
+            img.style.height = "100%";
+            img.style.objectFit = "contain";
+            walkinQrImage.appendChild(img);
+          }
+          if (walkinUrlEl) walkinUrlEl.textContent = data.registerUrl || "";
+          if (walkinRoomLabelEl) walkinRoomLabelEl.textContent = roomLabel ? "For: " + roomLabel : "";
+          walkinModal.style.display = "flex";
+          walkinModal.setAttribute("aria-hidden", "false");
+        }
+
         if (walkinBtn && walkinModal) {
           walkinBtn.addEventListener("click", function () {
             var id = walkinRoomSelect ? parseInt(walkinRoomSelect.value, 10) : 0;
             if (!id) {
-              alert("Select a room with an active booking (Not available) to generate a walk-in registration QR.");
+              alert("Select a room with an active booking (Not available) to generate a walk-in registration QR, or use \"Or enter booking ID\".");
               return;
             }
             var roomLabel = "";
@@ -518,25 +558,30 @@
               .then(function (data) {
                 walkinBtn.disabled = false;
                 if (data.error) { alert(data.error); return; }
-                if (walkinQrImage) {
-                  walkinQrImage.innerHTML = "";
-                  var img = document.createElement("img");
-                  img.src = data.qrDataUrl || "";
-                  img.alt = "Walk-in registration QR";
-                  img.style.width = "100%";
-                  img.style.height = "100%";
-                  img.style.objectFit = "contain";
-                  walkinQrImage.appendChild(img);
-                }
-                if (walkinUrlEl) walkinUrlEl.textContent = data.registerUrl || "";
-                if (walkinRoomLabelEl) walkinRoomLabelEl.textContent = roomLabel ? "For: " + roomLabel : "";
-                walkinModal.style.display = "flex";
-                walkinModal.setAttribute("aria-hidden", "false");
+                showWalkinModal(data, roomLabel);
               })
               .catch(function (e) {
                 walkinBtn.disabled = false;
                 alert(e.message || "Failed to generate QR");
               });
+          });
+        }
+
+        var walkinManualBtn = document.querySelector("[data-walkin-manual]");
+        if (walkinManualBtn && walkinModal) {
+          walkinManualBtn.addEventListener("click", function () {
+            var idStr = prompt("Enter booking ID (e.g. 8 or REG-00008):");
+            if (!idStr) return;
+            var refMatch = idStr.trim().match(/reg-?(\d+)/i);
+            var id = refMatch ? parseInt(refMatch[1], 10) : parseInt(idStr, 10);
+            if (!id) { alert("Invalid booking ID."); return; }
+            fetch(API + "/walkin-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: id }) })
+              .then(function (r) { return r.json(); })
+              .then(function (data) {
+                if (data.error) { alert(data.error); return; }
+                showWalkinModal(data, "Booking #" + id);
+              })
+              .catch(function (e) { alert(e.message || "Failed to generate QR"); });
           });
         }
         var walkinClose = document.querySelector("[data-walkin-close]");
@@ -556,20 +601,16 @@
         }
 
         renderRecentScans();
-      })();
-      const toggle = document.querySelector(".topbar .menu-toggle");
-      const closeButton = document.querySelector("[data-sidebar-close]");
-      const overlay = document.querySelector("[data-sidebar-overlay]");
-      const navLinks = document.querySelectorAll(".sidebar .nav a");
 
-      const closeSidebar = () => document.body.classList.remove("sidebar-open");
-      const toggleSidebar = () =>
-        document.body.classList.toggle("sidebar-open");
-
-      if (toggle) toggle.addEventListener("click", toggleSidebar);
-      if (closeButton) closeButton.addEventListener("click", closeSidebar);
-      if (overlay) overlay.addEventListener("click", closeSidebar);
-      navLinks.forEach((link) => link.addEventListener("click", closeSidebar));
+        var toggle = document.querySelector(".topbar .menu-toggle");
+        var closeButton = document.querySelector("[data-sidebar-close]");
+        var overlay = document.querySelector("[data-sidebar-overlay]");
+        var navLinks = document.querySelectorAll(".sidebar .nav a");
+        if (toggle) toggle.addEventListener("click", function () { document.body.classList.toggle("sidebar-open"); });
+        if (closeButton) closeButton.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
+        if (overlay) overlay.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
+        if (navLinks) navLinks.forEach(function (link) { link.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); }); });
+      });
     </script>
   </body>
 </html>

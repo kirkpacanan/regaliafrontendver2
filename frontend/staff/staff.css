@@ -317,6 +317,11 @@ body::after {
 
 .recent-section {
   margin-top: 1.6rem;
+  min-height: 120px;
+}
+
+.recent-section .list {
+  min-height: 60px;
 }
 
 .quick-grid {
