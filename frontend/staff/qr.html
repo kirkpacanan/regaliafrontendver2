@@ -303,7 +303,12 @@
             if (booking.status !== "confirmed") { if (scanStatus) scanStatus.textContent = "Booking not confirmed."; return; }
             function showGuestsAndStatus(msg, guests) {
               if (scanStatus) {
-                var names = guests && guests.length ? guests.map(function (g) { return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name; }).join(", ");
+                var names = "";
+                if (guests && guests.length) {
+                  names = guests.map(function (g) {
+                    return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name;
+                  }).join(", ");
+                }
                 scanStatus.textContent = names ? msg + " Authorized guests: " + names : msg;
               }
             }
@@ -546,55 +551,45 @@
           function renderRooms() {
             hideRoomsError();
             var opts = allRoomsWithAvailability.map(function (r) {
-              var roomLabel = r.label || (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || r.unit_id);
+              var name = r.label || (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || r.unit_id);
               var status = r.available ? "Available" : "Not available";
-              var display = roomLabel + " — " + status;
+              var display = name + " — " + status;
               var value = r.available ? "" : String(r.booking_id || "");
-              return "<option value=\"" + value + "\" data-booking-id=\"" + (r.booking_id || "") + "\" data-label=\"" + esc(roomLabel) + "\">" + esc(display) + "</option>";
+              return "<option value=\"" + value + "\" data-booking-id=\"" + (r.booking_id || "") + "\" data-label=\"" + esc(name) + "\">" + esc(display) + "</option>";
             });
             walkinRoomSelect.innerHTML = "<option value=\"\">— Select room —</option>" + opts.join("");
             updateWalkinButton();
           }
-          function tryUnitsFallback() {
-            return fetch(API + "/units").then(function (u) {
-              if (!u.ok) throw new Error("Units: " + u.status + " " + u.statusText);
-              return u.json();
-            }).then(function (units) {
-              allRoomsWithAvailability = (units || []).map(function (u) {
-                return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: (u.tower_name ? u.tower_name + " • " : "") + "Unit " + (u.unit_number || u.unit_id), available: true, booking_id: null };
-              });
-              renderRooms();
+          function applyAvailability(properties, bookings) {
+            var today = new Date();
+            today.setHours(0, 0, 0, 0);
+            var byUnit = {};
+            (bookings || []).forEach(function (b) {
+              if (b.status !== "confirmed" || !b.unit_id) return;
+              var out = b.check_out_date ? new Date(b.check_out_date) : null;
+              if (out && out.setHours(0, 0, 0, 0) >= today) byUnit[b.unit_id] = { booking_id: b.booking_id, guest_name: b.guest_name };
+            });
+            return (properties || []).map(function (u) {
+              var b = byUnit[u.unit_id];
+              var name = (u.tower_name ? u.tower_name + " • " : "") + "Unit " + (u.unit_number || u.unit_id);
+              return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: name, available: !b, booking_id: b ? b.booking_id : null };
             });
           }
-          fetch(API + "/rooms/with-availability").then(function (r) {
-            if (r.ok) return r.json();
-            throw new Error("Rooms: " + r.status + " " + r.statusText);
-          }).then(function (list) {
-            if (list && list.length) {
-              try {
-                if (list[0].hasOwnProperty("available")) {
-                  allRoomsWithAvailability = list;
-                } else {
-                  allRoomsWithAvailability = list.map(function (u) {
-                    return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: (u.tower_name ? u.tower_name + " • " : "") + "Unit " + (u.unit_number || u.unit_id), available: true, booking_id: null };
-                  });
-                }
-                renderRooms();
-              } catch (e) {
-                showRoomsError("Parse: " + (e.message || e));
-                walkinRoomSelect.innerHTML = "<option value=\"\">— Error (see below) —</option>";
-              }
-              return;
-            }
-            return tryUnitsFallback();
+          fetch(API + "/properties").then(function (r) {
+            if (!r.ok) throw new Error("Properties: " + r.status + " " + r.statusText);
+            return r.json();
+          }).then(function (properties) {
+            return fetch(API + "/bookings").then(function (rb) {
+              return rb.ok ? rb.json() : Promise.resolve([]);
+            }).then(function (bookings) {
+              allRoomsWithAvailability = applyAvailability(properties || [], bookings || []);
+              renderRooms();
+            });
           }).catch(function (err) {
             var msg = (err && err.message) ? err.message : String(err);
             showRoomsError("API: " + API + " — " + msg);
-            tryUnitsFallback().catch(function (e2) {
-              showRoomsError("API: " + API + " — " + msg + " | Fallback: " + (e2 && e2.message ? e2.message : String(e2)));
-              walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms (see error below) —</option>";
-              updateWalkinButton();
-            });
+            walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms (see error below) —</option>";
+            updateWalkinButton();
           });
         }
         var reloadRoomsBtn = document.querySelector("[data-reload-rooms]");
