@@ -1,7 +1,9 @@
 (function () {
   "use strict";
-  var origin = window.location.origin;
-  var isFile = !origin || origin === "null" || String(window.location.protocol).toLowerCase() === "file:";
+  var loc = typeof window !== "undefined" && window.location ? window.location : {};
+  var origin = loc.origin || "";
+  var protocol = String(loc.protocol || "").toLowerCase();
+  var isFile = !origin || origin === "null" || protocol === "file:";
   var API = typeof window.REGALIA_API_URL !== "undefined" ? window.REGALIA_API_URL : (isFile ? "/api" : origin + "/api");
 
   function getBookings() {

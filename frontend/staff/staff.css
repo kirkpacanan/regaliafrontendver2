@@ -332,8 +332,16 @@ body::after {
 }
 
 .quick-card {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0.7rem;
+  min-height: 140px;
+}
+
+.quick-card .btn,
+.quick-card a.btn {
+  margin-top: auto;
+  text-decoration: none;
 }
 
 .quick-icon {

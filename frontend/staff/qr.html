@@ -217,6 +217,7 @@
                     <span class="walkin-room-status" id="walkin-room-status" aria-live="polite"></span>
                     <button type="button" class="btn ghost walkin-reload-btn" data-reload-rooms title="Reload room list">Reload rooms</button>
                   </div>
+                  <div class="walkin-rooms-error" id="walkin-rooms-error" role="alert" style="display:none; margin-top:0.5rem; font-size:0.8rem; color:rgba(255,200,200,0.95);"></div>
                 </div>
                 <button class="btn ghost" data-walkin-qr disabled>Generate QR</button>
                 <button type="button" class="btn ghost walkin-manual-btn" data-walkin-manual style="margin-top:0.5rem;">Or enter booking ID</button>
@@ -244,9 +245,8 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
     <script src="./staffscript.js"></script>
-    <script>
+    <script type="text/javascript">
       document.addEventListener("DOMContentLoaded", function () {
-        try {
         var R = window.RegaliaStaff;
         var origin = window.location.origin || "";
         var isFile = !origin || origin === "null" || String(window.location.protocol).toLowerCase() === "file:";
@@ -415,7 +415,7 @@
 
         if (startButton) {
           startButton.addEventListener("click", function () {
-            if (scanStatus) scanStatus.textContent = "Starting…";
+            if (scanStatus) scanStatus.textContent = "Starting...";
             try {
               startScan();
             } catch (e) {
@@ -444,7 +444,7 @@
           input.addEventListener("change", function () {
             var f = input.files && input.files[0];
             if (!f) return;
-            if (scanStatus) scanStatus.textContent = "Reading image…";
+            if (scanStatus) scanStatus.textContent = "Reading image...";
             var img = new Image();
             var objectUrl = URL.createObjectURL(f);
             img.onload = function () {
@@ -529,10 +529,22 @@
         function esc(s) {
           return String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
         }
+        var walkinRoomsErrorEl = document.getElementById("walkin-rooms-error");
+        function showRoomsError(msg) {
+          if (walkinRoomsErrorEl) {
+            walkinRoomsErrorEl.textContent = msg;
+            walkinRoomsErrorEl.style.display = "block";
+          }
+        }
+        function hideRoomsError() {
+          if (walkinRoomsErrorEl) { walkinRoomsErrorEl.style.display = "none"; walkinRoomsErrorEl.textContent = ""; }
+        }
         function loadWalkinRooms() {
           if (!walkinRoomSelect) return;
-          walkinRoomSelect.innerHTML = "<option value=\"\">Loading rooms…</option>";
+          hideRoomsError();
+          walkinRoomSelect.innerHTML = "<option value=\"\">Loading rooms...</option>";
           function renderRooms() {
+            hideRoomsError();
             var opts = allRoomsWithAvailability.map(function (r) {
               var roomLabel = r.label || (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || r.unit_id);
               var status = r.available ? "Available" : "Not available";
@@ -544,20 +556,22 @@
             updateWalkinButton();
           }
           function tryUnitsFallback() {
-            return fetch(API + "/units").then(function (u) { return u.ok ? u.json() : []; }).then(function (units) {
+            return fetch(API + "/units").then(function (u) {
+              if (!u.ok) throw new Error("Units: " + u.status + " " + u.statusText);
+              return u.json();
+            }).then(function (units) {
               allRoomsWithAvailability = (units || []).map(function (u) {
                 return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: (u.tower_name ? u.tower_name + " • " : "") + "Unit " + (u.unit_number || u.unit_id), available: true, booking_id: null };
               });
               renderRooms();
             });
           }
-          fetch(API + "/rooms/with-availability")
-            .then(function (r) {
-              if (r.ok) return r.json();
-              return tryUnitsFallback();
-            })
-            .then(function (list) {
-              if (list && list.length) {
+          fetch(API + "/rooms/with-availability").then(function (r) {
+            if (r.ok) return r.json();
+            throw new Error("Rooms: " + r.status + " " + r.statusText);
+          }).then(function (list) {
+            if (list && list.length) {
+              try {
                 if (list[0].hasOwnProperty("available")) {
                   allRoomsWithAvailability = list;
                 } else {
@@ -566,16 +580,22 @@
                   });
                 }
                 renderRooms();
-              } else {
-                return tryUnitsFallback();
+              } catch (e) {
+                showRoomsError("Parse: " + (e.message || e));
+                walkinRoomSelect.innerHTML = "<option value=\"\">— Error (see below) —</option>";
               }
-            })
-            .catch(function () {
-              tryUnitsFallback().catch(function () {
-                walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms. Open page from server (e.g. http://localhost:PORT/staff/qr.html) —</option>";
-                updateWalkinButton();
-              });
+              return;
+            }
+            return tryUnitsFallback();
+          }).catch(function (err) {
+            var msg = (err && err.message) ? err.message : String(err);
+            showRoomsError("API: " + API + " — " + msg);
+            tryUnitsFallback().catch(function (e2) {
+              showRoomsError("API: " + API + " — " + msg + " | Fallback: " + (e2 && e2.message ? e2.message : String(e2)));
+              walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms (see error below) —</option>";
+              updateWalkinButton();
             });
+          });
         }
         var reloadRoomsBtn = document.querySelector("[data-reload-rooms]");
         if (reloadRoomsBtn && walkinRoomSelect) reloadRoomsBtn.addEventListener("click", loadWalkinRooms);
@@ -688,12 +708,10 @@
         if (toggle) toggle.addEventListener("click", function () { document.body.classList.toggle("sidebar-open"); });
         if (closeButton) closeButton.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
         if (overlay) overlay.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
-        if (navLinks) navLinks.forEach(function (link) { link.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); }); });
-
-        } catch (err) {
-          console.error("QR page init error", err);
-          var st = document.querySelector("[data-scan-status]");
-          if (st) st.textContent = "Error: " + (err.message || "Check console (F12).");
+        if (navLinks) {
+          navLinks.forEach(function (link) {
+            link.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
+          });
         }
       });
     </script>
