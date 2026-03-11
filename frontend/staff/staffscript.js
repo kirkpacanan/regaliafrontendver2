@@ -1,6 +1,8 @@
 (function () {
   "use strict";
-  var API = typeof window.REGALIA_API_URL !== "undefined" ? window.REGALIA_API_URL : "/api";
+  var origin = window.location.origin;
+  var isFile = !origin || origin === "null" || String(window.location.protocol).toLowerCase() === "file:";
+  var API = typeof window.REGALIA_API_URL !== "undefined" ? window.REGALIA_API_URL : (isFile ? "/api" : origin + "/api");
 
   function getBookings() {
     return fetch(API + "/bookings").then(function (r) { return r.ok ? r.json() : []; });

@@ -215,6 +215,7 @@
                       <option value="">— Select room —</option>
                     </select>
                     <span class="walkin-room-status" id="walkin-room-status" aria-live="polite"></span>
+                    <button type="button" class="btn ghost walkin-reload-btn" data-reload-rooms title="Reload room list">Reload rooms</button>
                   </div>
                 </div>
                 <button class="btn ghost" data-walkin-qr disabled>Generate QR</button>
@@ -245,8 +246,19 @@
     <script src="./staffscript.js"></script>
     <script>
       document.addEventListener("DOMContentLoaded", function () {
-      var R = window.RegaliaStaff;
-      var API = (R && R.API) ? R.API : (typeof window.REGALIA_API_URL !== "undefined" ? window.REGALIA_API_URL : (window.location.origin && window.location.origin !== "file://" ? window.location.origin + "/api" : "/api"));
+        try {
+        var R = window.RegaliaStaff;
+        var origin = window.location.origin || "";
+        var isFile = !origin || origin === "null" || String(window.location.protocol).toLowerCase() === "file:";
+        var API = (R && R.API) ? R.API : (typeof window.REGALIA_API_URL !== "undefined" ? window.REGALIA_API_URL : (isFile ? "/api" : origin + "/api"));
+
+        if (isFile) {
+          var banner = document.createElement("div");
+          banner.style.cssText = "position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:10px;text-align:center;z-index:9999;font-size:14px;";
+          banner.textContent = "Open this page from your server (e.g. http://localhost:3000/staff/qr.html) so rooms and camera work.";
+          document.body.insertBefore(banner, document.body.firstChild);
+        }
+
         var startButton = document.querySelector("[data-start-scan]");
         var stopButton = document.querySelector("[data-stop-scan]");
         var scanFrame = document.querySelector(".scan-frame");
@@ -282,6 +294,10 @@
         function handleScannedPayload(data) {
           var id = data.booking_id;
           if (!id) return;
+          if (!R || !R.postCheckIn || !R.postCheckOut) {
+            if (scanStatus) scanStatus.textContent = "App not ready. Refresh the page.";
+            return;
+          }
           fetch(API + "/bookings/" + id).then(function (r) { return r.ok ? r.json() : null; }).then(function (booking) {
             if (!booking) { if (scanStatus) scanStatus.textContent = "Booking not found."; return; }
             if (booking.status !== "confirmed") { if (scanStatus) scanStatus.textContent = "Booking not confirmed."; return; }
@@ -397,7 +413,17 @@
           if (scanStatus) scanStatus.textContent = "Tap start scan to begin.";
         }
 
-        if (startButton) startButton.addEventListener("click", startScan);
+        if (startButton) {
+          startButton.addEventListener("click", function () {
+            if (scanStatus) scanStatus.textContent = "Starting…";
+            try {
+              startScan();
+            } catch (e) {
+              if (scanStatus) scanStatus.textContent = "Error: " + (e.message || "Start scan failed.");
+              console.error(e);
+            }
+          });
+        }
         if (stopButton) stopButton.addEventListener("click", stopScan);
 
         var uploadBtn = document.querySelector("[data-upload-qr]");
@@ -407,7 +433,14 @@
           input.accept = "image/*";
           input.style.display = "none";
           document.body.appendChild(input);
-          uploadBtn.addEventListener("click", function () { input.click(); });
+          uploadBtn.addEventListener("click", function () {
+            try {
+              input.value = "";
+              input.click();
+            } catch (e) {
+              if (scanStatus) scanStatus.textContent = "Upload error: " + (e.message || "failed");
+            }
+          });
           input.addEventListener("change", function () {
             var f = input.files && input.files[0];
             if (!f) return;
@@ -539,10 +572,13 @@
             })
             .catch(function () {
               tryUnitsFallback().catch(function () {
-                walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms (check API) —</option>";
+                walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms. Open page from server (e.g. http://localhost:PORT/staff/qr.html) —</option>";
+                updateWalkinButton();
               });
             });
         }
+        var reloadRoomsBtn = document.querySelector("[data-reload-rooms]");
+        if (reloadRoomsBtn && walkinRoomSelect) reloadRoomsBtn.addEventListener("click", loadWalkinRooms);
         var walkinRoomStatusEl = document.getElementById("walkin-room-status");
         function updateWalkinButton() {
           if (walkinBtn && walkinRoomSelect) walkinBtn.disabled = !walkinRoomSelect.value;
@@ -653,6 +689,12 @@
         if (closeButton) closeButton.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
         if (overlay) overlay.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); });
         if (navLinks) navLinks.forEach(function (link) { link.addEventListener("click", function () { document.body.classList.remove("sidebar-open"); }); });
+
+        } catch (err) {
+          console.error("QR page init error", err);
+          var st = document.querySelector("[data-scan-status]");
+          if (st) st.textContent = "Error: " + (err.message || "Check console (F12).");
+        }
       });
     </script>
   </body>

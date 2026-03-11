@@ -423,6 +423,12 @@ body::after {
   color: #fff;
 }
 
+.walkin-reload-btn {
+  flex-shrink: 0;
+  padding: 0.4rem 0.6rem;
+  font-size: 0.8rem;
+}
+
 .muted {
   margin: 0.1rem 0 0;
   color: var(--muted);
