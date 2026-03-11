@@ -393,6 +393,36 @@ body::after {
   color: #fff;
 }
 
+.walkin-room-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.walkin-room-row select {
+  flex: 1;
+  min-width: 180px;
+}
+
+.walkin-room-status {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.walkin-room-status.status-available {
+  background: rgba(126, 217, 87, 0.35);
+  color: #fff;
+}
+
+.walkin-room-status.status-not-available {
+  background: rgba(255, 180, 80, 0.4);
+  color: #fff;
+}
+
 .muted {
   margin: 0.1rem 0 0;
   color: var(--muted);

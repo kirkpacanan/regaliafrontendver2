@@ -209,10 +209,13 @@
                 <strong>Generate QR for walk-in</strong>
                 <p class="muted">Pick a room, then generate a QR. Guest scans to open the registration form for that room.</p>
                 <div class="form-group walkin-room-select">
-                  <label for="walkin-room">Available room</label>
-                  <select id="walkin-room" data-walkin-room aria-label="Select room for walk-in">
-                    <option value="">— Select room —</option>
-                  </select>
+                  <label for="walkin-room">All rooms</label>
+                  <div class="walkin-room-row">
+                    <select id="walkin-room" data-walkin-room aria-label="Select room for walk-in">
+                      <option value="">— Select room —</option>
+                    </select>
+                    <span class="walkin-room-status" id="walkin-room-status" aria-live="polite"></span>
+                  </div>
                 </div>
                 <button class="btn ghost" data-walkin-qr disabled>Generate QR</button>
                 <button type="button" class="btn ghost walkin-manual-btn" data-walkin-manual style="margin-top:0.5rem;">Or enter booking ID</button>
@@ -363,7 +366,6 @@
             .then(function (s) {
               stream = s;
               scanVideo.srcObject = stream;
-              scanVideo.play();
               if (scanStatus) scanStatus.textContent = "Waiting for camera...";
               function whenReady() {
                 if (scanVideo.videoWidth > 0 && scanVideo.videoHeight > 0) {
@@ -374,7 +376,12 @@
                 setTimeout(whenReady, 100);
               }
               scanVideo.addEventListener("loadeddata", whenReady, { once: true });
-              setTimeout(whenReady, 300);
+              var playPromise = scanVideo.play();
+              if (playPromise && playPromise.then) {
+                playPromise.then(function () { whenReady(); }).catch(function () { whenReady(); });
+              } else {
+                setTimeout(whenReady, 300);
+              }
             })
             .catch(function (err) {
               if (scanStatus) scanStatus.textContent = "Camera blocked or error. Use Manual Lookup or Upload QR.";
@@ -404,23 +411,36 @@
           input.addEventListener("change", function () {
             var f = input.files && input.files[0];
             if (!f) return;
+            if (scanStatus) scanStatus.textContent = "Reading image…";
             var img = new Image();
+            var objectUrl = URL.createObjectURL(f);
             img.onload = function () {
-              var c = document.createElement("canvas");
-              c.width = img.width;
-              c.height = img.height;
-              var ctx = c.getContext("2d");
-              ctx.drawImage(img, 0, 0);
               try {
+                var c = document.createElement("canvas");
+                c.width = img.width;
+                c.height = img.height;
+                var ctx = c.getContext("2d");
+                ctx.drawImage(img, 0, 0, c.width, c.height);
                 var d = ctx.getImageData(0, 0, c.width, c.height);
-                var code = jsQR(d.data, d.width, d.height, { inversionAttempts: "attemptBoth" });
+                if (!window.jsQR) { if (scanStatus) scanStatus.textContent = "QR library not loaded."; return; }
+                var code = jsQR(d.data, c.width, c.height, { inversionAttempts: "attemptBoth" });
                 if (code && code.data) {
                   var data = JSON.parse(code.data);
-                  if (data.booking_id) handleScannedPayload(data);
+                  if (data.booking_id) {
+                    handleScannedPayload(data);
+                  } else if (scanStatus) scanStatus.textContent = "QR is not a booking code.";
                 } else if (scanStatus) scanStatus.textContent = "No QR code found in image.";
-              } catch (e) { if (scanStatus) scanStatus.textContent = "Invalid QR or image."; }
+              } catch (e) {
+                if (scanStatus) scanStatus.textContent = "Invalid QR or image.";
+              } finally {
+                URL.revokeObjectURL(objectUrl);
+              }
             };
-            img.src = URL.createObjectURL(f);
+            img.onerror = function () {
+              if (scanStatus) scanStatus.textContent = "Could not load image.";
+              URL.revokeObjectURL(objectUrl);
+            };
+            img.src = objectUrl;
           });
         }
 
@@ -478,40 +498,63 @@
         }
         function loadWalkinRooms() {
           if (!walkinRoomSelect) return;
+          walkinRoomSelect.innerHTML = "<option value=\"\">Loading rooms…</option>";
+          function renderRooms() {
+            var opts = allRoomsWithAvailability.map(function (r) {
+              var roomLabel = r.label || (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || r.unit_id);
+              var status = r.available ? "Available" : "Not available";
+              var display = roomLabel + " — " + status;
+              var value = r.available ? "" : String(r.booking_id || "");
+              return "<option value=\"" + value + "\" data-booking-id=\"" + (r.booking_id || "") + "\" data-label=\"" + esc(roomLabel) + "\">" + esc(display) + "</option>";
+            });
+            walkinRoomSelect.innerHTML = "<option value=\"\">— Select room —</option>" + opts.join("");
+            updateWalkinButton();
+          }
+          function tryUnitsFallback() {
+            return fetch(API + "/units").then(function (u) { return u.ok ? u.json() : []; }).then(function (units) {
+              allRoomsWithAvailability = (units || []).map(function (u) {
+                return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: (u.tower_name ? u.tower_name + " • " : "") + "Unit " + (u.unit_number || u.unit_id), available: true, booking_id: null };
+              });
+              renderRooms();
+            });
+          }
           fetch(API + "/rooms/with-availability")
             .then(function (r) {
               if (r.ok) return r.json();
-              throw new Error("rooms failed");
+              return tryUnitsFallback();
             })
             .then(function (list) {
-              allRoomsWithAvailability = list || [];
-              if (allRoomsWithAvailability.length === 0) return fetch(API + "/units").then(function (u) { return u.ok ? u.json() : []; });
-              return allRoomsWithAvailability;
-            })
-            .then(function (list) {
-              if (list && list.length && !list[0].hasOwnProperty("available")) {
-                allRoomsWithAvailability = (list || []).map(function (u) {
-                  return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: (u.tower_name ? u.tower_name + " • " : "") + "Unit " + (u.unit_number || u.unit_id), available: true, booking_id: null };
-                });
-              } else if (list && list.length) {
-                allRoomsWithAvailability = list;
+              if (list && list.length) {
+                if (list[0].hasOwnProperty("available")) {
+                  allRoomsWithAvailability = list;
+                } else {
+                  allRoomsWithAvailability = list.map(function (u) {
+                    return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: (u.tower_name ? u.tower_name + " • " : "") + "Unit " + (u.unit_number || u.unit_id), available: true, booking_id: null };
+                  });
+                }
+                renderRooms();
+              } else {
+                return tryUnitsFallback();
               }
-              var opts = allRoomsWithAvailability.map(function (r) {
-                var roomLabel = r.label || (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || r.unit_id);
-                var status = r.available ? "Available" : "Not available";
-                var display = roomLabel + " — " + status;
-                var value = r.available ? "" : String(r.booking_id || "");
-                return "<option value=\"" + value + "\" data-booking-id=\"" + (r.booking_id || "") + "\" data-label=\"" + esc(roomLabel) + "\">" + esc(display) + "</option>";
-              });
-              walkinRoomSelect.innerHTML = "<option value=\"\">— Select room —</option>" + opts.join("");
-              updateWalkinButton();
             })
             .catch(function () {
-              walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms loaded (check API) —</option>";
+              tryUnitsFallback().catch(function () {
+                walkinRoomSelect.innerHTML = "<option value=\"\">— No rooms (check API) —</option>";
+              });
             });
         }
+        var walkinRoomStatusEl = document.getElementById("walkin-room-status");
         function updateWalkinButton() {
           if (walkinBtn && walkinRoomSelect) walkinBtn.disabled = !walkinRoomSelect.value;
+          if (walkinRoomStatusEl && walkinRoomSelect) {
+            var val = walkinRoomSelect.value;
+            if (!val) { walkinRoomStatusEl.textContent = ""; walkinRoomStatusEl.className = "walkin-room-status"; return; }
+            var opt = walkinRoomSelect.options[walkinRoomSelect.selectedIndex];
+            var text = opt ? opt.text : "";
+            var isAvailable = text.indexOf(" — Available") !== -1;
+            walkinRoomStatusEl.textContent = isAvailable ? "Available" : "Not available";
+            walkinRoomStatusEl.className = "walkin-room-status " + (isAvailable ? "status-available" : "status-not-available");
+          }
         }
         if (walkinRoomSelect) {
           walkinRoomSelect.addEventListener("change", updateWalkinButton);
