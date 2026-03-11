@@ -217,7 +217,7 @@
                     <span class="walkin-room-status" id="walkin-room-status" aria-live="polite"></span>
                     <button type="button" class="btn ghost walkin-reload-btn" data-reload-rooms title="Reload room list">Reload rooms</button>
                   </div>
-                  <div class="walkin-rooms-error" id="walkin-rooms-error" role="alert" style="display:none; margin-top:0.5rem; font-size:0.8rem; color:rgba(255,200,200,0.95);"></div>
+                  <div class="walkin-rooms-error" id="walkin-rooms-error" role="alert"></div>
                 </div>
                 <button class="btn ghost" data-walkin-qr disabled>Generate QR</button>
                 <button type="button" class="btn ghost walkin-manual-btn" data-walkin-manual style="margin-top:0.5rem;">Or enter booking ID</button>
@@ -226,14 +226,14 @@
           </div>
         </section>
 
-        <div class="modal-overlay" id="walkin-modal" aria-hidden="true" style="display:none;">
-          <div class="modal" style="max-width:420px;text-align:center;">
-            <h3 style="margin:0 0 8px;">Walk-in guest registration QR</h3>
-            <p class="muted" style="margin:0 0 8px;font-size:14px;font-weight:500;" data-walkin-room-label></p>
-            <p class="muted" style="margin:0 0 16px;font-size:14px;">Guest scans to open the registration form for this room. Link expires in 15 min.</p>
-            <div data-walkin-qr-image style="margin:0 auto 16px;width:240px;height:240px;background:#fff;border-radius:12px;padding:12px;display:flex;align-items:center;justify-content:center;"></div>
-            <p class="muted" style="margin:0 0 16px;font-size:12px;word-break:break-all;" data-walkin-url></p>
-            <button type="button" class="btn ghost" data-walkin-close>Close</button>
+        <div class="modal-overlay walkin-modal-overlay" id="walkin-modal" aria-hidden="true" style="display:none;">
+          <div class="modal walkin-modal">
+            <h3 class="walkin-modal-title">Walk-in guest registration QR</h3>
+            <p class="walkin-modal-room" data-walkin-room-label></p>
+            <p class="walkin-modal-hint">Guest scans to open the registration form for this room. Link expires in 15 min.</p>
+            <div class="walkin-qr-box" data-walkin-qr-image></div>
+            <p class="walkin-modal-url" data-walkin-url></p>
+            <button type="button" class="btn ghost walkin-modal-close" data-walkin-close>Close</button>
           </div>
         </div>
 
