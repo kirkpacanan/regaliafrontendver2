@@ -252,6 +252,16 @@
         var isFile = !origin || origin === "null" || String(window.location.protocol).toLowerCase() === "file:";
         var API = (R && R.API) ? R.API : (typeof window.REGALIA_API_URL !== "undefined" ? window.REGALIA_API_URL : (isFile ? "/api" : origin + "/api"));
 
+        function getAuthHeaders(withJson) {
+          var h = {};
+          try {
+            var t = localStorage && localStorage.getItem("token");
+            if (t) h.Authorization = "Bearer " + t;
+          } catch (e) {}
+          if (withJson) h["Content-Type"] = "application/json";
+          return h;
+        }
+
         if (isFile) {
           var banner = document.createElement("div");
           banner.style.cssText = "position:fixed;top:0;left:0;right:0;background:#c00;color:#fff;padding:10px;text-align:center;z-index:9999;font-size:14px;";
@@ -298,7 +308,7 @@
             if (scanStatus) scanStatus.textContent = "App not ready. Refresh the page.";
             return;
           }
-          fetch(API + "/bookings/" + id).then(function (r) { return r.ok ? r.json() : null; }).then(function (booking) {
+          fetch(API + "/bookings/" + id, { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : null; }).then(function (booking) {
             if (!booking) { if (scanStatus) scanStatus.textContent = "Booking not found."; return; }
             if (booking.status !== "confirmed") { if (scanStatus) scanStatus.textContent = "Booking not confirmed."; return; }
             function showGuestsAndStatus(msg, guests) {
@@ -316,7 +326,7 @@
             var checkedOut = !!booking.checked_out_at;
             if (!checkedIn) {
               R.postCheckIn(id).then(function () {
-                fetch(API + "/bookings/" + id + "/guests").then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
+                fetch(API + "/bookings/" + id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
                   showGuestsAndStatus("Check-in recorded: " + (booking.guest_name || "Guest") + ".", guests);
                 }).catch(function () {
                   if (scanStatus) scanStatus.textContent = "Check-in recorded: " + (booking.guest_name || "Guest");
@@ -327,7 +337,7 @@
               });
             } else if (!checkedOut) {
               R.postCheckOut(id).then(function () {
-                fetch(API + "/bookings/" + id + "/guests").then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
+                fetch(API + "/bookings/" + id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
                   showGuestsAndStatus("Check-out recorded: " + (booking.guest_name || "Guest") + ".", guests);
                 }).catch(function () {
                   if (scanStatus) scanStatus.textContent = "Check-out recorded: " + (booking.guest_name || "Guest");
@@ -575,11 +585,11 @@
               return { unit_id: u.unit_id, unit_number: u.unit_number, tower_name: u.tower_name, label: name, available: !b, booking_id: b ? b.booking_id : null };
             });
           }
-          fetch(API + "/properties").then(function (r) {
+          fetch(API + "/properties", { headers: getAuthHeaders() }).then(function (r) {
             if (!r.ok) throw new Error("Properties: " + r.status + " " + r.statusText);
             return r.json();
           }).then(function (properties) {
-            return fetch(API + "/bookings").then(function (rb) {
+            return fetch(API + "/bookings", { headers: getAuthHeaders() }).then(function (rb) {
               return rb.ok ? rb.json() : Promise.resolve([]);
             }).then(function (bookings) {
               allRoomsWithAvailability = applyAvailability(properties || [], bookings || []);
@@ -647,7 +657,7 @@
               roomLabel = r ? (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || unitId) : "Room #" + unitId;
             }
             walkinBtn.disabled = true;
-            fetch(API + "/walkin-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unit_id: unitId }) })
+            fetch(API + "/walkin-token", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify({ unit_id: unitId }) })
               .then(function (r) { return r.json(); })
               .then(function (data) {
                 walkinBtn.disabled = false;
@@ -670,7 +680,7 @@
             var refMatch = idStr.trim().match(/reg-?(\d+)/i);
             var id = refMatch ? parseInt(refMatch[1], 10) : parseInt(idStr, 10);
             if (!id) { alert("Invalid booking ID."); return; }
-            fetch(API + "/walkin-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: id }) })
+            fetch(API + "/walkin-token", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify({ booking_id: id }) })
               .then(function (r) { return r.json(); })
               .then(function (data) {
                 if (data.error) { alert(data.error); return; }

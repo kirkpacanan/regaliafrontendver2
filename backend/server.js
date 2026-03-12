@@ -402,22 +402,48 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
     let rows;
     try {
       await tryBackfillTowerOwners();
-      const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+      const roleNorm = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+      const isOwner = !!(req.user && roleNorm === "OWNER");
+      const isFrontDesk = !!(req.user && (roleNorm === "FRONTDESK" || roleNorm === "STAFF"));
       const ownerId = isOwner ? Number(req.user.employee_id) : null;
-      [rows] = await db.promise().query(
-        `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-          u.image_urls, u.price, t.tower_name, t.number_floors
-         FROM UNIT u
-         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-         WHERE (? IS NULL OR COALESCE(u.owner_employee_id, t.owner_employee_id) = ?)
-         ORDER BY t.tower_name, u.floor_number, u.unit_number`
-        , [ownerId, ownerId]
-      );
+      const staffId = isFrontDesk ? Number(req.user.employee_id) : null;
+      if (ownerId) {
+        [rows] = await db.promise().query(
+          `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+            u.image_urls, u.price, t.tower_name, t.number_floors
+           FROM UNIT u
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE (COALESCE(u.owner_employee_id, t.owner_employee_id) = ?)
+           ORDER BY t.tower_name, u.floor_number, u.unit_number`,
+          [ownerId]
+        );
+      } else if (staffId) {
+        [rows] = await db.promise().query(
+          `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+            u.image_urls, u.price, t.tower_name, t.number_floors
+           FROM UNIT u
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE u.tower_id IN (SELECT et.tower_id FROM EMPLOYEE_TOWER et WHERE et.employee_id = ?)
+           ORDER BY t.tower_name, u.floor_number, u.unit_number`,
+          [staffId]
+        );
+      } else {
+        [rows] = await db.promise().query(
+          `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+            u.image_urls, u.price, t.tower_name, t.number_floors
+           FROM UNIT u
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           ORDER BY t.tower_name, u.floor_number, u.unit_number`
+        );
+      }
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR") {
         // Older schema without ownership columns: best-effort isolation for OWNER using employee->tower assignments.
-        const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+        const roleNorm = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+        const isOwner = !!(req.user && roleNorm === "OWNER");
+        const isFrontDesk = !!(req.user && (roleNorm === "FRONTDESK" || roleNorm === "STAFF"));
         const ownerId = isOwner ? Number(req.user.employee_id) : null;
+        const staffId = isFrontDesk ? Number(req.user.employee_id) : null;
         if (ownerId) {
           try {
             [rows] = await db.promise().query(
@@ -433,6 +459,20 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
                )
                ORDER BY t.tower_name, u.floor_number, u.unit_number`,
               [ownerId]
+            );
+          } catch (e) {
+            [rows] = await db.promise().query(PROPERTIES_MINIMAL_SQL);
+          }
+        } else if (staffId) {
+          try {
+            [rows] = await db.promise().query(
+              `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+                t.tower_name, t.number_floors
+               FROM UNIT u
+               LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+               WHERE u.tower_id IN (SELECT et.tower_id FROM EMPLOYEE_TOWER et WHERE et.employee_id = ?)
+               ORDER BY t.tower_name, u.floor_number, u.unit_number`,
+              [staffId]
             );
           } catch (e) {
             [rows] = await db.promise().query(PROPERTIES_MINIMAL_SQL);
@@ -642,8 +682,11 @@ const BOOKINGS_BASE_SQL = `SELECT b.booking_id, b.unit_id, b.guest_name, b.email
 app.get("/api/bookings", optionalAuth, async (req, res) => {
   try {
     await tryBackfillTowerOwners();
-    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const roleNorm = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+    const isOwner = !!(req.user && roleNorm === "OWNER");
+    const isFrontDesk = !!(req.user && (roleNorm === "FRONTDESK" || roleNorm === "STAFF"));
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    const staffId = isFrontDesk ? Number(req.user.employee_id) : null;
     let rows;
     try {
       const baseSelect = `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
@@ -658,6 +701,11 @@ app.get("/api/bookings", optionalAuth, async (req, res) => {
         [rows] = await db.promise().query(
           baseSelect + ` WHERE (COALESCE(u.owner_employee_id, t.owner_employee_id) = ?)` + orderBy,
           [ownerId]
+        );
+      } else if (staffId) {
+        [rows] = await db.promise().query(
+          baseSelect + ` WHERE u.tower_id IN (SELECT et.tower_id FROM EMPLOYEE_TOWER et WHERE et.employee_id = ?)` + orderBy,
+          [staffId]
         );
       } else {
         [rows] = await db.promise().query(baseSelect + orderBy);
@@ -684,6 +732,22 @@ app.get("/api/bookings", optionalAuth, async (req, res) => {
                )
                ORDER BY b.check_in_date ASC, b.created_at DESC`,
               [ownerId]
+            );
+          } catch (e) {
+            [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
+          }
+        } else if (staffId) {
+          try {
+            [rows] = await db.promise().query(
+              `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
+                b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
+                u.unit_number, u.unit_type, t.tower_name
+               FROM BOOKING b
+               LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+               LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+               WHERE u.tower_id IN (SELECT et.tower_id FROM EMPLOYEE_TOWER et WHERE et.employee_id = ?)
+               ORDER BY b.check_in_date ASC, b.created_at DESC`,
+              [staffId]
             );
           } catch (e) {
             [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
@@ -1597,38 +1661,62 @@ app.post("/api/guest-register", async (req, res) => {
             signature_data,
           } = body;
           const today = new Date().toISOString().slice(0, 10);
-          await db.promise().query(
-            `INSERT INTO BOOKING (
-              unit_id, guest_name, permanent_address, age, nationality, relation_to_owner, occupation,
-              email, contact_number, owner_name, owner_contact, inclusive_dates, check_in_date, check_out_date,
-              purpose_of_stay, paid_yes_no, amount_paid, booking_platform, payment_method,
-              id_document, payment_proof, signature_data, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed')`,
-            [
-              Number(data.unitId),
-              String(gName || guestName || "").trim(),
-              permanent_address ? String(permanent_address).trim() : null,
-              age ? String(age).trim() : null,
-              nationality ? String(nationality).trim() : null,
-              relation_to_owner ? String(relation_to_owner).trim() : null,
-              occupation ? String(occupation).trim() : null,
-              String(eMail || email || "").trim(),
-              contact_number ? String(contact_number).trim() : (contact ? String(contact).trim() : null),
-              owner_name ? String(owner_name).trim() : null,
-              owner_contact ? String(owner_contact).trim() : null,
-              inclusive_dates ? String(inclusive_dates).trim() : null,
-              cIn || today,
-              cOut || today,
-              purpose_of_stay ? String(purpose_of_stay).trim() : null,
-              paid_yes_no ? String(paid_yes_no).trim() : null,
-              amount_paid != null && amount_paid !== "" ? String(amount_paid).trim() : null,
-              "walk_in",
-              payment_method ? String(payment_method).trim() : null,
-              id_document || null,
-              payment_proof || null,
-              signature_data || null,
-            ]
-          );
+          const emailToUse = String(eMail || email || "").trim();
+          if (!emailToUse) return res.status(400).json({ error: "Email is required." });
+          try {
+            await db.promise().query(
+              `INSERT INTO BOOKING (
+                unit_id, guest_name, permanent_address, age, nationality, relation_to_owner, occupation,
+                email, contact_number, owner_name, owner_contact, inclusive_dates, check_in_date, check_out_date,
+                purpose_of_stay, paid_yes_no, amount_paid, booking_platform, payment_method,
+                id_document, payment_proof, signature_data, status
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed')`,
+              [
+                Number(data.unitId),
+                String(gName || guestName || "").trim(),
+                permanent_address ? String(permanent_address).trim() : null,
+                age ? String(age).trim() : null,
+                nationality ? String(nationality).trim() : null,
+                relation_to_owner ? String(relation_to_owner).trim() : null,
+                occupation ? String(occupation).trim() : null,
+                emailToUse,
+                contact_number ? String(contact_number).trim() : (contact ? String(contact).trim() : null),
+                owner_name ? String(owner_name).trim() : null,
+                owner_contact ? String(owner_contact).trim() : null,
+                inclusive_dates ? String(inclusive_dates).trim() : null,
+                cIn || today,
+                cOut || today,
+                purpose_of_stay ? String(purpose_of_stay).trim() : null,
+                paid_yes_no ? String(paid_yes_no).trim() : null,
+                amount_paid != null && amount_paid !== "" ? String(amount_paid).trim() : null,
+                "walk_in",
+                payment_method ? String(payment_method).trim() : null,
+                id_document || null,
+                payment_proof || null,
+                signature_data || null,
+              ]
+            );
+          } catch (insErr) {
+            // If the DB BOOKING table doesn't have all Avida columns, fall back to minimal walk-in insert.
+            if (insErr && insErr.code === "ER_BAD_FIELD_ERROR") {
+              await db.promise().query(
+                `INSERT INTO BOOKING (
+                  unit_id, guest_name, email, contact_number, check_in_date, check_out_date,
+                  booking_platform, status
+                ) VALUES (?, ?, ?, ?, ?, ?, 'walk_in', 'confirmed')`,
+                [
+                  data.unitId,
+                  String(gName || guestName || "").trim(),
+                  emailToUse,
+                  contact_number ? String(contact_number).trim() : (contact ? String(contact).trim() : null),
+                  cIn || today,
+                  cOut || today,
+                ]
+              );
+            } else {
+              throw insErr;
+            }
+          }
         } else {
           const today = new Date().toISOString().slice(0, 10);
           await db.promise().query(

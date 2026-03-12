@@ -6,8 +6,18 @@
   var isFile = !origin || origin === "null" || protocol === "file:";
   var API = typeof window.REGALIA_API_URL !== "undefined" ? window.REGALIA_API_URL : (isFile ? "/api" : origin + "/api");
 
+  function getAuthHeaders(withJson) {
+    var h = {};
+    try {
+      var t = localStorage && localStorage.getItem("token");
+      if (t) h.Authorization = "Bearer " + t;
+    } catch (e) {}
+    if (withJson) h["Content-Type"] = "application/json";
+    return h;
+  }
+
   function getBookings() {
-    return fetch(API + "/bookings").then(function (r) { return r.ok ? r.json() : []; });
+    return fetch(API + "/bookings", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; });
   }
 
   function formatDate(d) {
@@ -45,19 +55,19 @@
 
   // Check-in / check-out
   function postCheckIn(id) {
-    return fetch(API + "/bookings/" + id + "/check-in", { method: "POST" }).then(function (r) {
+    return fetch(API + "/bookings/" + id + "/check-in", { method: "POST", headers: getAuthHeaders() }).then(function (r) {
       return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); });
     });
   }
 
   function postCheckOut(id) {
-    return fetch(API + "/bookings/" + id + "/check-out", { method: "POST" }).then(function (r) {
+    return fetch(API + "/bookings/" + id + "/check-out", { method: "POST", headers: getAuthHeaders() }).then(function (r) {
       return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); });
     });
   }
 
   function resendQr(id) {
-    return fetch(API + "/bookings/" + id + "/resend-qr", { method: "POST" }).then(function (r) {
+    return fetch(API + "/bookings/" + id + "/resend-qr", { method: "POST", headers: getAuthHeaders() }).then(function (r) {
       return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); });
     });
   }
