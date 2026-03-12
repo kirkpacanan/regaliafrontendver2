@@ -31,6 +31,29 @@ function optionalAuth(req, res, next) {
   next();
 }
 
+let didBackfillTowerOwners = false;
+async function tryBackfillTowerOwners() {
+  if (didBackfillTowerOwners) return;
+  didBackfillTowerOwners = true;
+  try {
+    // Best-effort backfill: infer tower owner from employees assigned to tower (employee.created_by_employee_id).
+    // If schema doesn't support multi-tenant ownership columns yet, this no-ops.
+    await db.promise().query(
+      `UPDATE TOWER t
+       JOIN (
+         SELECT et.tower_id, MIN(e.created_by_employee_id) AS owner_employee_id
+         FROM EMPLOYEE_TOWER et
+         JOIN EMPLOYEE e ON e.employee_id = et.employee_id
+         WHERE e.created_by_employee_id IS NOT NULL
+         GROUP BY et.tower_id
+       ) x ON x.tower_id = t.tower_id
+       SET t.owner_employee_id = COALESCE(t.owner_employee_id, x.owner_employee_id)`
+    );
+  } catch (e) {
+    // Likely missing columns/tables (older schema). Ignore safely.
+  }
+}
+
 // ---------------- DB Connection ----------------
 const db = mysql.createConnection({
   host: process.env.DB_HOST,
@@ -127,11 +150,45 @@ app.post("/login", async (req, res) => {
 });
 
 // ---------------- Towers (ERD: TOWER) ----------------
-app.get("/api/towers", async (req, res) => {
+app.get("/api/towers", optionalAuth, async (req, res) => {
   try {
-    const [rows] = await db.promise().query(
-      "SELECT tower_id, tower_name, number_floors FROM TOWER ORDER BY tower_name"
-    );
+    await tryBackfillTowerOwners();
+    let rows;
+    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    try {
+      [rows] = await db.promise().query(
+        "SELECT tower_id, tower_name, number_floors FROM TOWER WHERE (? IS NULL OR owner_employee_id = ?) ORDER BY tower_name",
+        [ownerId, ownerId]
+      );
+    } catch (colErr) {
+      if (colErr.code === "ER_BAD_FIELD_ERROR") {
+        if (ownerId) {
+          try {
+            [rows] = await db.promise().query(
+              `SELECT t.tower_id, t.tower_name, t.number_floors
+               FROM TOWER t
+               WHERE t.tower_id IN (
+                 SELECT DISTINCT et.tower_id
+                 FROM EMPLOYEE_TOWER et
+                 JOIN EMPLOYEE e ON e.employee_id = et.employee_id
+                 WHERE e.created_by_employee_id = ?
+               )
+               ORDER BY t.tower_name`,
+              [ownerId]
+            );
+          } catch (e) {
+            [rows] = await db.promise().query(
+              "SELECT tower_id, tower_name, number_floors FROM TOWER ORDER BY tower_name"
+            );
+          }
+        } else {
+          [rows] = await db.promise().query(
+            "SELECT tower_id, tower_name, number_floors FROM TOWER ORDER BY tower_name"
+          );
+        }
+      } else throw colErr;
+    }
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -139,15 +196,27 @@ app.get("/api/towers", async (req, res) => {
   }
 });
 
-app.post("/api/towers", async (req, res) => {
+app.post("/api/towers", optionalAuth, async (req, res) => {
   try {
     const { tower_name, number_floors } = req.body;
     if (!tower_name || number_floors == null)
       return res.status(400).json({ error: "tower_name and number_floors required" });
-    const [result] = await db.promise().query(
-      "INSERT INTO TOWER (tower_name, number_floors) VALUES (?, ?)",
-      [String(tower_name).trim(), Number(number_floors)]
-    );
+    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    let result;
+    try {
+      [result] = await db.promise().query(
+        "INSERT INTO TOWER (tower_name, number_floors, owner_employee_id) VALUES (?, ?, ?)",
+        [String(tower_name).trim(), Number(number_floors), ownerId]
+      );
+    } catch (colErr) {
+      if (colErr.code === "ER_BAD_FIELD_ERROR") {
+        [result] = await db.promise().query(
+          "INSERT INTO TOWER (tower_name, number_floors) VALUES (?, ?)",
+          [String(tower_name).trim(), Number(number_floors)]
+        );
+      } else throw colErr;
+    }
     res.status(201).json({ tower_id: result.insertId, tower_name, number_floors });
   } catch (err) {
     console.error(err);
@@ -156,15 +225,60 @@ app.post("/api/towers", async (req, res) => {
 });
 
 // ---------------- Units (ERD: UNIT – linked to TOWER) ----------------
-app.get("/api/units", async (req, res) => {
+app.get("/api/units", optionalAuth, async (req, res) => {
   try {
-    const [rows] = await db.promise().query(
-      `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-        u.image_urls, t.tower_name
-       FROM UNIT u
-       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-       ORDER BY t.tower_name, u.floor_number, u.unit_number`
-    );
+    await tryBackfillTowerOwners();
+    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    let rows;
+    try {
+      [rows] = await db.promise().query(
+        `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+          u.image_urls, t.tower_name
+         FROM UNIT u
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         WHERE (? IS NULL OR COALESCE(u.owner_employee_id, t.owner_employee_id) = ?)
+         ORDER BY t.tower_name, u.floor_number, u.unit_number`,
+        [ownerId, ownerId]
+      );
+    } catch (colErr) {
+      if (colErr.code === "ER_BAD_FIELD_ERROR") {
+        if (ownerId) {
+          try {
+            [rows] = await db.promise().query(
+              `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+                u.image_urls, t.tower_name
+               FROM UNIT u
+               LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+               WHERE u.tower_id IN (
+                 SELECT DISTINCT et.tower_id
+                 FROM EMPLOYEE_TOWER et
+                 JOIN EMPLOYEE e ON e.employee_id = et.employee_id
+                 WHERE e.created_by_employee_id = ?
+               )
+               ORDER BY t.tower_name, u.floor_number, u.unit_number`,
+              [ownerId]
+            );
+          } catch (e) {
+            [rows] = await db.promise().query(
+              `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+                u.image_urls, t.tower_name
+               FROM UNIT u
+               LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+               ORDER BY t.tower_name, u.floor_number, u.unit_number`
+            );
+          }
+        } else {
+          [rows] = await db.promise().query(
+            `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+              u.image_urls, t.tower_name
+             FROM UNIT u
+             LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+             ORDER BY t.tower_name, u.floor_number, u.unit_number`
+          );
+        }
+      } else throw colErr;
+    }
     res.json(rows);
   } catch (err) {
     console.error(err);
@@ -193,16 +307,21 @@ app.get("/api/units/:id", async (req, res) => {
   }
 });
 
-app.post("/api/units", async (req, res) => {
+app.post("/api/units", optionalAuth, async (req, res) => {
   try {
     const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls } = req.body;
     if (!tower_id || !unit_number)
       return res.status(400).json({ error: "tower_id and unit_number required" });
     const hasImages = image_urls != null && String(image_urls).trim() !== "";
-    const [result] = hasImages
-      ? await db.promise().query(
-          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    await tryBackfillTowerOwners();
+    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    let result;
+    try {
+      if (hasImages) {
+        [result] = await db.promise().query(
+          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, owner_employee_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             Number(tower_id),
             String(unit_number).trim(),
@@ -211,11 +330,13 @@ app.post("/api/units", async (req, res) => {
             unit_size != null ? Number(unit_size) : null,
             description ? String(description).trim() : null,
             String(image_urls).trim(),
+            ownerId,
           ]
-        )
-      : await db.promise().query(
-          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+        );
+      } else {
+        [result] = await db.promise().query(
+          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, owner_employee_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             Number(tower_id),
             String(unit_number).trim(),
@@ -223,8 +344,41 @@ app.post("/api/units", async (req, res) => {
             unit_type ? String(unit_type).trim() : null,
             unit_size != null ? Number(unit_size) : null,
             description ? String(description).trim() : null,
+            ownerId,
           ]
         );
+      }
+    } catch (colErr) {
+      if (colErr.code === "ER_BAD_FIELD_ERROR") {
+        const [legacy] = hasImages
+          ? await db.promise().query(
+              `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls)
+               VALUES (?, ?, ?, ?, ?, ?, ?)`,
+              [
+                Number(tower_id),
+                String(unit_number).trim(),
+                floor_number != null ? String(floor_number).trim() : null,
+                unit_type ? String(unit_type).trim() : null,
+                unit_size != null ? Number(unit_size) : null,
+                description ? String(description).trim() : null,
+                String(image_urls).trim(),
+              ]
+            )
+          : await db.promise().query(
+              `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description)
+               VALUES (?, ?, ?, ?, ?, ?)`,
+              [
+                Number(tower_id),
+                String(unit_number).trim(),
+                floor_number != null ? String(floor_number).trim() : null,
+                unit_type ? String(unit_type).trim() : null,
+                unit_size != null ? Number(unit_size) : null,
+                description ? String(description).trim() : null,
+              ]
+            );
+        result = legacy;
+      } else throw colErr;
+    }
     res.status(201).json({
       unit_id: result.insertId,
       tower_id: Number(tower_id),
@@ -243,20 +397,49 @@ const PROPERTIES_MINIMAL_SQL = `SELECT u.unit_id, u.tower_id, u.unit_number, u.f
  LEFT JOIN TOWER t ON t.tower_id = u.tower_id
  ORDER BY t.tower_name, u.floor_number, u.unit_number`;
 
-app.get("/api/properties", async (req, res) => {
+app.get("/api/properties", optionalAuth, async (req, res) => {
   try {
     let rows;
     try {
+      await tryBackfillTowerOwners();
+      const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+      const ownerId = isOwner ? Number(req.user.employee_id) : null;
       [rows] = await db.promise().query(
         `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
           u.image_urls, u.price, t.tower_name, t.number_floors
          FROM UNIT u
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         WHERE (? IS NULL OR COALESCE(u.owner_employee_id, t.owner_employee_id) = ?)
          ORDER BY t.tower_name, u.floor_number, u.unit_number`
+        , [ownerId, ownerId]
       );
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR") {
-        [rows] = await db.promise().query(PROPERTIES_MINIMAL_SQL);
+        // Older schema without ownership columns: best-effort isolation for OWNER using employee->tower assignments.
+        const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+        const ownerId = isOwner ? Number(req.user.employee_id) : null;
+        if (ownerId) {
+          try {
+            [rows] = await db.promise().query(
+              `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+                t.tower_name, t.number_floors
+               FROM UNIT u
+               LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+               WHERE u.tower_id IN (
+                 SELECT DISTINCT et.tower_id
+                 FROM EMPLOYEE_TOWER et
+                 JOIN EMPLOYEE e ON e.employee_id = et.employee_id
+                 WHERE e.created_by_employee_id = ?
+               )
+               ORDER BY t.tower_name, u.floor_number, u.unit_number`,
+              [ownerId]
+            );
+          } catch (e) {
+            [rows] = await db.promise().query(PROPERTIES_MINIMAL_SQL);
+          }
+        } else {
+          [rows] = await db.promise().query(PROPERTIES_MINIMAL_SQL);
+        }
         rows.forEach(r => {
           if (r.price === undefined) r.price = null;
           if (r.image_urls === undefined) r.image_urls = null;
@@ -1025,10 +1208,23 @@ app.put("/api/bookings/:id/reject", async (req, res) => {
   try {
     const id = Number(req.params.id);
     const { reason } = req.body;
-    const [result] = await db.promise().query(
-      "UPDATE BOOKING SET status = 'rejected', rejection_reason = ? WHERE booking_id = ?",
-      [reason ? String(reason).trim() : null, id]
-    );
+    let result;
+    try {
+      [result] = await db.promise().query(
+        "UPDATE BOOKING SET status = 'rejected', rejection_reason = ? WHERE booking_id = ?",
+        [reason ? String(reason).trim() : null, id]
+      );
+    } catch (e) {
+      // Some schemas define BOOKING.status as ENUM without 'rejected' – fall back to 'cancelled' but keep the reason.
+      if (e && (e.code === "ER_TRUNCATED_WRONG_VALUE_FOR_FIELD" || e.code === "ER_WARN_DATA_TRUNCATED" || e.code === "ER_DATA_TRUNCATED")) {
+        [result] = await db.promise().query(
+          "UPDATE BOOKING SET status = 'cancelled', rejection_reason = ? WHERE booking_id = ?",
+          [reason ? String(reason).trim() : null, id]
+        );
+      } else {
+        throw e;
+      }
+    }
     if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found" });
     res.json({ message: "Booking rejected" });
   } catch (err) {

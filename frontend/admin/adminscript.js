@@ -22,6 +22,14 @@
     var availableEl = document.querySelector("[data-dashboard-available]");
     var occupiedEl = document.querySelector("[data-dashboard-occupied]");
     var totalPropEl = document.querySelector("[data-dashboard-total-properties]");
+    function getAuthHeaders() {
+      var h = {};
+      try {
+        var t = localStorage && localStorage.getItem("token");
+        if (t) h.Authorization = "Bearer " + t;
+      } catch (e) {}
+      return h;
+    }
     function setStat(el, val) { if (el) el.textContent = val; }
     function esc(s) {
       if (s == null || s === undefined) return "";
@@ -42,8 +50,8 @@
       return null;
     }
     Promise.all([
-      fetch(API + "/properties").then(function (r) { return r.ok ? r.json() : []; }),
-      fetch(API + "/bookings").then(function (r) { return r.ok ? r.json() : []; })
+      fetch(API + "/properties", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }),
+      fetch(API + "/bookings", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; })
     ]).then(function (results) {
       var data = results[0];
       var bookings = results[1] || [];
@@ -126,6 +134,17 @@
     var selectedTowerIdOrNew = null; // "__new__" or number; set when leaving step 1
     var unitImageDataUrls = [null, null, null, null]; // base64 data URLs for 4 slots
     var updateImageDataUrls = [null, null, null, null]; // for edit modal
+    var isSubmittingProperty = false;
+
+    function getAuthHeaders(withJson) {
+      var h = {};
+      if (withJson) h["Content-Type"] = "application/json";
+      try {
+        var t = localStorage && localStorage.getItem("token");
+        if (t) h.Authorization = "Bearer " + t;
+      } catch (e) {}
+      return h;
+    }
 
     function buildBookingLink(unit) {
       var base = window.location.origin + (window.location.pathname.indexOf("/admin") !== -1 ? "/admin" : "") + "/../guest/booking.html";
@@ -170,7 +189,7 @@
     }
 
     function loadTowers() {
-      return fetch(API + "/towers")
+      return fetch(API + "/towers", { headers: getAuthHeaders() })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (data) {
           towers = data;
@@ -188,7 +207,7 @@
     }
 
     function loadProperties() {
-      return fetch(API + "/properties")
+      return fetch(API + "/properties", { headers: getAuthHeaders() })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (data) {
           properties = data;
@@ -272,6 +291,7 @@
     }
 
     function submitProperty() {
+      if (isSubmittingProperty) return;
       var towerId = selectedTowerIdOrNew;
       if (towerId === undefined || towerId === null) {
         towerId = towerSelect ? towerSelect.value : "";
@@ -307,9 +327,11 @@
           alert("Tower name and number of floors are required for a new tower.");
           return;
         }
+        isSubmittingProperty = true;
+        if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = "Saving..."; }
         promise = fetch(API + "/towers", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: getAuthHeaders(true),
           body: JSON.stringify({ tower_name: name, number_floors: Number(floors) }),
         })
           .then(function (r) {
@@ -327,9 +349,11 @@
       promise
         .then(function (tid) {
           payload.tower_id = tid;
+          isSubmittingProperty = true;
+          if (nextBtn) { nextBtn.disabled = true; nextBtn.textContent = "Saving..."; }
           return fetch(API + "/units", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders(true),
             body: JSON.stringify(payload),
           });
         })
@@ -344,6 +368,10 @@
         })
         .catch(function (err) {
           alert(err.message || "Failed to add property.");
+        })
+        .finally(function () {
+          isSubmittingProperty = false;
+          if (nextBtn) { nextBtn.disabled = false; nextBtn.textContent = "Next"; }
         });
     }
 
@@ -1016,6 +1044,15 @@
 
     var bookings = [];
     var activeBookingId = null;
+    function getAuthHeaders(withJson) {
+      var h = {};
+      if (withJson) h["Content-Type"] = "application/json";
+      try {
+        var t = localStorage && localStorage.getItem("token");
+        if (t) h.Authorization = "Bearer " + t;
+      } catch (e) {}
+      return h;
+    }
 
     function escapeHtml(s) {
       if (s == null || s === undefined) return "";
@@ -1066,7 +1103,7 @@
     }
 
     function loadBookings() {
-      return fetch(API + "/bookings")
+      return fetch(API + "/bookings", { headers: getAuthHeaders() })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (data) {
           bookings = data || [];
@@ -1202,7 +1239,7 @@
 
     function confirmBooking() {
       if (!activeBookingId) return;
-      fetch(API + "/bookings/" + activeBookingId + "/confirm", { method: "PUT" })
+      fetch(API + "/bookings/" + activeBookingId + "/confirm", { method: "PUT", headers: getAuthHeaders() })
         .then(function (r) {
           if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
           return r.json();
@@ -1241,7 +1278,7 @@
       if (!activeBookingId) return;
       fetch(API + "/bookings/" + activeBookingId + "/reject", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ reason: reason }),
       })
         .then(function (r) {
