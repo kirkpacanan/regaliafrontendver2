@@ -648,6 +648,12 @@ body {
   margin-bottom: 1rem;
 }
 
+.update-booking-label .link-hint {
+  font-size: 0.8rem;
+  color: var(--muted, #64748b);
+  margin: 0.25rem 0 0.5rem;
+}
+
 .step-actions--between {
   justify-content: space-between;
   flex-wrap: wrap;

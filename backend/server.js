@@ -1261,6 +1261,47 @@ app.put("/api/bookings/:id/reject", async (req, res) => {
       }
     }
     if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found" });
+
+    // Email the guest about the rejection if we have Brevo and the booking has an email
+    try {
+      const [rows] = await db.promise().query(
+        "SELECT b.email, b.guest_name, b.booking_id, u.unit_number, t.tower_name FROM BOOKING b LEFT JOIN UNIT u ON u.unit_id = b.unit_id LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE b.booking_id = ?",
+        [id]
+      );
+      const booking = rows && rows[0];
+      const toEmail = booking && booking.email && String(booking.email).trim();
+      if (toEmail && BREVO_API_KEY) {
+        const reasonText = (reason && String(reason).trim()) || "No reason provided.";
+        const guestName = escapeHtml(booking.guest_name || "Guest");
+        const unitLabel = [booking.tower_name, booking.unit_number].filter(Boolean).join(" • ") || "your unit";
+        const html = `<!DOCTYPE html><html><head><meta charset="utf-8"></head><body style="margin:0;font-family:system-ui,sans-serif;background:#f8fafc;padding:24px;">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;box-shadow:0 4px 12px rgba(0,0,0,0.08);">
+    <p style="margin:0 0 16px;font-size:16px;color:#334155;">Dear ${guestName},</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#475569;">Your booking request for <strong>${escapeHtml(unitLabel)}</strong> could not be confirmed.</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#475569;"><strong>Reason:</strong> ${escapeHtml(reasonText)}</p>
+    <p style="margin:0 0 24px;font-size:15px;color:#475569;">If you have questions, please contact the property management.</p>
+    <p style="margin:0;font-size:14px;color:#64748b;">Regalia</p>
+  </div>
+</body></html>`;
+        const senderEmail = process.env.BREVO_FROM_EMAIL || "regalia@example.com";
+        const senderName = process.env.BREVO_FROM_NAME || "Regalia";
+        const brevoRes = await fetch("https://api.brevo.com/v3/smtp/email", {
+          method: "POST",
+          headers: { "accept": "application/json", "content-type": "application/json", "api-key": BREVO_API_KEY },
+          body: JSON.stringify({
+            sender: { name: senderName, email: senderEmail },
+            to: [{ email: toEmail }],
+            subject: "Booking not confirmed – Regalia",
+            htmlContent: html,
+          }),
+        });
+        if (brevoRes.ok) console.log("Rejection email sent to " + toEmail);
+        else console.warn("Rejection email failed:", brevoRes.status, await brevoRes.text());
+      }
+    } catch (emailErr) {
+      console.warn("Rejection email error:", emailErr.message);
+    }
+
     res.json({ message: "Booking rejected" });
   } catch (err) {
     console.error(err);
@@ -1507,12 +1548,15 @@ app.get("/api/guest-register", async (req, res) => {
 
 // Submit guest registration. Same form/link as property guest registration.
 // Walk-in token (unitId): creates booking with status 'confirmed', auto-sends email—no owner confirmation.
+// When walk-in uses full Avida form (booking.html), body includes check_in_date, permanent_address, etc. – full BOOKING insert.
 // booking_id / token(bookingId): adds guest to existing booking.
 app.post("/api/guest-register", async (req, res) => {
   try {
-    const { token, booking_id, full_name, email, contact_number, purpose, relationship } = req.body || {};
-    if (!full_name || !String(full_name).trim())
-      return res.status(400).json({ error: "full_name is required" });
+    const body = req.body || {};
+    const { token, booking_id, full_name, email, contact_number, purpose, relationship } = body;
+    const guestName = (body.guest_name || full_name || "").trim() || (full_name && String(full_name).trim());
+    if (!guestName)
+      return res.status(400).json({ error: "full_name or guest_name is required" });
     let bookingId = null;
     let addedVia = "booker";
     let checkIn = null, checkOut = null;
@@ -1525,25 +1569,87 @@ app.post("/api/guest-register", async (req, res) => {
       walkInTokens.delete(token);
       if (data.unitId) {
         isWalkIn = true;
-        const today = new Date().toISOString().slice(0, 10);
-        await db.promise().query(
-          `INSERT INTO BOOKING (
-            unit_id, guest_name, email, contact_number, check_in_date, check_out_date,
-            booking_platform, status
-          ) VALUES (?, ?, ?, ?, ?, ?, 'walk_in', 'confirmed')`,
-          [
-            data.unitId,
-            String(full_name).trim(),
-            email ? String(email).trim() : null,
-            contact_number ? String(contact_number).trim() : null,
-            today,
-            today,
-          ]
-        );
+        const hasFullForm = body.check_in_date != null || body.permanent_address != null || (body.unit_id != null && body.unit_id !== "");
+        if (hasFullForm) {
+          // Full Avida form: same fields as POST /api/bookings, but status 'confirmed' and booking_platform 'walk_in'
+          const {
+            unit_id,
+            guest_name: gName,
+            permanent_address,
+            age,
+            nationality,
+            relation_to_owner,
+            occupation,
+            email: eMail,
+            contact_number: contact,
+            owner_name,
+            owner_contact,
+            inclusive_dates,
+            check_in_date: cIn,
+            check_out_date: cOut,
+            purpose_of_stay,
+            paid_yes_no,
+            amount_paid,
+            booking_platform: platform,
+            payment_method,
+            id_document,
+            payment_proof,
+            signature_data,
+          } = body;
+          const today = new Date().toISOString().slice(0, 10);
+          await db.promise().query(
+            `INSERT INTO BOOKING (
+              unit_id, guest_name, permanent_address, age, nationality, relation_to_owner, occupation,
+              email, contact_number, owner_name, owner_contact, inclusive_dates, check_in_date, check_out_date,
+              purpose_of_stay, paid_yes_no, amount_paid, booking_platform, payment_method,
+              id_document, payment_proof, signature_data, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed')`,
+            [
+              Number(data.unitId),
+              String(gName || guestName || "").trim(),
+              permanent_address ? String(permanent_address).trim() : null,
+              age ? String(age).trim() : null,
+              nationality ? String(nationality).trim() : null,
+              relation_to_owner ? String(relation_to_owner).trim() : null,
+              occupation ? String(occupation).trim() : null,
+              String(eMail || email || "").trim(),
+              contact_number ? String(contact_number).trim() : (contact ? String(contact).trim() : null),
+              owner_name ? String(owner_name).trim() : null,
+              owner_contact ? String(owner_contact).trim() : null,
+              inclusive_dates ? String(inclusive_dates).trim() : null,
+              cIn || today,
+              cOut || today,
+              purpose_of_stay ? String(purpose_of_stay).trim() : null,
+              paid_yes_no ? String(paid_yes_no).trim() : null,
+              amount_paid != null && amount_paid !== "" ? String(amount_paid).trim() : null,
+              "walk_in",
+              payment_method ? String(payment_method).trim() : null,
+              id_document || null,
+              payment_proof || null,
+              signature_data || null,
+            ]
+          );
+        } else {
+          const today = new Date().toISOString().slice(0, 10);
+          await db.promise().query(
+            `INSERT INTO BOOKING (
+              unit_id, guest_name, email, contact_number, check_in_date, check_out_date,
+              booking_platform, status
+            ) VALUES (?, ?, ?, ?, ?, ?, 'walk_in', 'confirmed')`,
+            [
+              data.unitId,
+              guestName,
+              email ? String(email).trim() : null,
+              contact_number ? String(contact_number).trim() : null,
+              today,
+              today,
+            ]
+          );
+        }
         const [[r]] = await db.promise().query("SELECT LAST_INSERT_ID() AS id");
         bookingId = r.id;
-        checkIn = today;
-        checkOut = today;
+        const [[bRow]] = await db.promise().query("SELECT check_in_date, check_out_date FROM BOOKING WHERE booking_id = ?", [bookingId]);
+        if (bRow) { checkIn = bRow.check_in_date; checkOut = bRow.check_out_date; }
         addedVia = "walkin";
       } else if (data.bookingId) {
         bookingId = data.bookingId;
@@ -1573,22 +1679,24 @@ app.post("/api/guest-register", async (req, res) => {
     }
     const from = checkIn ? String(checkIn).slice(0, 10) : null;
     const to = checkOut ? String(checkOut).slice(0, 10) : null;
+    const guestEmail = (body.email || email || "").trim() || null;
+    const guestContact = (body.contact_number || contact_number || "").trim() || null;
     try {
       await db.promise().query(
         `INSERT INTO BOOKING_GUEST (booking_id, full_name, email, contact_number, added_via, purpose, relationship, valid_from, valid_to, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-        [bookingId, String(full_name).trim(), email ? String(email).trim() : null, contact_number ? String(contact_number).trim() : null, addedVia, purpose ? String(purpose).trim() : null, relationship ? String(relationship).trim() : null, from, to]
+        [bookingId, guestName, guestEmail || null, guestContact, addedVia, purpose ? String(purpose).trim() : null, relationship ? String(relationship).trim() : null, from, to]
       );
     } catch (insErr) {
       if (insErr.code === "ER_BAD_FIELD_ERROR") {
         await db.promise().query(
           "INSERT INTO BOOKING_GUEST (booking_id, full_name, email, contact_number, added_via) VALUES (?, ?, ?, ?, ?)",
-          [bookingId, String(full_name).trim(), email ? String(email).trim() : null, contact_number ? String(contact_number).trim() : null, addedVia]
+          [bookingId, guestName, guestEmail || null, guestContact, addedVia]
         );
       } else throw insErr;
     }
 
-    if (isWalkIn && email && String(email).trim() && BREVO_API_KEY) {
+    if (isWalkIn && guestEmail && BREVO_API_KEY) {
       try {
         const [rows] = await db.promise().query(
           `SELECT b.booking_id, b.guest_name, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
@@ -1626,7 +1734,7 @@ app.post("/api/guest-register", async (req, res) => {
             headers: { "accept": "application/json", "content-type": "application/json", "api-key": BREVO_API_KEY },
             body: JSON.stringify({
               sender: { name: senderName, email: senderEmail },
-              to: [{ email: String(email).trim() }],
+              to: [{ email: guestEmail }],
               subject: "Walk-in registration confirmed – Regalia",
               htmlContent: html,
             }),
@@ -1637,7 +1745,7 @@ app.post("/api/guest-register", async (req, res) => {
       }
     }
 
-    res.status(201).json({ message: "You are registered. Present yourself at check-in." + (isWalkIn && email ? " A confirmation has been sent to your email." : "") });
+    res.status(201).json({ message: "You are registered. Present yourself at check-in." + (isWalkIn && guestEmail ? " A confirmation has been sent to your email." : "") });
   } catch (err) {
     if (err.code === "ER_NO_SUCH_TABLE")
       return res.status(503).json({ error: "Guest registration is not set up. Contact staff." });

@@ -499,6 +499,8 @@
       (function () {
         const params = new URLSearchParams(window.location.search);
         const unitId = params.get("unit_id");
+        const walkin = params.get("walkin") === "1";
+        const walkinToken = params.get("token") || "";
 
         const card = document.querySelector("[data-unit-card]");
         const loadingEl = document.querySelector("[data-unit-loading]");
@@ -633,8 +635,11 @@
           }
           var idFile = form && form.querySelector("[data-id-document]");
           var paymentFile = form && form.querySelector("[data-payment-upload]");
+          var isWalkin = walkin && walkinToken;
+          if (isWalkin) data.token = walkinToken;
           var done = function () {
-            fetch("/api/bookings", {
+            var url = isWalkin ? "/api/guest-register" : "/api/bookings";
+            fetch(url, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(data)
@@ -644,13 +649,17 @@
                 return r.json();
               })
               .then(function () {
-                alert("Booking submitted. The owner will review and confirm or reject.");
+                if (isWalkin) {
+                  alert("Registration complete. A confirmation has been sent to your email.");
+                } else {
+                  alert("Booking submitted. The owner will review and confirm or reject.");
+                }
                 if (form) form.reset();
                 var canvas = document.querySelector("[data-signature]");
                 if (canvas) { var ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); }
               })
               .catch(function (err) {
-                alert(err.message || "Failed to submit booking.");
+                alert(err.message || "Failed to submit.");
               });
           };
           if (idFile && idFile.files && idFile.files[0]) {

@@ -129,6 +129,13 @@
               showError(data.error);
               return;
             }
+            // Walk-in (unit) registration: use the full Avida form on the booking page
+            if (data.walk_in && data.unit_id && token) {
+              var bookingPath = window.location.pathname.replace(/guest-register\.html$/i, "booking.html");
+              var url = bookingPath + "?unit_id=" + encodeURIComponent(data.unit_id) + "&walkin=1&token=" + encodeURIComponent(token);
+              window.location.href = url;
+              return;
+            }
             showForm(data);
           })
           .catch(function () {
