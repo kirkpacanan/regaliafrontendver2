@@ -463,7 +463,7 @@ app.get("/api/bookings", async (req, res) => {
       [rows] = await db.promise().query(
         `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
           b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
-          b.checked_in_at, b.checked_out_at,
+          b.checked_in_at, b.checked_out_at, b.booking_platform,
           u.unit_number, u.unit_type, t.tower_name
          FROM BOOKING b
          LEFT JOIN UNIT u ON u.unit_id = b.unit_id
@@ -473,7 +473,7 @@ app.get("/api/bookings", async (req, res) => {
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR") {
         [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
-        rows.forEach((r) => { r.checked_in_at = null; r.checked_out_at = null; });
+        rows.forEach((r) => { r.checked_in_at = null; r.checked_out_at = null; r.booking_platform = null; });
       } else throw colErr;
     }
     res.json(rows || []);
@@ -1080,7 +1080,7 @@ app.post("/api/bookings/:id/check-out", async (req, res) => {
 });
 
 // ---------------- Guest authorization & registration (QR workflow) ----------------
-// In-memory walk-in tokens: token -> { bookingId, expiresAt }. Expiry 15 min.
+// In-memory walk-in tokens: token -> { bookingId?, unitId?, expiresAt }. Expiry 15 min.
 const walkInTokens = new Map();
 const WALKIN_TOKEN_TTL_MS = 15 * 60 * 1000;
 function pruneWalkInTokens() {
@@ -1162,31 +1162,48 @@ app.post("/api/bookings/:id/guests", async (req, res) => {
   }
 });
 
-// Staff: create a walk-in registration token for a booking (QR for guest to scan)
+// Staff: create a walk-in registration token (by unit_id or booking_id). QR leads to guest registration; walk-in creates new booking and emails guest.
 app.post("/api/walkin-token", async (req, res) => {
   try {
-    const { booking_id } = req.body || {};
-    const id = Number(booking_id);
-    if (!id) return res.status(400).json({ error: "booking_id is required" });
-    const [[booking]] = await db.promise().query(
-      "SELECT booking_id FROM BOOKING WHERE booking_id = ? AND status = 'confirmed'",
-      [id]
-    );
-    if (!booking) return res.status(404).json({ error: "Booking not found or not confirmed" });
-    const token = require("crypto").randomBytes(24).toString("hex");
-    const expiresAt = Date.now() + WALKIN_TOKEN_TTL_MS;
-    walkInTokens.set(token, { bookingId: id, expiresAt });
-    const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || ("https://" + (req.get("host") || "localhost"));
-    const registerUrl = baseUrl + "/guest/guest-register.html?token=" + token;
-    const qrDataUrl = await QRCode.toDataURL(registerUrl, QR_OPTS);
-    res.json({ token, registerUrl, qrDataUrl, expiresIn: Math.floor(WALKIN_TOKEN_TTL_MS / 1000) });
+    const { unit_id, booking_id } = req.body || {};
+    const unitId = unit_id != null ? Number(unit_id) : null;
+    const bookingId = booking_id != null ? Number(booking_id) : null;
+    if (unitId) {
+      const [[unit]] = await db.promise().query(
+        "SELECT unit_id FROM UNIT WHERE unit_id = ?",
+        [unitId]
+      );
+      if (!unit) return res.status(404).json({ error: "Unit not found" });
+      const token = require("crypto").randomBytes(24).toString("hex");
+      const expiresAt = Date.now() + WALKIN_TOKEN_TTL_MS;
+      walkInTokens.set(token, { unitId, expiresAt });
+      const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || ("https://" + (req.get("host") || "localhost"));
+      const registerUrl = baseUrl + "/guest/guest-register.html?token=" + token;
+      const qrDataUrl = await QRCode.toDataURL(registerUrl, QR_OPTS);
+      return res.json({ token, registerUrl, qrDataUrl, expiresIn: Math.floor(WALKIN_TOKEN_TTL_MS / 1000) });
+    }
+    if (bookingId) {
+      const [[booking]] = await db.promise().query(
+        "SELECT booking_id FROM BOOKING WHERE booking_id = ? AND status = 'confirmed'",
+        [bookingId]
+      );
+      if (!booking) return res.status(404).json({ error: "Booking not found or not confirmed" });
+      const token = require("crypto").randomBytes(24).toString("hex");
+      const expiresAt = Date.now() + WALKIN_TOKEN_TTL_MS;
+      walkInTokens.set(token, { bookingId, expiresAt });
+      const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || ("https://" + (req.get("host") || "localhost"));
+      const registerUrl = baseUrl + "/guest/guest-register.html?token=" + token;
+      const qrDataUrl = await QRCode.toDataURL(registerUrl, QR_OPTS);
+      return res.json({ token, registerUrl, qrDataUrl, expiresIn: Math.floor(WALKIN_TOKEN_TTL_MS / 1000) });
+    }
+    return res.status(400).json({ error: "unit_id or booking_id is required" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to create token" });
   }
 });
 
-// Resolve token to booking (for registration form)
+// Resolve token to booking or unit (for registration form)
 app.get("/api/guest-register", async (req, res) => {
   try {
     const token = (req.query.token || "").toString().trim();
@@ -1195,24 +1212,40 @@ app.get("/api/guest-register", async (req, res) => {
       const data = walkInTokens.get(token);
       if (!data || data.expiresAt < Date.now())
         return res.status(400).json({ error: "Invalid or expired link. Ask staff to generate a new QR." });
-      const [rows] = await db.promise().query(
-        `SELECT b.booking_id, b.guest_name, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
-         FROM BOOKING b LEFT JOIN UNIT u ON u.unit_id = b.unit_id LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-         WHERE b.booking_id = ? AND b.status = 'confirmed'`,
-        [data.bookingId]
-      );
-      if (!rows || !rows[0]) return res.status(404).json({ error: "Booking not found" });
-      const b = rows[0];
-      res.json({
-        booking_id: b.booking_id,
-        booking_ref: "REG-" + String(b.booking_id).padStart(5, "0"),
-        unit: b.unit_number || "—",
-        tower: b.tower_name || "—",
-        check_in: b.check_in_date,
-        check_out: b.check_out_date,
-        token,
-      });
-      return;
+      if (data.unitId) {
+        const [rows] = await db.promise().query(
+          `SELECT u.unit_id, u.unit_number, t.tower_name FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE u.unit_id = ?`,
+          [data.unitId]
+        );
+        if (!rows || !rows[0]) return res.status(404).json({ error: "Unit not found" });
+        const u = rows[0];
+        return res.json({
+          unit_id: u.unit_id,
+          unit: u.unit_number || "—",
+          tower: u.tower_name || "—",
+          token,
+          walk_in: true,
+        });
+      }
+      if (data.bookingId) {
+        const [rows] = await db.promise().query(
+          `SELECT b.booking_id, b.guest_name, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
+           FROM BOOKING b LEFT JOIN UNIT u ON u.unit_id = b.unit_id LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE b.booking_id = ? AND b.status = 'confirmed'`,
+          [data.bookingId]
+        );
+        if (!rows || !rows[0]) return res.status(404).json({ error: "Booking not found" });
+        const b = rows[0];
+        return res.json({
+          booking_id: b.booking_id,
+          booking_ref: "REG-" + String(b.booking_id).padStart(5, "0"),
+          unit: b.unit_number || "—",
+          tower: b.tower_name || "—",
+          check_in: b.check_in_date,
+          check_out: b.check_out_date,
+          token,
+        });
+      }
     }
     if (bookingId) {
       const [rows] = await db.promise().query(
@@ -1223,7 +1256,7 @@ app.get("/api/guest-register", async (req, res) => {
       );
       if (!rows || !rows[0]) return res.status(404).json({ error: "Booking not found" });
       const b = rows[0];
-      res.json({
+      return res.json({
         booking_id: b.booking_id,
         booking_ref: "REG-" + String(b.booking_id).padStart(5, "0"),
         unit: b.unit_number || "—",
@@ -1231,7 +1264,6 @@ app.get("/api/guest-register", async (req, res) => {
         check_in: b.check_in_date,
         check_out: b.check_out_date,
       });
-      return;
     }
     res.status(400).json({ error: "Provide token= or booking_id=" });
   } catch (err) {
@@ -1240,27 +1272,58 @@ app.get("/api/guest-register", async (req, res) => {
   }
 });
 
-// Submit guest registration = create guest authorization (walk-in token or booker with booking_id)
+// Submit guest registration: walk-in token → create new booking + email guest; booking_id/token(booking) → add guest to existing booking
 app.post("/api/guest-register", async (req, res) => {
   try {
     const { token, booking_id, full_name, email, contact_number, purpose, relationship } = req.body || {};
     if (!full_name || !String(full_name).trim())
       return res.status(400).json({ error: "full_name is required" });
-    let id = null;
+    let bookingId = null;
     let addedVia = "booker";
     let checkIn = null, checkOut = null;
+    let isWalkIn = false;
+
     if (token) {
       const data = walkInTokens.get(token);
       if (!data || data.expiresAt < Date.now())
         return res.status(400).json({ error: "Invalid or expired link. Ask staff to generate a new QR." });
-      id = data.bookingId;
-      addedVia = "walkin";
       walkInTokens.delete(token);
+      if (data.unitId) {
+        isWalkIn = true;
+        const today = new Date().toISOString().slice(0, 10);
+        await db.promise().query(
+          `INSERT INTO BOOKING (
+            unit_id, guest_name, email, contact_number, check_in_date, check_out_date,
+            booking_platform, status
+          ) VALUES (?, ?, ?, ?, ?, ?, 'walk_in', 'confirmed')`,
+          [
+            data.unitId,
+            String(full_name).trim(),
+            email ? String(email).trim() : null,
+            contact_number ? String(contact_number).trim() : null,
+            today,
+            today,
+          ]
+        );
+        const [[r]] = await db.promise().query("SELECT LAST_INSERT_ID() AS id");
+        bookingId = r.id;
+        checkIn = today;
+        checkOut = today;
+        addedVia = "walkin";
+      } else if (data.bookingId) {
+        bookingId = data.bookingId;
+        addedVia = "walkin";
+        const [[b]] = await db.promise().query(
+          "SELECT check_in_date, check_out_date FROM BOOKING WHERE booking_id = ? AND status = 'confirmed'",
+          [bookingId]
+        );
+        if (b) { checkIn = b.check_in_date; checkOut = b.check_out_date; }
+      }
     } else if (booking_id) {
-      id = Number(booking_id);
+      bookingId = Number(booking_id);
       const [[b]] = await db.promise().query(
         "SELECT booking_id, check_in_date, check_out_date FROM BOOKING WHERE booking_id = ? AND status = 'confirmed'",
-        [id]
+        [bookingId]
       );
       if (!b) return res.status(404).json({ error: "Booking not found or not confirmed" });
       checkIn = b.check_in_date;
@@ -1268,8 +1331,9 @@ app.post("/api/guest-register", async (req, res) => {
     } else {
       return res.status(400).json({ error: "token or booking_id is required" });
     }
-    if (!checkIn && !checkOut) {
-      const [[b]] = await db.promise().query("SELECT check_in_date, check_out_date FROM BOOKING WHERE booking_id = ?", [id]);
+
+    if (!checkIn && !checkOut && bookingId) {
+      const [[b]] = await db.promise().query("SELECT check_in_date, check_out_date FROM BOOKING WHERE booking_id = ?", [bookingId]);
       if (b) { checkIn = b.check_in_date; checkOut = b.check_out_date; }
     }
     const from = checkIn ? String(checkIn).slice(0, 10) : null;
@@ -1278,17 +1342,67 @@ app.post("/api/guest-register", async (req, res) => {
       await db.promise().query(
         `INSERT INTO BOOKING_GUEST (booking_id, full_name, email, contact_number, added_via, purpose, relationship, valid_from, valid_to, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-        [id, String(full_name).trim(), email ? String(email).trim() : null, contact_number ? String(contact_number).trim() : null, addedVia, purpose ? String(purpose).trim() : null, relationship ? String(relationship).trim() : null, from, to]
+        [bookingId, String(full_name).trim(), email ? String(email).trim() : null, contact_number ? String(contact_number).trim() : null, addedVia, purpose ? String(purpose).trim() : null, relationship ? String(relationship).trim() : null, from, to]
       );
     } catch (insErr) {
       if (insErr.code === "ER_BAD_FIELD_ERROR") {
         await db.promise().query(
           "INSERT INTO BOOKING_GUEST (booking_id, full_name, email, contact_number, added_via) VALUES (?, ?, ?, ?, ?)",
-          [id, String(full_name).trim(), email ? String(email).trim() : null, contact_number ? String(contact_number).trim() : null, addedVia]
+          [bookingId, String(full_name).trim(), email ? String(email).trim() : null, contact_number ? String(contact_number).trim() : null, addedVia]
         );
       } else throw insErr;
     }
-    res.status(201).json({ message: "You are registered. Present yourself at check-in." });
+
+    if (isWalkIn && email && String(email).trim() && BREVO_API_KEY) {
+      try {
+        const [rows] = await db.promise().query(
+          `SELECT b.booking_id, b.guest_name, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
+           FROM BOOKING b LEFT JOIN UNIT u ON u.unit_id = b.unit_id LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE b.booking_id = ?`,
+          [bookingId]
+        );
+        const booking = rows[0];
+        if (booking) {
+          const baseUrl = (process.env.APP_URL || "").replace(/\/$/, "") || "https://regalia-eon6.onrender.com";
+          const qrImageUrl = baseUrl + "/api/bookings/" + bookingId + "/qr";
+          const confirmationPageUrl = baseUrl + "/booking/confirmation/" + bookingId;
+          const qrDataUrl = await getQRDataUrl(bookingId);
+          const bookingRef = "REG-" + String(bookingId).padStart(5, "0");
+          const checkInStr = formatDateForEmail(booking.check_in_date);
+          const checkOutStr = formatDateForEmail(booking.check_out_date);
+          const nights = getNights(booking.check_in_date, booking.check_out_date);
+          const stayDatesText = nights > 0 ? checkInStr + " — " + checkOutStr + " (" + nights + " Night(s))" : checkInStr + " — " + checkOutStr;
+          const logoUrl = process.env.APP_LOGO_URL || process.env.LOGO_URL || "";
+          const html = buildConfirmationEmailHtml({
+            guestName: escapeHtml(booking.guest_name || "Guest"),
+            bookingRef,
+            unitNumber: escapeHtml(booking.unit_number || "—"),
+            towerName: escapeHtml(booking.tower_name || "—"),
+            stayDatesText: escapeHtml(stayDatesText),
+            qrImageUrl,
+            qrDataUrl,
+            confirmationPageUrl,
+            logoUrl,
+          });
+          const senderEmail = process.env.BREVO_FROM_EMAIL || "regalia@example.com";
+          const senderName = process.env.BREVO_FROM_NAME || "Regalia";
+          await fetch("https://api.brevo.com/v3/smtp/email", {
+            method: "POST",
+            headers: { "accept": "application/json", "content-type": "application/json", "api-key": BREVO_API_KEY },
+            body: JSON.stringify({
+              sender: { name: senderName, email: senderEmail },
+              to: [{ email: String(email).trim() }],
+              subject: "Walk-in registration confirmed – Regalia",
+              htmlContent: html,
+            }),
+          });
+        }
+      } catch (emailErr) {
+        console.error("Walk-in confirmation email failed:", emailErr);
+      }
+    }
+
+    res.status(201).json({ message: "You are registered. Present yourself at check-in." + (isWalkIn && email ? " A confirmation has been sent to your email." : "") });
   } catch (err) {
     if (err.code === "ER_NO_SUCH_TABLE")
       return res.status(503).json({ error: "Guest registration is not set up. Contact staff." });

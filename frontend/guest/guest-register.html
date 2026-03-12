@@ -60,7 +60,7 @@
         <div id="form-msg" class="msg" style="display:none;"></div>
       </div>
       <div id="success-card" class="card msg success" style="display:none;">
-        <strong>You are registered.</strong><br />Present yourself at check-in.
+        <strong>You are registered.</strong><br />Present yourself at check-in. If you provided an email, a confirmation has been sent.
       </div>
     </div>
     <script>
@@ -104,7 +104,8 @@
             var unit = info.unit || "—";
             var tower = info.tower || "—";
             var ref = info.booking_ref || "";
-            bookingInfoEl.innerHTML = "Booking " + (ref ? "#" + ref + " • " : "") + tower + " Unit " + unit;
+            var label = info.walk_in ? "Walk-in registration" : "Booking " + (ref ? "#" + ref : "");
+            bookingInfoEl.innerHTML = label + (tower || unit ? " • " + tower + " Unit " + unit : "");
           }
         }
         function showSuccess() {

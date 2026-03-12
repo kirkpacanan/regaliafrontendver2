@@ -263,7 +263,7 @@
                 var item = document.createElement("div");
                 item.className = "list-item";
                 var nights = R.getNights(b.check_in_date, b.check_out_date);
-                var status = b.status === "confirmed" ? "Confirmed" : (b.status === "pending" ? "Pending" : b.status);
+                var status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Confirmed" : (b.status === "pending" ? "Pending" : b.status));
                 var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
                 item.innerHTML = "<div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>" + (b.guest_name || "Guest") + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span>";
                 list.appendChild(item);
@@ -300,7 +300,7 @@
               : todayBookings.map(function (b) {
                   var nights = R.getNights(b.check_in_date, b.check_out_date);
                   var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
-                  var status = b.status === "confirmed" ? "Confirmed" : "Pending";
+                  var status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Confirmed" : "Pending");
                   return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
                 }).join("");
           }
@@ -315,7 +315,7 @@
               : upcoming.map(function (b) {
                   var nights = R.getNights(b.check_in_date, b.check_out_date);
                   var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
-                  var status = b.status === "confirmed" ? "Confirmed" : "Pending";
+                  var status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Confirmed" : "Pending");
                   return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
                 }).join("");
           }

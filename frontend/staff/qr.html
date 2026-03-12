@@ -554,8 +554,8 @@
               var name = r.label || (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || r.unit_id);
               var status = r.available ? "Available" : "Not available";
               var display = name + " — " + status;
-              var value = r.available ? "" : String(r.booking_id || "");
-              return "<option value=\"" + value + "\" data-booking-id=\"" + (r.booking_id || "") + "\" data-label=\"" + esc(name) + "\">" + esc(display) + "</option>";
+              var value = String(r.unit_id || "");
+              return "<option value=\"" + value + "\" data-unit-id=\"" + (r.unit_id || "") + "\" data-label=\"" + esc(name) + "\">" + esc(display) + "</option>";
             });
             walkinRoomSelect.innerHTML = "<option value=\"\">— Select room —</option>" + opts.join("");
             updateWalkinButton();
@@ -632,9 +632,9 @@
 
         if (walkinBtn && walkinModal) {
           walkinBtn.addEventListener("click", function () {
-            var id = walkinRoomSelect ? parseInt(walkinRoomSelect.value, 10) : 0;
-            if (!id) {
-              alert("Select a room with an active booking (Not available) to generate a walk-in registration QR, or use \"Or enter booking ID\".");
+            var unitId = walkinRoomSelect ? parseInt(walkinRoomSelect.value, 10) : 0;
+            if (!unitId) {
+              alert("Select a room first, or use \"Or enter booking ID\" for an existing booking.");
               return;
             }
             var roomLabel = "";
@@ -643,15 +643,16 @@
               roomLabel = opt ? (opt.getAttribute("data-label") || opt.text) : "";
             }
             if (!roomLabel && allRoomsWithAvailability.length) {
-              var r = allRoomsWithAvailability.find(function (x) { return x.booking_id === id; });
-              roomLabel = r ? (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || id) : "Room #" + id;
+              var r = allRoomsWithAvailability.find(function (x) { return x.unit_id === unitId; });
+              roomLabel = r ? (r.tower_name ? r.tower_name + " • " : "") + "Unit " + (r.unit_number || unitId) : "Room #" + unitId;
             }
             walkinBtn.disabled = true;
-            fetch(API + "/walkin-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ booking_id: id }) })
+            fetch(API + "/walkin-token", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ unit_id: unitId }) })
               .then(function (r) { return r.json(); })
               .then(function (data) {
                 walkinBtn.disabled = false;
                 if (data.error) { alert(data.error); return; }
+                if (!data.qrDataUrl) { alert("No QR received."); return; }
                 showWalkinModal(data, roomLabel);
               })
               .catch(function (e) {
