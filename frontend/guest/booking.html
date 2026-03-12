@@ -496,11 +496,11 @@
     </div>
 
     <script>
+      var urlParams = new URLSearchParams(window.location.search);
+      var walkin = urlParams.get("walkin") === "1";
+      var walkinToken = urlParams.get("token") || "";
       (function () {
-        const params = new URLSearchParams(window.location.search);
-        const unitId = params.get("unit_id");
-        const walkin = params.get("walkin") === "1";
-        const walkinToken = params.get("token") || "";
+        const unitId = urlParams.get("unit_id");
 
         const card = document.querySelector("[data-unit-card]");
         const loadingEl = document.querySelector("[data-unit-loading]");
