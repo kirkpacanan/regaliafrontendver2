@@ -639,24 +639,59 @@ const BOOKINGS_BASE_SQL = `SELECT b.booking_id, b.unit_id, b.guest_name, b.email
  LEFT JOIN TOWER t ON t.tower_id = u.tower_id
  ORDER BY b.check_in_date ASC, b.created_at DESC`;
 
-app.get("/api/bookings", async (req, res) => {
+app.get("/api/bookings", optionalAuth, async (req, res) => {
   try {
+    await tryBackfillTowerOwners();
+    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const ownerId = isOwner ? Number(req.user.employee_id) : null;
     let rows;
     try {
-      [rows] = await db.promise().query(
-        `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
+      const baseSelect = `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
           b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
           b.checked_in_at, b.checked_out_at, b.booking_platform,
           u.unit_number, u.unit_type, t.tower_name
          FROM BOOKING b
          LEFT JOIN UNIT u ON u.unit_id = b.unit_id
-         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-         ORDER BY b.check_in_date ASC, b.created_at DESC`
-      );
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id`;
+      const orderBy = " ORDER BY b.check_in_date ASC, b.created_at DESC";
+      if (ownerId) {
+        [rows] = await db.promise().query(
+          baseSelect + ` WHERE (COALESCE(u.owner_employee_id, t.owner_employee_id) = ?)` + orderBy,
+          [ownerId]
+        );
+      } else {
+        [rows] = await db.promise().query(baseSelect + orderBy);
+      }
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR") {
-        [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
-        rows.forEach((r) => { r.checked_in_at = null; r.checked_out_at = null; r.booking_platform = null; });
+        if (ownerId) {
+          try {
+            [rows] = await db.promise().query(
+              `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
+                b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
+                u.unit_number, u.unit_type, t.tower_name
+               FROM BOOKING b
+               LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+               LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+               WHERE b.unit_id IN (
+                 SELECT u2.unit_id FROM UNIT u2
+                 JOIN TOWER t2 ON t2.tower_id = u2.tower_id
+                 WHERE t2.tower_id IN (
+                   SELECT et.tower_id FROM EMPLOYEE_TOWER et
+                   JOIN EMPLOYEE e ON e.employee_id = et.employee_id
+                   WHERE e.created_by_employee_id = ?
+                 )
+               )
+               ORDER BY b.check_in_date ASC, b.created_at DESC`,
+              [ownerId]
+            );
+          } catch (e) {
+            [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
+          }
+        } else {
+          [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
+        }
+        rows.forEach((r) => { r.checked_in_at = r.checked_in_at != null ? r.checked_in_at : null; r.checked_out_at = r.checked_out_at != null ? r.checked_out_at : null; r.booking_platform = r.booking_platform != null ? r.booking_platform : null; });
       } else throw colErr;
     }
     res.json(rows || []);
@@ -1358,7 +1393,9 @@ app.post("/api/bookings/:id/guests", async (req, res) => {
   }
 });
 
-// Staff: create a walk-in registration token (by unit_id or booking_id). QR leads to guest registration; walk-in creates new booking and emails guest.
+// Staff: create a walk-in registration token (by unit_id or booking_id).
+// QR uses the SAME guest registration link as in properties (guest-register.html). On submit: auto-confirms
+// (no owner confirmation) and auto-sends confirmation email; booking shows as "Confirmed - Walk in".
 app.post("/api/walkin-token", async (req, res) => {
   try {
     const { unit_id, booking_id } = req.body || {};
@@ -1468,7 +1505,9 @@ app.get("/api/guest-register", async (req, res) => {
   }
 });
 
-// Submit guest registration: walk-in token → create new booking + email guest; booking_id/token(booking) → add guest to existing booking
+// Submit guest registration. Same form/link as property guest registration.
+// Walk-in token (unitId): creates booking with status 'confirmed', auto-sends email—no owner confirmation.
+// booking_id / token(bookingId): adds guest to existing booking.
 app.post("/api/guest-register", async (req, res) => {
   try {
     const { token, booking_id, full_name, email, contact_number, purpose, relationship } = req.body || {};
