@@ -1188,6 +1188,13 @@ function getNights(checkIn, checkOut) {
   return Math.max(0, Math.round((b - a) / (24 * 60 * 60 * 1000)));
 }
 
+/** Return YYYY-MM-DD for MySQL DATE columns; accepts Date, ISO string, or null. */
+function toYmd(d) {
+  if (d == null) return null;
+  if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
+  try { return new Date(d).toISOString().slice(0, 10); } catch (e) { return null; }
+}
+
 function buildConfirmationEmailHtml(data) {
   const { guestName, bookingRef, unitNumber, towerName, stayDatesText, qrImageUrl, qrDataUrl, confirmationPageUrl, logoUrl } = data;
   const viewInAppUrl = confirmationPageUrl || qrImageUrl;
@@ -1472,8 +1479,8 @@ app.post("/api/bookings/:id/guests", async (req, res) => {
       [id]
     );
     if (!booking) return res.status(404).json({ error: "Booking not found or not confirmed" });
-    const from = valid_from || (booking.check_in_date ? String(booking.check_in_date).slice(0, 10) : null);
-    const to = valid_to || (booking.check_out_date ? String(booking.check_out_date).slice(0, 10) : null);
+    const from = valid_from != null && valid_from !== "" ? toYmd(valid_from) : toYmd(booking.check_in_date);
+    const to = valid_to != null && valid_to !== "" ? toYmd(valid_to) : toYmd(booking.check_out_date);
     try {
       await db.promise().query(
         `INSERT INTO BOOKING_GUEST (booking_id, full_name, email, contact_number, added_via, purpose, relationship, valid_from, valid_to, status)
@@ -1765,8 +1772,8 @@ app.post("/api/guest-register", async (req, res) => {
       const [[b]] = await db.promise().query("SELECT check_in_date, check_out_date FROM BOOKING WHERE booking_id = ?", [bookingId]);
       if (b) { checkIn = b.check_in_date; checkOut = b.check_out_date; }
     }
-    const from = checkIn ? String(checkIn).slice(0, 10) : null;
-    const to = checkOut ? String(checkOut).slice(0, 10) : null;
+    const from = toYmd(checkIn);
+    const to = toYmd(checkOut);
     const guestEmail = (body.email || email || "").trim() || null;
     const guestContact = (body.contact_number || contact_number || "").trim() || null;
     try {
