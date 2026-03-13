@@ -496,19 +496,20 @@
             var html = "";
             Object.keys(grouped).forEach(function (bid) {
               var g = grouped[bid];
-              html += "<div class=\"booking-card\" style=\"margin-bottom:16px;padding:16px;background:rgba(255,255,255,0.06);border-radius:12px;border:1px solid rgba(255,255,255,0.1);\">" +
-                "<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;\">" +
-                "<div><strong>" + escapeHtml(g.guest) + "</strong><span style=\"opacity:.6;margin-left:8px;\">Unit " + escapeHtml(g.unit) + (g.tower ? " · " + escapeHtml(g.tower) : "") + "</span></div>" +
-                "<span style=\"font-weight:600;color:var(--accent-1,#1e9db1);\">₱" + g.total.toFixed(2) + "</span></div>" +
-                "<table style=\"width:100%;font-size:13px;border-collapse:collapse;\">" +
-                "<thead><tr style=\"opacity:.6;text-align:left;\"><th style=\"padding:4px 8px;\">Description</th><th style=\"padding:4px 8px;text-align:center;\">Qty</th><th style=\"padding:4px 8px;text-align:right;\">Price</th><th style=\"padding:4px 8px;text-align:right;\">Total</th></tr></thead><tbody>";
+              html += "<div class=\"charges-card\">" +
+                "<div class=\"charges-card__header\">" +
+                "<strong>" + escapeHtml(g.guest) + "</strong> <span class=\"charges-card__meta\">Unit " + escapeHtml(g.unit) + (g.tower ? " · " + escapeHtml(g.tower) : "") + "</span>" +
+                "</div>" +
+                "<table class=\"charges-table\">" +
+                "<thead><tr><th>Description</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead><tbody>";
               g.items.forEach(function (c) {
                 var lt = c.quantity * c.unit_price;
-                html += "<tr><td style=\"padding:4px 8px;\">" + escapeHtml(c.description) + "</td>" +
-                  "<td style=\"padding:4px 8px;text-align:center;\">" + c.quantity + "</td>" +
-                  "<td style=\"padding:4px 8px;text-align:right;\">₱" + Number(c.unit_price).toFixed(2) + "</td>" +
-                  "<td style=\"padding:4px 8px;text-align:right;\">₱" + lt.toFixed(2) + "</td></tr>";
+                html += "<tr><td>" + escapeHtml(c.description) + "</td>" +
+                  "<td class=\"charges-table__qty\">" + c.quantity + "</td>" +
+                  "<td class=\"charges-table__price\">₱" + Number(c.unit_price).toFixed(2) + "</td>" +
+                  "<td class=\"charges-table__total\">₱" + lt.toFixed(2) + "</td></tr>";
               });
+              html += "<tr class=\"charges-table__subtotal\"><td colspan=\"3\" style=\"text-align:right;padding-top:8px;\">Subtotal</td><td class=\"charges-table__total-val\">₱" + g.total.toFixed(2) + "</td></tr>";
               html += "</tbody></table></div>";
             });
             listEl.innerHTML = html;
