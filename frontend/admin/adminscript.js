@@ -55,7 +55,7 @@
     ]).then(function (results) {
       var data = results[0];
       var bookings = results[1] || [];
-      var confirmed = bookings.filter(function (b) { return b.status === "confirmed"; }).length;
+      var confirmed = bookings.filter(function (b) { return b.status === "confirmed" && !b.checked_out_at; }).length;
       setStat(totalBookingEl, bookings.length);
       setStat(totalPropEl, data.length);
       setStat(occupiedEl, confirmed);

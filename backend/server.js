@@ -791,7 +791,7 @@ app.get("/api/rooms/with-availability", async (req, res) => {
     );
     const [bookings] = await db.promise().query(
       `SELECT booking_id, unit_id, guest_name FROM BOOKING
-       WHERE status = 'confirmed' AND (check_out_date IS NULL OR check_out_date >= CURDATE())`
+       WHERE status = 'confirmed' AND (check_out_date IS NULL OR check_out_date >= CURDATE()) AND checked_out_at IS NULL`
     );
     const byUnit = {};
     (bookings || []).forEach((b) => { byUnit[b.unit_id] = b; });

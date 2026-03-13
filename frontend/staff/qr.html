@@ -712,7 +712,7 @@
             today.setHours(0, 0, 0, 0);
             var byUnit = {};
             (bookings || []).forEach(function (b) {
-              if (b.status !== "confirmed" || !b.unit_id) return;
+              if (b.status !== "confirmed" || !b.unit_id || b.checked_out_at) return;
               var out = b.check_out_date ? new Date(b.check_out_date) : null;
               if (out && out.setHours(0, 0, 0, 0) >= today) byUnit[b.unit_id] = { booking_id: b.booking_id, guest_name: b.guest_name };
             });
