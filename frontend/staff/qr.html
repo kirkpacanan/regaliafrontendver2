@@ -264,6 +264,20 @@
           </div>
         </div>
 
+        <div class="modal-overlay walkin-modal-overlay" id="checkout-confirm-modal" style="display:none;">
+          <div class="modal walkin-modal" style="max-width:380px;text-align:center;">
+            <div style="width:48px;height:48px;margin:0 auto 1rem;background:rgba(255,107,107,0.12);border-radius:50%;display:grid;place-items:center;">
+              <svg viewBox="0 0 24 24" style="width:24px;height:24px;stroke:#ff5252;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+            </div>
+            <h3 class="walkin-modal-title" style="margin:0 0 0.4rem;">Confirm Check-out</h3>
+            <p data-checkout-guest style="margin:0 0 1rem;font-size:0.9rem;color:var(--muted);"></p>
+            <div style="display:flex;gap:0.65rem;justify-content:center;">
+              <button type="button" class="btn ghost" data-checkout-cancel>Cancel</button>
+              <button type="button" class="btn ghost" style="background:rgba(255,82,82,0.2);color:#ff5252;" data-checkout-confirm>Check Out</button>
+            </div>
+          </div>
+        </div>
+
         <section class="panel recent-section">
           <h3>Recent Scans</h3>
           <div class="list" data-recent-scans></div>
@@ -420,21 +434,56 @@
                 if (scanStatus) scanStatus.textContent = e.message || "Check-in failed";
               });
             } else if (!checkedOut) {
-              R.postCheckOut(id).then(function () {
-                fetch(API + "/bookings/" + id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
-                  showGuestsAndStatus("Check-out recorded: " + (booking.guest_name || "Guest") + ".", guests);
-                }).catch(function () {
-                  if (scanStatus) scanStatus.textContent = "Check-out recorded: " + (booking.guest_name || "Guest");
-                });
-                addRecentScan(booking);
-              }).catch(function (e) {
-                if (scanStatus) scanStatus.textContent = e.message || "Check-out failed";
-              });
+              showCheckoutConfirm(booking);
             } else {
               if (scanStatus) scanStatus.textContent = "Already checked out.";
             }
           });
         }
+
+        var checkoutModal = document.getElementById("checkout-confirm-modal");
+        var checkoutGuestEl = document.querySelector("[data-checkout-guest]");
+        var checkoutCancelBtn = document.querySelector("[data-checkout-cancel]");
+        var checkoutConfirmBtn = document.querySelector("[data-checkout-confirm]");
+        var pendingCheckoutBooking = null;
+
+        function showCheckoutConfirm(booking) {
+          pendingCheckoutBooking = booking;
+          if (checkoutGuestEl) checkoutGuestEl.textContent = (booking.guest_name || "Guest") + " — Unit " + (booking.unit_number || booking.unit_id || "?");
+          if (checkoutModal) { checkoutModal.style.display = "flex"; }
+        }
+        function hideCheckoutConfirm() {
+          if (checkoutModal) checkoutModal.style.display = "none";
+          pendingCheckoutBooking = null;
+        }
+        if (checkoutCancelBtn) checkoutCancelBtn.addEventListener("click", function () {
+          hideCheckoutConfirm();
+          if (scanStatus) scanStatus.textContent = "Check-out cancelled.";
+        });
+        if (checkoutConfirmBtn) checkoutConfirmBtn.addEventListener("click", function () {
+          if (!pendingCheckoutBooking || !R) return;
+          var booking = pendingCheckoutBooking;
+          checkoutConfirmBtn.disabled = true;
+          checkoutConfirmBtn.textContent = "Processing…";
+          R.postCheckOut(booking.booking_id).then(function () {
+            fetch(API + "/bookings/" + booking.booking_id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
+              var names = guests && guests.length ? guests.map(function (g) { return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name; }).join(", ") : "";
+              if (scanStatus) scanStatus.textContent = names ? "Check-out recorded: " + (booking.guest_name || "Guest") + ". Authorized guests: " + names : "Check-out recorded: " + (booking.guest_name || "Guest");
+            }).catch(function () {
+              if (scanStatus) scanStatus.textContent = "Check-out recorded: " + (booking.guest_name || "Guest");
+            });
+            addRecentScan(booking);
+            hideCheckoutConfirm();
+            checkoutConfirmBtn.disabled = false;
+            checkoutConfirmBtn.textContent = "Check Out";
+          }).catch(function (e) {
+            if (scanStatus) scanStatus.textContent = e.message || "Check-out failed";
+            hideCheckoutConfirm();
+            checkoutConfirmBtn.disabled = false;
+            checkoutConfirmBtn.textContent = "Check Out";
+          });
+        });
+        if (checkoutModal) checkoutModal.addEventListener("click", function (e) { if (e.target === checkoutModal) hideCheckoutConfirm(); });
 
         function tryDecodeFromVideo() {
           if (!scanVideo || !window.jsQR) return;
@@ -593,10 +642,14 @@
               if (filtered.length === 0) { alert("No bookings found."); return; }
               if (filtered.length === 1) {
                 var b = filtered[0];
-                var action = b.checked_in_at && !b.checked_out_at ? "Check out" : "Check in";
-                if (!confirm(b.guest_name + " • Unit " + (b.unit_number || b.unit_id) + "\n" + action + "?")) return;
-                if (b.checked_in_at && !b.checked_out_at) R.postCheckOut(b.booking_id).then(function () { alert("Check-out recorded."); addRecentScan(b); }).catch(function (e) { alert(e.message); });
-                else R.postCheckIn(b.booking_id).then(function () { alert("Check-in recorded."); addRecentScan(b); }).catch(function (e) { alert(e.message); });
+                if (b.checked_in_at && !b.checked_out_at) {
+                  showCheckoutConfirm(b);
+                } else if (!b.checked_in_at) {
+                  if (!confirm(b.guest_name + " • Unit " + (b.unit_number || b.unit_id) + "\nCheck in?")) return;
+                  R.postCheckIn(b.booking_id).then(function () { alert("Check-in recorded."); addRecentScan(b); }).catch(function (e) { alert(e.message); });
+                } else {
+                  alert("Already checked out.");
+                }
               } else {
                 var msg = filtered.slice(0, 5).map(function (b, i) { return (i + 1) + ". " + b.guest_name + " (REG-" + String(b.booking_id).padStart(5, "0") + ")"; }).join("\n");
                 alert("Multiple matches. Refine search.\n\n" + msg);

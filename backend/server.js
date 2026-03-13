@@ -1417,16 +1417,20 @@ app.post("/api/bookings/:id/check-in", async (req, res) => {
 });
 
 // Staff: record check-out (requires BOOKING.checked_out_at column)
+// Early checkout: if check_out_date is in the future, update it to today so the unit is freed
 app.post("/api/bookings/:id/check-out", async (req, res) => {
   try {
     const id = Number(req.params.id);
+    const today = new Date().toISOString().slice(0, 10);
     const [result] = await db.promise().query(
-      "UPDATE BOOKING SET checked_out_at = COALESCE(checked_out_at, NOW()) WHERE booking_id = ? AND status = 'confirmed'",
-      [id]
+      `UPDATE BOOKING SET checked_out_at = COALESCE(checked_out_at, NOW()),
+       check_out_date = CASE WHEN check_out_date > ? THEN ? ELSE check_out_date END
+       WHERE booking_id = ? AND status = 'confirmed'`,
+      [today, today, id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not confirmed" });
     const [rows] = await db.promise().query(
-      "SELECT booking_id, guest_name, unit_id, checked_out_at FROM BOOKING WHERE booking_id = ?",
+      "SELECT booking_id, guest_name, unit_id, checked_out_at, check_out_date FROM BOOKING WHERE booking_id = ?",
       [id]
     );
     res.json({ message: "Check-out recorded", booking: rows[0] });
@@ -1434,6 +1438,47 @@ app.post("/api/bookings/:id/check-out", async (req, res) => {
     if (err.code === "ER_BAD_FIELD_ERROR") return res.status(500).json({ error: "Add checked_out_at DATETIME NULL to BOOKING table" });
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to record check-out" });
+  }
+});
+
+// Staff: undo check-out (clear checked_out_at)
+app.post("/api/bookings/:id/undo-check-out", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [result] = await db.promise().query(
+      "UPDATE BOOKING SET checked_out_at = NULL WHERE booking_id = ? AND status = 'confirmed' AND checked_out_at IS NOT NULL",
+      [id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not checked out" });
+    const [rows] = await db.promise().query(
+      "SELECT booking_id, guest_name, unit_id, checked_in_at, checked_out_at, check_out_date FROM BOOKING WHERE booking_id = ?",
+      [id]
+    );
+    res.json({ message: "Check-out undone", booking: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to undo check-out" });
+  }
+});
+
+// Staff: early check-out (set checked_out_at to NOW and update check_out_date to today)
+app.post("/api/bookings/:id/early-check-out", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const today = new Date().toISOString().slice(0, 10);
+    const [result] = await db.promise().query(
+      "UPDATE BOOKING SET checked_out_at = NOW(), check_out_date = ? WHERE booking_id = ? AND status = 'confirmed' AND checked_in_at IS NOT NULL",
+      [today, id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not checked in" });
+    const [rows] = await db.promise().query(
+      "SELECT booking_id, guest_name, unit_id, checked_in_at, checked_out_at, check_out_date FROM BOOKING WHERE booking_id = ?",
+      [id]
+    );
+    res.json({ message: "Early check-out recorded. Unit is now available.", booking: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to record early check-out" });
   }
 });
 

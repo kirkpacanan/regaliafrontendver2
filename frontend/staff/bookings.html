@@ -173,6 +173,11 @@
           <div class="list" data-upcoming-list></div>
         </section>
 
+        <section class="panel">
+          <h3>Checked Out Today</h3>
+          <div class="list" data-checkedout-list></div>
+        </section>
+
         <section class="panel calendar-panel">
           <h3>Booking Calendar</h3>
           <div class="calendar">
@@ -402,6 +407,33 @@
                   var status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Confirmed" : "Pending");
                   return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
                 }).join("");
+          }
+
+          var todayCheckedOut = bookings.filter(function (b) {
+            return b.checked_out_at && R.toDateKey(b.checked_out_at) === todayKey;
+          });
+          var coListEl = document.querySelector("[data-checkedout-list]");
+          if (coListEl) {
+            coListEl.innerHTML = todayCheckedOut.length === 0
+              ? "<div class=\"list-item\"><div>No check-outs today</div></div>"
+              : todayCheckedOut.map(function (b) {
+                  var time = new Date(b.checked_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  return "<div class=\"list-item\" data-co-item=\"" + b.booking_id + "\"><div>Unit " + (b.unit_number || b.unit_id) + "<small>" + (b.guest_name || "Guest") + " • Checked out at " + time + "</small></div><button class=\"btn ghost\" style=\"font-size:0.75rem;padding:0.3rem 0.7rem;color:#ff5252;\" data-undo-checkout=\"" + b.booking_id + "\">Undo</button></div>";
+                }).join("");
+            coListEl.addEventListener("click", function (e) {
+              var btn = e.target.closest("[data-undo-checkout]");
+              if (!btn) return;
+              var bid = Number(btn.getAttribute("data-undo-checkout"));
+              btn.disabled = true; btn.textContent = "Undoing…";
+              fetch("/api/bookings/" + bid + "/undo-check-out", { method: "POST", headers: { "Content-Type": "application/json" } })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                  if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = "Undo"; return; }
+                  var item = coListEl.querySelector("[data-co-item='" + bid + "']");
+                  if (item) item.remove();
+                  if (!coListEl.children.length) coListEl.innerHTML = "<div class=\"list-item\"><div>No check-outs today</div></div>";
+                }).catch(function () { alert("Failed to undo."); btn.disabled = false; btn.textContent = "Undo"; });
+            });
           }
 
           currentCalendar = new Date();
