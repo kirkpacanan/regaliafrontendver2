@@ -54,6 +54,9 @@ CALL add_col_if_missing('UNIT', 'owner_employee_id', 'INT NULL');
 CALL add_col_if_missing('BOOKING', 'checked_in_at', 'DATETIME NULL');
 CALL add_col_if_missing('BOOKING', 'checked_out_at', 'DATETIME NULL');
 
+-- EMPLOYEE: theme color preference (persisted per user)
+CALL add_col_if_missing('EMPLOYEE', 'theme_color', 'VARCHAR(32) NULL DEFAULT ''default'' COMMENT ''UI color theme''');
+
 DROP PROCEDURE IF EXISTS add_col_if_missing;
 
 -- Optional indexes (ignore error 1061 "Duplicate key name" if index already exists)

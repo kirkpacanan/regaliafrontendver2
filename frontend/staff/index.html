@@ -69,13 +69,11 @@
           </a>
         </nav>
         <div class="sidebar-footer">
-          <a href="#">
+          <a href="#" data-open-settings>
             <span class="icon">
               <svg viewBox="0 0 24 24">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
                 <circle cx="12" cy="12" r="3"></circle>
-                <path
-                  d="M19.4 15a1.8 1.8 0 0 0 .3 2l-1.4 2.4a1.8 1.8 0 0 1-2.2.8l-1.6-.6a7 7 0 0 1-2.4 1.4l-.2 1.8a1.8 1.8 0 0 1-1.8 1.6H9a1.8 1.8 0 0 1-1.8-1.6l-.2-1.8a7 7 0 0 1-2.4-1.4l-1.6.6a1.8 1.8 0 0 1-2.2-.8L.4 17a1.8 1.8 0 0 0 .3-2l1-1.4a7 7 0 0 1 0-2.8l-1-1.4a1.8 1.8 0 0 0-.3-2L1.8 4a1.8 1.8 0 0 1 2.2-.8l1.6.6a7 7 0 0 1 2.4-1.4l.2-1.8A1.8 1.8 0 0 1 10 0h4a1.8 1.8 0 0 1 1.8 1.6l.2 1.8a7 7 0 0 1 2.4 1.4l1.6-.6a1.8 1.8 0 0 1 2.2.8l1.4 2.4a1.8 1.8 0 0 0-.3 2l-1 1.4a7 7 0 0 1 0 2.8z"
-                ></path>
               </svg>
             </span>
             Settings
@@ -107,13 +105,42 @@
             <p>Welcome, Front Desk Staff!</p>
           </div>
           <div class="top-actions">
-            <span class="icon">
-              <svg viewBox="0 0 24 24">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-              </svg>
-            </span>
-            <div class="avatar">FD</div>
+            <div class="notif-wrap">
+              <button class="notif-btn" data-notif-btn aria-label="Notifications">
+                <svg viewBox="0 0 24 24">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notif-badge" data-notif-badge></span>
+              </button>
+              <div class="topbar-dropdown notif-dropdown" data-notif-dropdown>
+                <div class="topbar-dropdown__title">Today's Activity</div>
+                <div class="notif-list" data-notif-list>
+                  <div class="notif-empty">No activity today</div>
+                </div>
+              </div>
+            </div>
+            <div class="profile-wrap">
+              <button class="avatar avatar-btn" data-profile-btn aria-label="Account">FD</button>
+              <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
+                <div class="profile-info">
+                  <div class="profile-avatar-lg" data-profile-initials-lg>FD</div>
+                  <div>
+                    <div class="profile-name" data-profile-name>Staff</div>
+                    <div class="profile-role" data-profile-role>Front Desk</div>
+                  </div>
+                </div>
+                <div class="topbar-dropdown__divider"></div>
+                <button class="profile-action" data-open-profile>
+                  <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  Profile
+                </button>
+                <a href="../index.html" class="profile-action" data-logout-link>
+                  <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                  Logout
+                </a>
+              </div>
+            </div>
           </div>
         </header>
 
@@ -212,6 +239,63 @@
           </div>
         </section>
       </main>
+
+      <!-- Settings Modal: Theme Picker -->
+      <div class="settings-overlay" data-settings-overlay>
+        <div class="settings-modal">
+          <div class="settings-header">
+            <h2>Appearance</h2>
+            <button class="settings-close" data-settings-close>&times;</button>
+          </div>
+          <div class="settings-body">
+            <p class="settings-subtitle">Choose a color theme for your dashboard</p>
+            <div class="theme-grid" data-theme-grid>
+              <button class="theme-swatch theme-swatch--default is-active" data-theme="default"><span class="theme-preview"></span><span class="theme-label">Default</span></button>
+              <button class="theme-swatch theme-swatch--ocean" data-theme="ocean"><span class="theme-preview"></span><span class="theme-label">Ocean</span></button>
+              <button class="theme-swatch theme-swatch--sunset" data-theme="sunset"><span class="theme-preview"></span><span class="theme-label">Sunset</span></button>
+              <button class="theme-swatch theme-swatch--forest" data-theme="forest"><span class="theme-preview"></span><span class="theme-label">Forest</span></button>
+              <button class="theme-swatch theme-swatch--purple" data-theme="purple"><span class="theme-preview"></span><span class="theme-label">Purple</span></button>
+              <button class="theme-swatch theme-swatch--midnight" data-theme="midnight"><span class="theme-preview"></span><span class="theme-label">Midnight</span></button>
+              <button class="theme-swatch theme-swatch--rose" data-theme="rose"><span class="theme-preview"></span><span class="theme-label">Rose</span></button>
+            </div>
+            <div class="theme-status" data-theme-status></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Profile Modal -->
+      <div class="settings-overlay" data-profile-overlay>
+        <div class="settings-modal">
+          <div class="settings-header">
+            <h2>Profile</h2>
+            <button class="settings-close" data-profile-close>&times;</button>
+          </div>
+          <div class="settings-body">
+            <div class="settings-section">
+              <h3>Account Info</h3>
+              <form class="settings-form" data-profile-form>
+                <label class="settings-field"><span>Full Name</span><input type="text" name="full_name" data-pf-name /></label>
+                <label class="settings-field"><span>Username</span><input type="text" name="username" data-pf-username /></label>
+                <label class="settings-field"><span>Email</span><input type="email" name="email" data-pf-email /></label>
+                <label class="settings-field"><span>Contact Number</span><input type="text" name="contact" data-pf-contact /></label>
+                <div class="settings-msg" data-pf-msg></div>
+                <button type="submit" class="btn ghost settings-save">Save Changes</button>
+              </form>
+            </div>
+            <div class="settings-divider"></div>
+            <div class="settings-section">
+              <h3>Change Password</h3>
+              <form class="settings-form" data-pw-form>
+                <label class="settings-field"><span>Current Password</span><input type="password" name="current_password" required /></label>
+                <label class="settings-field"><span>New Password</span><input type="password" name="new_password" required /></label>
+                <label class="settings-field"><span>Confirm New Password</span><input type="password" name="confirm_password" required /></label>
+                <div class="settings-msg" data-pw-msg></div>
+                <button type="submit" class="btn ghost settings-save">Update Password</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
     <script src="./staffscript.js"></script>
     <script>
@@ -289,14 +373,258 @@
           }).join("");
           listEl = document.querySelector("[data-dashboard-units]");
           if (listEl) listEl.innerHTML = unitList || "<div class=\"list-item\"><div>No units</div></div>";
+
+          // Populate notification bell from today's movements
+          var notifList = document.querySelector("[data-notif-list]");
+          var notifBadge = document.querySelector("[data-notif-badge]");
+          if (notifList) {
+            var notifItems = movements.slice(0, 8);
+            if (notifItems.length === 0) {
+              notifList.innerHTML = '<div class="notif-empty">No activity today</div>';
+            } else {
+              var iconMap = { upcoming: "↓", "checked-in": "✓", departure: "→" };
+              var labelMap = { upcoming: "Upcoming check-in", "checked-in": "Checked in", departure: "Departure" };
+              notifList.innerHTML = notifItems.map(function (m) {
+                return "<div class=\"notif-item notif-item--" + m.type + "\">" +
+                  "<div class=\"notif-item__icon\">" + (iconMap[m.type] || "•") + "</div>" +
+                  "<div><div class=\"notif-item__name\">" + (m.name || "Guest") + "</div>" +
+                  "<div class=\"notif-item__detail\">" + (labelMap[m.type] || m.type) + " · Unit " + (m.unit || "—") + (m.tower ? " · " + m.tower : "") + "</div></div>" +
+                  "</div>";
+              }).join("");
+              if (notifBadge) { notifBadge.textContent = notifItems.length; }
+            }
+          }
         }).catch(function (err) {
           console.warn("Dashboard: could not load bookings", err);
           var el = document.querySelector("[data-stats-today-upcoming]"); if (el) el.textContent = "—";
         });
       })();
+
+      // Profile info from localStorage
+      (function () {
+        try {
+          var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+          var role = localStorage.getItem("role") || "Staff";
+          var name = emp.full_name || emp.username || "Staff";
+          var initials = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "FD";
+          var profileBtn = document.querySelector("[data-profile-btn]");
+          var nameLg = document.querySelector("[data-profile-initials-lg]");
+          var nameEl = document.querySelector("[data-profile-name]");
+          var roleEl = document.querySelector("[data-profile-role]");
+          if (profileBtn) profileBtn.textContent = initials;
+          if (nameLg) nameLg.textContent = initials;
+          if (nameEl) nameEl.textContent = name;
+          if (roleEl) roleEl.textContent = role;
+        } catch (e) {}
+
+        // Clear localStorage on logout
+        var logoutLink = document.querySelector("[data-logout-link]");
+        if (logoutLink) {
+          logoutLink.addEventListener("click", function () {
+            try { localStorage.clear(); } catch (e) {}
+          });
+        }
+      })();
+
+      // Dropdown toggle logic
+      (function () {
+        var notifBtn = document.querySelector("[data-notif-btn]");
+        var notifDropdown = document.querySelector("[data-notif-dropdown]");
+        var profileBtn = document.querySelector("[data-profile-btn]");
+        var profileDropdown = document.querySelector("[data-profile-dropdown]");
+
+        function closeAll() {
+          if (notifDropdown) notifDropdown.classList.remove("is-open");
+          if (profileDropdown) profileDropdown.classList.remove("is-open");
+        }
+
+        if (notifBtn) {
+          notifBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var open = notifDropdown.classList.contains("is-open");
+            closeAll();
+            if (!open) notifDropdown.classList.add("is-open");
+          });
+        }
+
+        if (profileBtn) {
+          profileBtn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            var open = profileDropdown.classList.contains("is-open");
+            closeAll();
+            if (!open) profileDropdown.classList.add("is-open");
+          });
+        }
+
+        document.addEventListener("click", closeAll);
+        document.addEventListener("keydown", function (e) {
+          if (e.key === "Escape") closeAll();
+        });
+      })();
+
+      // Theme picker + settings modal logic
+      (function () {
+        var overlay = document.querySelector("[data-settings-overlay]");
+        var closeBtn = document.querySelector("[data-settings-close]");
+        var openBtn = document.querySelector("[data-open-settings]");
+        if (!overlay) return;
+
+        function openSettings() { overlay.classList.add("is-open"); document.body.classList.remove("sidebar-open"); }
+        function closeSettings() { overlay.classList.remove("is-open"); }
+
+        if (openBtn) openBtn.addEventListener("click", function (e) { e.preventDefault(); openSettings(); });
+        if (closeBtn) closeBtn.addEventListener("click", closeSettings);
+        overlay.addEventListener("click", function (e) { if (e.target === overlay) closeSettings(); });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape" && overlay.classList.contains("is-open")) closeSettings(); });
+
+        var themes = ["default","ocean","sunset","forest","purple","midnight","rose"];
+        var grid = overlay.querySelector("[data-theme-grid]");
+        var statusEl = overlay.querySelector("[data-theme-status]");
+
+        function applyTheme(name) {
+          themes.forEach(function (t) { document.body.classList.remove("theme-" + t); });
+          if (name && name !== "default") document.body.classList.add("theme-" + name);
+          if (grid) grid.querySelectorAll(".theme-swatch").forEach(function (s) {
+            s.classList.toggle("is-active", s.getAttribute("data-theme") === name);
+          });
+        }
+
+        function getHeaders() {
+          var h = { "Content-Type": "application/json" };
+          try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+          return h;
+        }
+
+        function saveThemeToServer(name) {
+          if (statusEl) { statusEl.textContent = "Saving..."; statusEl.className = "theme-status"; }
+          fetch((window.RegaliaStaff ? window.RegaliaStaff.API : "/api") + "/employee/theme", {
+            method: "PUT", headers: getHeaders(), body: JSON.stringify({ theme_color: name })
+          }).then(function (r) { return r.json(); }).then(function () {
+            localStorage.setItem("theme_color", name);
+            if (statusEl) { statusEl.textContent = "Theme saved!"; statusEl.className = "theme-status success"; }
+            setTimeout(function () { if (statusEl) statusEl.textContent = ""; }, 2000);
+          }).catch(function () {
+            localStorage.setItem("theme_color", name);
+            if (statusEl) { statusEl.textContent = "Saved locally (server unavailable)"; statusEl.className = "theme-status"; }
+          });
+        }
+
+        if (grid) grid.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-theme]");
+          if (!btn) return;
+          var name = btn.getAttribute("data-theme");
+          applyTheme(name);
+          saveThemeToServer(name);
+        });
+
+        // Load theme: try API first, fall back to localStorage
+        var saved = localStorage.getItem("theme_color") || "default";
+        applyTheme(saved);
+        fetch((window.RegaliaStaff ? window.RegaliaStaff.API : "/api") + "/employee/theme", {
+          headers: getHeaders()
+        }).then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+          if (data && data.theme_color) { applyTheme(data.theme_color); localStorage.setItem("theme_color", data.theme_color); }
+        }).catch(function () {});
+      })();
+
+      // Profile modal logic
+      (function () {
+        var pOverlay = document.querySelector("[data-profile-overlay]");
+        var pClose = document.querySelector("[data-profile-close]");
+        var pOpen = document.querySelector("[data-open-profile]");
+        if (!pOverlay) return;
+
+        function openProfile() {
+          pOverlay.classList.add("is-open");
+          var dd = document.querySelector("[data-profile-dropdown]");
+          if (dd) dd.classList.remove("is-open");
+        }
+        function closeProfile() { pOverlay.classList.remove("is-open"); }
+
+        if (pOpen) pOpen.addEventListener("click", function (e) { e.preventDefault(); openProfile(); });
+        if (pClose) pClose.addEventListener("click", closeProfile);
+        pOverlay.addEventListener("click", function (e) { if (e.target === pOverlay) closeProfile(); });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape" && pOverlay.classList.contains("is-open")) closeProfile(); });
+
+        // Load current profile
+        try {
+          var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+          var ni = pOverlay.querySelector("[data-pf-name]"); if (ni) ni.value = emp.full_name || "";
+          var ui = pOverlay.querySelector("[data-pf-username]"); if (ui) ui.value = emp.username || "";
+          var ei = pOverlay.querySelector("[data-pf-email]"); if (ei) ei.value = emp.email || "";
+          var ci = pOverlay.querySelector("[data-pf-contact]"); if (ci) ci.value = emp.contact_number || "";
+        } catch (e) {}
+
+        function getHeaders(json) {
+          var h = {};
+          try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+          if (json) h["Content-Type"] = "application/json";
+          return h;
+        }
+
+        // Save profile
+        var pForm = pOverlay.querySelector("[data-profile-form]");
+        var pMsg = pOverlay.querySelector("[data-pf-msg]");
+        if (pForm) pForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          if (pMsg) { pMsg.textContent = ""; pMsg.className = "settings-msg"; }
+          var payload = {
+            full_name: (pOverlay.querySelector("[data-pf-name]") || {}).value || "",
+            username: (pOverlay.querySelector("[data-pf-username]") || {}).value || "",
+            email: (pOverlay.querySelector("[data-pf-email]") || {}).value || "",
+            contact_number: (pOverlay.querySelector("[data-pf-contact]") || {}).value || ""
+          };
+          fetch((window.RegaliaStaff ? window.RegaliaStaff.API : "/api") + "/employee/profile", {
+            method: "PUT", headers: getHeaders(true), body: JSON.stringify(payload)
+          }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { if (pMsg) pMsg.textContent = res.data.error || "Failed"; return; }
+            localStorage.setItem("employee", JSON.stringify(res.data.employee));
+            var initials = (payload.full_name || "FD").split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase();
+            var pb = document.querySelector("[data-profile-btn]"); if (pb) pb.textContent = initials;
+            var plg = document.querySelector("[data-profile-initials-lg]"); if (plg) plg.textContent = initials;
+            var pn = document.querySelector("[data-profile-name]"); if (pn) pn.textContent = payload.full_name || "Staff";
+            if (pMsg) { pMsg.textContent = "Profile saved!"; pMsg.className = "settings-msg success"; }
+          }).catch(function () {
+            // Offline fallback
+            try {
+              var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+              emp.full_name = payload.full_name; emp.username = payload.username;
+              emp.email = payload.email; emp.contact_number = payload.contact_number;
+              localStorage.setItem("employee", JSON.stringify(emp));
+              var initials = (payload.full_name || "FD").split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase();
+              var pb = document.querySelector("[data-profile-btn]"); if (pb) pb.textContent = initials;
+              var plg = document.querySelector("[data-profile-initials-lg]"); if (plg) plg.textContent = initials;
+              var pn = document.querySelector("[data-profile-name]"); if (pn) pn.textContent = payload.full_name || "Staff";
+              if (pMsg) { pMsg.textContent = "Saved locally"; pMsg.className = "settings-msg success"; }
+            } catch (err) { if (pMsg) pMsg.textContent = "Could not save"; }
+          });
+        });
+
+        // Change password
+        var pwForm = pOverlay.querySelector("[data-pw-form]");
+        var pwMsg = pOverlay.querySelector("[data-pw-msg]");
+        if (pwForm) pwForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          if (pwMsg) { pwMsg.textContent = ""; pwMsg.className = "settings-msg"; }
+          var fd = new FormData(pwForm);
+          var cur = fd.get("current_password"), np = fd.get("new_password"), cp = fd.get("confirm_password");
+          if (np !== cp) { if (pwMsg) pwMsg.textContent = "Passwords do not match."; return; }
+          if (np.length < 6) { if (pwMsg) pwMsg.textContent = "Must be at least 6 characters."; return; }
+          fetch((window.RegaliaStaff ? window.RegaliaStaff.API : "/api") + "/employee/password", {
+            method: "PUT", headers: getHeaders(true), body: JSON.stringify({ current_password: cur, new_password: np })
+          }).then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { if (pwMsg) pwMsg.textContent = res.data.error || "Failed"; return; }
+            if (pwMsg) { pwMsg.textContent = "Password updated!"; pwMsg.className = "settings-msg success"; }
+            pwForm.reset();
+          }).catch(function () { if (pwMsg) pwMsg.textContent = "Server unavailable"; });
+        });
+      })();
+
       const toggle = document.querySelector(".topbar .menu-toggle");
       const closeButton = document.querySelector("[data-sidebar-close]");
-      const overlay = document.querySelector("[data-sidebar-overlay]");
+      const sidebarOverlay = document.querySelector("[data-sidebar-overlay]");
       const navLinks = document.querySelectorAll(".sidebar .nav a");
 
       const closeSidebar = () => document.body.classList.remove("sidebar-open");
@@ -305,7 +633,7 @@
 
       if (toggle) toggle.addEventListener("click", toggleSidebar);
       if (closeButton) closeButton.addEventListener("click", closeSidebar);
-      if (overlay) overlay.addEventListener("click", closeSidebar);
+      if (sidebarOverlay) sidebarOverlay.addEventListener("click", closeSidebar);
       navLinks.forEach((link) => link.addEventListener("click", closeSidebar));
     </script>
   </body>

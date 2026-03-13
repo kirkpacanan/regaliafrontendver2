@@ -142,7 +142,7 @@ app.post("/login", async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    res.json({ message: "Login successful", token, employee, role: roles[0]?.role_type });
+    res.json({ message: "Login successful", token, employee, role: roles[0]?.role_type, theme_color: employee.theme_color || "default" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -1861,6 +1861,79 @@ app.post("/api/guest-register", async (req, res) => {
       return res.status(503).json({ error: "Guest registration is not set up. Contact staff." });
     console.error(err);
     res.status(500).json({ error: err.message || "Registration failed" });
+  }
+});
+
+// ---------------- Profile update ----------------
+app.put("/api/employee/profile", optionalAuth, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  const { full_name, username, email, contact_number } = req.body;
+  try {
+    const [dup] = await db.promise().query(
+      "SELECT employee_id FROM EMPLOYEE WHERE (username = ? OR email = ?) AND employee_id != ?",
+      [username, email, req.user.employee_id]
+    );
+    if (dup.length > 0) return res.status(400).json({ error: "Username or email already taken" });
+    await db.promise().query(
+      "UPDATE EMPLOYEE SET full_name = ?, username = ?, email = ?, contact_number = ? WHERE employee_id = ?",
+      [full_name, username, email, contact_number, req.user.employee_id]
+    );
+    const [rows] = await db.promise().query("SELECT * FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+    res.json({ message: "Profile updated", employee: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ---------------- Change password ----------------
+app.put("/api/employee/password", optionalAuth, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  const { current_password, new_password } = req.body;
+  if (!new_password || new_password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
+  try {
+    const [rows] = await db.promise().query("SELECT password FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+    if (!rows.length) return res.status(404).json({ error: "User not found" });
+    const match = await bcrypt.compare(current_password, rows[0].password);
+    if (!match) return res.status(400).json({ error: "Current password is incorrect" });
+    const hashed = await bcrypt.hash(new_password, 10);
+    await db.promise().query("UPDATE EMPLOYEE SET password = ? WHERE employee_id = ?", [hashed, req.user.employee_id]);
+    res.json({ message: "Password updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ---------------- Theme preference ----------------
+app.get("/api/employee/theme", optionalAuth, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  try {
+    const [rows] = await db.promise().query(
+      "SELECT theme_color FROM EMPLOYEE WHERE employee_id = ?",
+      [req.user.employee_id]
+    );
+    res.json({ theme_color: rows[0]?.theme_color || "default" });
+  } catch (err) {
+    if (err.code === "ER_BAD_FIELD_ERROR") return res.json({ theme_color: "default" });
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.put("/api/employee/theme", optionalAuth, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  const { theme_color } = req.body;
+  const allowed = ["default", "ocean", "sunset", "forest", "purple", "midnight", "rose"];
+  if (!allowed.includes(theme_color)) return res.status(400).json({ error: "Invalid theme" });
+  try {
+    await db.promise().query(
+      "UPDATE EMPLOYEE SET theme_color = ? WHERE employee_id = ?",
+      [theme_color, req.user.employee_id]
+    );
+    res.json({ message: "Theme saved", theme_color });
+  } catch (err) {
+    if (err.code === "ER_BAD_FIELD_ERROR") return res.json({ message: "Theme column not yet available", theme_color });
+    res.status(500).json({ error: "Server error" });
   }
 });
 

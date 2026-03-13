@@ -108,6 +108,20 @@ if (loginForm) {
     const username = String(formData.get("login") || "").trim();
     const password = String(formData.get("password") || "").trim();
 
+    // Offline accounts for local development
+    const offlineAccounts = {
+      admin: { password: "admin123", role: "OWNER", employee: { full_name: "Admin (Offline)", username: "admin" } },
+      staff:  { password: "staff123", role: "Front Desk", employee: { full_name: "Staff (Offline)", username: "staff" } }
+    };
+    const offlineMatch = offlineAccounts[username];
+    if (offlineMatch && offlineMatch.password === password) {
+      localStorage.setItem("token", "offline-token");
+      localStorage.setItem("role", offlineMatch.role);
+      localStorage.setItem("employee", JSON.stringify(offlineMatch.employee));
+      window.location.href = offlineMatch.role === "OWNER" ? "./admin/index.html" : "./staff/index.html";
+      return;
+    }
+
     try {
       const response = await fetch("/login", {
         method: "POST",
@@ -122,6 +136,7 @@ if (loginForm) {
         localStorage.setItem("token", data.token);
         if (data.role) localStorage.setItem("role", data.role);
         if (data.employee) localStorage.setItem("employee", JSON.stringify(data.employee));
+        if (data.theme_color) localStorage.setItem("theme_color", data.theme_color);
 
         // Redirect based on role: OWNER → admin panel; staff roles → staff area
         if (data.role === "OWNER") {
