@@ -723,8 +723,8 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
 .stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.6rem;
-  margin-bottom: 2.2rem;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
 }
 
 .section {
@@ -732,7 +732,7 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
 }
 
 .main > .section + .section {
-  margin-top: 2rem;
+  margin-top: 1.75rem;
 }
 
 /* Bookings page: consistent spacing between stats and panels, and between panels */
@@ -749,12 +749,13 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
 
 .stat-card {
   background: var(--panel);
-  padding: 1.35rem 1.5rem;
+  padding: 1.5rem 1.6rem;
   border-radius: 16px;
   box-shadow: 0 14px 30px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
+  justify-content: center;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 
@@ -784,7 +785,7 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
 .content-grid {
   display: grid;
   grid-template-columns: 2fr 1fr;
-  gap: 2rem;
+  gap: 1.5rem;
 }
 
 .qr-grid {
@@ -799,7 +800,7 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
 .panel {
   background: var(--panel);
   border-radius: 20px;
-  padding: 1.75rem 1.9rem;
+  padding: 2rem 2rem;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
   animation: floatIn 0.7s ease forwards;
   opacity: 0;
@@ -819,14 +820,14 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
 .quick-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 1.6rem;
-  margin-top: 2rem;
+  gap: 1.5rem;
+  margin-top: 1.75rem;
 }
 
 .quick-card {
   display: flex;
   flex-direction: column;
-  gap: 0.7rem;
+  gap: 0.6rem;
   min-height: 140px;
 }
 
@@ -1252,20 +1253,29 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
   font-weight: 600;
 }
 
+/* Panel typography: consistent rhythm (title 0.75rem → subtitle 0.75rem → content) */
 .panel h3 {
-  margin: 0 0 1rem;
+  margin: 0 0 0.75rem;
   font-size: 1.05rem;
   font-weight: 500;
 }
 
 .panel h3 + .muted,
-.panel .muted:first-of-type {
-  margin-bottom: 1rem;
+.panel .muted:first-of-type,
+.panel .panel-subtitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+}
+
+.panel h3 + .list,
+.panel .muted + .list,
+.panel .panel-subtitle + .list {
+  margin-top: 0;
 }
 
 .list {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .list-item {
@@ -1337,6 +1347,16 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
 .tag--pending {
   background: rgba(255, 230, 166, 0.28);
   color: #fff3cf;
+}
+
+.tag--checked-in {
+  background: rgba(30, 157, 177, 0.3);
+  color: #b8f0f7;
+}
+
+.tag--checked-out {
+  background: rgba(255, 140, 140, 0.22);
+  color: #ffcccc;
 }
 
 .status--checked-out {
