@@ -1,3 +1,11 @@
+// Apply saved theme immediately
+(function() {
+  var saved = localStorage.getItem("theme_color");
+  if (saved && saved !== "default") {
+    document.body.classList.add("theme-" + saved);
+  }
+})();
+
 const panels = Array.from(document.querySelectorAll(".panel"));
 const views = new Map(panels.map((panel) => [panel.dataset.view, panel]));
 const appRoot = document.querySelector(".app");
