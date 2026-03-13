@@ -880,9 +880,14 @@
       }, 300);
     }
 
+    function getEditEmployeeId() {
+      return (editEmployeeModal && editEmployeeModal.dataset.currentEmployeeId) || (activeEmployeeId != null ? String(activeEmployeeId) : null);
+    }
+
     function openEditEmployeeModal() {
       var emp = employees.find(function (e) { return String(e.employee_id) === String(activeEmployeeId); });
       if (!emp || !editEmployeeModal || !editEmployeeForm) return;
+      if (editEmployeeModal) editEmployeeModal.dataset.currentEmployeeId = String(activeEmployeeId);
       var fullName = editEmployeeForm.querySelector("[data-edit-full-name]");
       var email = editEmployeeForm.querySelector("[data-edit-email]");
       var contact = editEmployeeForm.querySelector("[data-edit-contact]");
@@ -893,22 +898,32 @@
       if (contact) contact.value = emp.contact_number || "";
       if (address) address.value = emp.address || "";
       if (role) role.value = emp.role_type || "Front Desk";
+      if (saveEditEmployeeBtn) {
+        saveEditEmployeeBtn.onclick = function (e) { e.preventDefault(); e.stopPropagation(); saveEditEmployee(); return false; };
+      }
+      if (deleteEmployeeBtn) {
+        deleteEmployeeBtn.onclick = function (e) { e.preventDefault(); e.stopPropagation(); deleteEmployeeAction(); return false; };
+      }
       editEmployeeModal.classList.add("is-open");
     }
 
     function closeEditEmployeeModal() {
-      if (editEmployeeModal) editEmployeeModal.classList.remove("is-open");
+      if (editEmployeeModal) {
+        editEmployeeModal.classList.remove("is-open");
+        delete editEmployeeModal.dataset.currentEmployeeId;
+      }
     }
 
     function saveEditEmployee() {
-      if (!activeEmployeeId || !editEmployeeForm) return;
+      var id = getEditEmployeeId();
+      if (!id || !editEmployeeForm) return;
       var full_name = editEmployeeForm.querySelector("[data-edit-full-name]") && editEmployeeForm.querySelector("[data-edit-full-name]").value.trim();
       var email = editEmployeeForm.querySelector("[data-edit-email]") && editEmployeeForm.querySelector("[data-edit-email]").value.trim();
       var contact_number = editEmployeeForm.querySelector("[data-edit-contact]") && editEmployeeForm.querySelector("[data-edit-contact]").value.trim() || null;
       var address = editEmployeeForm.querySelector("[data-edit-address]") && editEmployeeForm.querySelector("[data-edit-address]").value.trim() || null;
       var role_type = editEmployeeForm.querySelector("[data-edit-role]") && editEmployeeForm.querySelector("[data-edit-role]").value || "Front Desk";
       if (!full_name || !email) { alert("Full name and email are required."); return; }
-      fetch(API + "/employees/" + activeEmployeeId, {
+      fetch(API + "/employees/" + id, {
         method: "PUT",
         headers: getAuthHeaders(true),
         body: JSON.stringify({ full_name: full_name, email: email, contact_number: contact_number, address: address, role_type: role_type }),
@@ -928,9 +943,10 @@
     }
 
     function deleteEmployeeAction() {
-      if (!activeEmployeeId) return;
+      var id = getEditEmployeeId();
+      if (!id) return;
       if (!confirm("Delete this employee? This cannot be undone.")) return;
-      fetch(API + "/employees/" + activeEmployeeId, { method: "DELETE", headers: getAuthHeaders() })
+      fetch(API + "/employees/" + id, { method: "DELETE", headers: getAuthHeaders() })
         .then(function (r) {
           if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
           return r.json();
@@ -986,21 +1002,9 @@
         if (e.target === editEmployeeModal.querySelector(".modal-overlay")) closeEditEmployeeModal();
       });
     }
-    if (editEmployeeModal) {
-      editEmployeeModal.addEventListener("click", function (e) {
-        var target = e.target && e.target.closest ? e.target.closest("[data-save-edit-employee], [data-delete-employee]") : null;
-        if (!target) return;
-        e.preventDefault();
-        e.stopPropagation();
-        if (target.getAttribute("data-save-edit-employee") !== null) saveEditEmployee();
-        else if (target.getAttribute("data-delete-employee") !== null) deleteEmployeeAction();
-      });
-    }
     if (editEmployeeForm) {
       editEmployeeForm.addEventListener("submit", function (e) { e.preventDefault(); });
     }
-    if (saveEditEmployeeBtn) saveEditEmployeeBtn.addEventListener("click", function (e) { e.preventDefault(); saveEditEmployee(); });
-    if (deleteEmployeeBtn) deleteEmployeeBtn.addEventListener("click", function (e) { e.preventDefault(); deleteEmployeeAction(); });
 
     if (saveAssignmentBtn) {
       saveAssignmentBtn.addEventListener("click", function () {

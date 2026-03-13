@@ -619,7 +619,7 @@ app.post("/api/employees", optionalAuth, async (req, res) => {
 });
 
 // Assign employee to tower (EMPLOYEE_TOWER)
-app.put("/api/employees/:id/assign-tower", async (req, res) => {
+app.put("/api/employees/:id/assign-tower", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     const { tower_id } = req.body;
@@ -635,7 +635,7 @@ app.put("/api/employees/:id/assign-tower", async (req, res) => {
 });
 
 // Update employee (full_name, contact_number, email, address, role_type)
-app.put("/api/employees/:id", async (req, res) => {
+app.put("/api/employees/:id", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     const body = req.body || {};
@@ -657,7 +657,7 @@ app.put("/api/employees/:id", async (req, res) => {
 });
 
 // Delete employee (removes EMPLOYEE_ROLE and EMPLOYEE_TOWER via FK, then EMPLOYEE)
-app.delete("/api/employees/:id", async (req, res) => {
+app.delete("/api/employees/:id", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [employeeId]);
