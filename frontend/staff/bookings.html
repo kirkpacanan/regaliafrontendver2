@@ -523,13 +523,16 @@
           applyTheme(name);
           saveThemeToServer(name);
         });
-        var saved = localStorage.getItem("theme_color") || "default";
-        applyTheme(saved);
-        fetch((window.RegaliaStaff ? window.RegaliaStaff.API : "/api") + "/employee/theme", {
-          headers: getHeaders()
-        }).then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
-          if (data && data.theme_color) { applyTheme(data.theme_color); localStorage.setItem("theme_color", data.theme_color); }
-        }).catch(function () {});
+        var saved = localStorage.getItem("theme_color");
+        if (saved) { applyTheme(saved); }
+        else {
+          applyTheme("default");
+          fetch((window.RegaliaStaff ? window.RegaliaStaff.API : "/api") + "/employee/theme", {
+            headers: getHeaders()
+          }).then(function (r) { return r.ok ? r.json() : null; }).then(function (data) {
+            if (data && data.theme_color) { applyTheme(data.theme_color); localStorage.setItem("theme_color", data.theme_color); }
+          }).catch(function () {});
+        }
       })();
 
       // Profile modal logic
