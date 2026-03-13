@@ -695,11 +695,6 @@
         var nextBtn = document.querySelector("[data-calendar-next]");
         if (prevBtn) prevBtn.addEventListener("click", function () { currentCalendar.setMonth(currentCalendar.getMonth() - 1); renderCalendar(); });
         if (nextBtn) nextBtn.addEventListener("click", function () { currentCalendar.setMonth(currentCalendar.getMonth() + 1); renderCalendar(); });
-
-        refreshBookings();
-        document.addEventListener("visibilitychange", function () {
-          if (document.visibilityState === "visible") refreshBookings();
-        });
       })();
       // Populate notifications from bookings
       (function () {
