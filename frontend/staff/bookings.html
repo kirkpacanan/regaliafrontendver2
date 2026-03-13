@@ -458,7 +458,7 @@
           if (roleEl) roleEl.textContent = role;
         } catch (e) {}
         var logoutLink = document.querySelector("[data-logout-link]");
-        if (logoutLink) logoutLink.addEventListener("click", function () { try { localStorage.clear(); } catch (e) {} });
+        if (logoutLink) logoutLink.addEventListener("click", function () { try { var tc = localStorage.getItem("theme_color"); localStorage.clear(); if (tc) localStorage.setItem("theme_color", tc); } catch (e) {} });
       })();
 
       // Dropdown toggle logic

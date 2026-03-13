@@ -421,7 +421,7 @@
         var logoutLink = document.querySelector("[data-logout-link]");
         if (logoutLink) {
           logoutLink.addEventListener("click", function () {
-            try { localStorage.clear(); } catch (e) {}
+            try { var tc = localStorage.getItem("theme_color"); localStorage.clear(); if (tc) localStorage.setItem("theme_color", tc); } catch (e) {}
           });
         }
       })();
