@@ -1317,6 +1317,10 @@
 
     function openRejectModal(isCancel) {
       rejectActionMode = isCancel ? "cancel" : "reject";
+      if (rejectModal) {
+        rejectModal.dataset.mode = rejectActionMode;
+        rejectModal.dataset.bookingId = activeBookingId != null ? String(activeBookingId) : "";
+      }
       if (rejectReasonInput) rejectReasonInput.value = "";
       if (rejectModalTitle) rejectModalTitle.textContent = isCancel ? "Reason for cancellation" : "Reason for rejection";
       if (submitRejectBtn) submitRejectBtn.textContent = isCancel ? "Cancel booking" : "Reject booking";
@@ -1325,6 +1329,10 @@
 
     function closeRejectModal() {
       if (rejectModal) rejectModal.classList.remove("is-open");
+      if (rejectModal) {
+        delete rejectModal.dataset.mode;
+        delete rejectModal.dataset.bookingId;
+      }
     }
 
     function checkoutBooking() {
@@ -1360,12 +1368,22 @@
 
     function submitReject() {
       var reason = rejectReasonInput && rejectReasonInput.value.trim();
+      var modalBookingId = Number((rejectModal && rejectModal.dataset.bookingId) || activeBookingId || 0);
+      var isCancelAction = ((rejectModal && rejectModal.dataset.mode) || rejectActionMode) === "cancel";
       if (!reason) {
         alert("Please provide a reason.");
+        if (rejectReasonInput) rejectReasonInput.focus();
         return;
       }
-      if (!activeBookingId) return;
-      fetch(API + "/bookings/" + activeBookingId + "/reject", {
+      if (!modalBookingId) {
+        alert("No active booking selected.");
+        return;
+      }
+      if (submitRejectBtn) {
+        submitRejectBtn.disabled = true;
+        submitRejectBtn.textContent = isCancelAction ? "Cancelling..." : "Rejecting...";
+      }
+      fetch(API + "/bookings/" + modalBookingId + "/reject", {
         method: "PUT",
         headers: getAuthHeaders(true),
         body: JSON.stringify({ reason: reason }),
@@ -1378,10 +1396,16 @@
           closeRejectModal();
           closeDetailModal();
           loadBookings();
-          alert(rejectActionMode === "cancel" ? "Booking cancelled." : "Booking rejected.");
+          alert(isCancelAction ? "Booking cancelled." : "Booking rejected.");
         })
         .catch(function (err) {
-          alert(err.message || (rejectActionMode === "cancel" ? "Failed to cancel." : "Failed to reject."));
+          alert(err.message || (isCancelAction ? "Failed to cancel." : "Failed to reject."));
+        })
+        .finally(function () {
+          if (submitRejectBtn) {
+            submitRejectBtn.disabled = false;
+            submitRejectBtn.textContent = isCancelAction ? "Cancel booking" : "Reject booking";
+          }
         });
     }
 
