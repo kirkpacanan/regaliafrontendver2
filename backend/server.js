@@ -619,7 +619,7 @@ app.post("/api/employees", optionalAuth, async (req, res) => {
 });
 
 // Assign employee to tower (EMPLOYEE_TOWER)
-app.put("/api/employees/:id/assign-tower", async (req, res) => {
+app.put("/api/employees/:id/assign-tower", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     const { tower_id } = req.body;
@@ -635,17 +635,18 @@ app.put("/api/employees/:id/assign-tower", async (req, res) => {
 });
 
 // Update employee (full_name, contact_number, email, address, role_type)
-app.put("/api/employees/:id", async (req, res) => {
+app.put("/api/employees/:id", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
-    const { full_name, contact_number, email, address, role_type } = req.body;
+    const body = req.body || {};
+    const { full_name, contact_number, email, address, role_type } = body;
 
-    if (full_name != null) await db.promise().query("UPDATE EMPLOYEE SET full_name = ? WHERE employee_id = ?", [String(full_name).trim(), employeeId]);
+    if (full_name != null && full_name !== undefined) await db.promise().query("UPDATE EMPLOYEE SET full_name = ? WHERE employee_id = ?", [String(full_name).trim(), employeeId]);
     if (contact_number !== undefined) await db.promise().query("UPDATE EMPLOYEE SET contact_number = ? WHERE employee_id = ?", [contact_number === "" || contact_number == null ? null : String(contact_number).trim(), employeeId]);
-    if (email != null) await db.promise().query("UPDATE EMPLOYEE SET email = ? WHERE employee_id = ?", [String(email).trim(), employeeId]);
+    if (email != null && email !== undefined) await db.promise().query("UPDATE EMPLOYEE SET email = ? WHERE employee_id = ?", [String(email).trim(), employeeId]);
     if (address !== undefined) await db.promise().query("UPDATE EMPLOYEE SET address = ? WHERE employee_id = ?", [address === "" || address == null ? null : String(address).trim(), employeeId]);
-    if (role_type != null) {
-      await db.promise().query("UPDATE EMPLOYEE_ROLE SET status = 'inactive' WHERE employee_id = ?", [employeeId]);
+    if (role_type != null && role_type !== undefined) {
+      await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [employeeId]);
       await db.promise().query("INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, ?, 'active')", [employeeId, String(role_type).trim()]);
     }
     res.json({ message: "Employee updated" });
@@ -656,7 +657,7 @@ app.put("/api/employees/:id", async (req, res) => {
 });
 
 // Delete employee (removes EMPLOYEE_ROLE and EMPLOYEE_TOWER via FK, then EMPLOYEE)
-app.delete("/api/employees/:id", async (req, res) => {
+app.delete("/api/employees/:id", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [employeeId]);
@@ -703,10 +704,17 @@ app.get("/api/bookings", optionalAuth, async (req, res) => {
           [ownerId]
         );
       } else if (staffId) {
-        [rows] = await db.promise().query(
-          baseSelect + ` WHERE u.tower_id IN (SELECT et.tower_id FROM EMPLOYEE_TOWER et WHERE et.employee_id = ?)` + orderBy,
-          [staffId]
-        );
+        const [towerRows] = await db.promise().query("SELECT tower_id FROM EMPLOYEE_TOWER WHERE employee_id = ?", [staffId]);
+        const towerIds = (towerRows || []).map((r) => r.tower_id).filter((id) => id != null);
+        if (towerIds.length > 0) {
+          const placeholders = towerIds.map(() => "?").join(",");
+          [rows] = await db.promise().query(
+            baseSelect + ` WHERE u.tower_id IN (${placeholders})` + orderBy,
+            towerIds
+          );
+        } else {
+          [rows] = await db.promise().query(baseSelect + orderBy);
+        }
       } else {
         [rows] = await db.promise().query(baseSelect + orderBy);
       }
@@ -738,17 +746,24 @@ app.get("/api/bookings", optionalAuth, async (req, res) => {
           }
         } else if (staffId) {
           try {
-            [rows] = await db.promise().query(
-              `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
-                b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
-                u.unit_number, u.unit_type, t.tower_name
-               FROM BOOKING b
-               LEFT JOIN UNIT u ON u.unit_id = b.unit_id
-               LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-               WHERE u.tower_id IN (SELECT et.tower_id FROM EMPLOYEE_TOWER et WHERE et.employee_id = ?)
-               ORDER BY b.check_in_date ASC, b.created_at DESC`,
-              [staffId]
-            );
+            const [towerRows] = await db.promise().query("SELECT tower_id FROM EMPLOYEE_TOWER WHERE employee_id = ?", [staffId]);
+            const towerIds = (towerRows || []).map((r) => r.tower_id).filter((id) => id != null);
+            if (towerIds.length > 0) {
+              const placeholders = towerIds.map(() => "?").join(",");
+              [rows] = await db.promise().query(
+                `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
+                  b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
+                  u.unit_number, u.unit_type, t.tower_name
+                 FROM BOOKING b
+                 LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+                 LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+                 WHERE u.tower_id IN (${placeholders})
+                 ORDER BY b.check_in_date ASC, b.created_at DESC`,
+                towerIds
+              );
+            } else {
+              [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
+            }
           } catch (e) {
             [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
           }
@@ -1857,4 +1872,4 @@ app.get(/^\/.*$/, (req, res) => {
 
 // ---------------- Start Server ----------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));

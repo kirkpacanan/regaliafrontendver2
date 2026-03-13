@@ -111,10 +111,6 @@
     var updateCloseBtns = document.querySelectorAll("[data-close-update]");
     var updateTitle = document.querySelector("[data-update-title]");
     var bookingLinkInput = document.querySelector("[data-booking-link]");
-    var guestRegisterLinkInput = document.querySelector("[data-guest-register-link]");
-    var copyGuestRegisterBtn = document.querySelector("[data-copy-guest-register]");
-    var openGuestRegisterBtn = document.querySelector("[data-open-guest-register]");
-    var generateGuestRegisterBtn = document.querySelector("[data-generate-guest-register]");
     var saveUpdateBtn = document.querySelector("[data-save-update]");
     var copyBtn = document.querySelector("[data-copy-link]");
     var openLinkBtn = document.querySelector("[data-open-link]");
@@ -424,7 +420,6 @@
       }
       var link = buildBookingLink(unit);
       if (bookingLinkInput) bookingLinkInput.value = link;
-      if (guestRegisterLinkInput) guestRegisterLinkInput.value = "";
     }
 
     function closeUpdateModal() {
@@ -668,40 +663,6 @@
       if (!bookingLinkInput) return;
       navigator.clipboard.writeText(bookingLinkInput.value).catch(function () { bookingLinkInput.select(); });
     });
-    if (generateGuestRegisterBtn && guestRegisterLinkInput) {
-      generateGuestRegisterBtn.addEventListener("click", function () {
-        if (!activeUnit || !activeUnit.unit_id) return;
-        generateGuestRegisterBtn.disabled = true;
-        generateGuestRegisterBtn.textContent = "Generating...";
-        fetch(API + "/walkin-token", {
-          method: "POST",
-          headers: getAuthHeaders(true),
-          body: JSON.stringify({ unit_id: activeUnit.unit_id }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) { alert(data.error); return; }
-            if (data.registerUrl) guestRegisterLinkInput.value = data.registerUrl;
-          })
-          .catch(function (err) { alert(err.message || "Failed to generate link."); })
-          .finally(function () {
-            generateGuestRegisterBtn.disabled = false;
-            generateGuestRegisterBtn.textContent = "Generate link";
-          });
-      });
-    }
-    if (copyGuestRegisterBtn && guestRegisterLinkInput) {
-      copyGuestRegisterBtn.addEventListener("click", function () {
-        if (!guestRegisterLinkInput.value) return;
-        navigator.clipboard.writeText(guestRegisterLinkInput.value).catch(function () { guestRegisterLinkInput.select(); });
-      });
-    }
-    if (openGuestRegisterBtn && guestRegisterLinkInput) {
-      openGuestRegisterBtn.addEventListener("click", function () {
-        if (guestRegisterLinkInput.value) window.open(guestRegisterLinkInput.value, "_blank");
-      });
-    }
-
     loadProperties();
   }
 
@@ -919,9 +880,14 @@
       }, 300);
     }
 
+    function getEditEmployeeId() {
+      return (editEmployeeModal && editEmployeeModal.dataset.currentEmployeeId) || (activeEmployeeId != null ? String(activeEmployeeId) : null);
+    }
+
     function openEditEmployeeModal() {
       var emp = employees.find(function (e) { return String(e.employee_id) === String(activeEmployeeId); });
       if (!emp || !editEmployeeModal || !editEmployeeForm) return;
+      if (editEmployeeModal) editEmployeeModal.dataset.currentEmployeeId = String(activeEmployeeId);
       var fullName = editEmployeeForm.querySelector("[data-edit-full-name]");
       var email = editEmployeeForm.querySelector("[data-edit-email]");
       var contact = editEmployeeForm.querySelector("[data-edit-contact]");
@@ -932,24 +898,34 @@
       if (contact) contact.value = emp.contact_number || "";
       if (address) address.value = emp.address || "";
       if (role) role.value = emp.role_type || "Front Desk";
+      if (saveEditEmployeeBtn) {
+        saveEditEmployeeBtn.onclick = function (e) { e.preventDefault(); e.stopPropagation(); saveEditEmployee(); return false; };
+      }
+      if (deleteEmployeeBtn) {
+        deleteEmployeeBtn.onclick = function (e) { e.preventDefault(); e.stopPropagation(); deleteEmployeeAction(); return false; };
+      }
       editEmployeeModal.classList.add("is-open");
     }
 
     function closeEditEmployeeModal() {
-      if (editEmployeeModal) editEmployeeModal.classList.remove("is-open");
+      if (editEmployeeModal) {
+        editEmployeeModal.classList.remove("is-open");
+        delete editEmployeeModal.dataset.currentEmployeeId;
+      }
     }
 
     function saveEditEmployee() {
-      if (!activeEmployeeId || !editEmployeeForm) return;
+      var id = getEditEmployeeId();
+      if (!id || !editEmployeeForm) return;
       var full_name = editEmployeeForm.querySelector("[data-edit-full-name]") && editEmployeeForm.querySelector("[data-edit-full-name]").value.trim();
       var email = editEmployeeForm.querySelector("[data-edit-email]") && editEmployeeForm.querySelector("[data-edit-email]").value.trim();
       var contact_number = editEmployeeForm.querySelector("[data-edit-contact]") && editEmployeeForm.querySelector("[data-edit-contact]").value.trim() || null;
       var address = editEmployeeForm.querySelector("[data-edit-address]") && editEmployeeForm.querySelector("[data-edit-address]").value.trim() || null;
       var role_type = editEmployeeForm.querySelector("[data-edit-role]") && editEmployeeForm.querySelector("[data-edit-role]").value || "Front Desk";
       if (!full_name || !email) { alert("Full name and email are required."); return; }
-      fetch(API + "/employees/" + activeEmployeeId, {
+      fetch(API + "/employees/" + id, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ full_name: full_name, email: email, contact_number: contact_number, address: address, role_type: role_type }),
       })
         .then(function (r) {
@@ -967,9 +943,10 @@
     }
 
     function deleteEmployeeAction() {
-      if (!activeEmployeeId) return;
+      var id = getEditEmployeeId();
+      if (!id) return;
       if (!confirm("Delete this employee? This cannot be undone.")) return;
-      fetch(API + "/employees/" + activeEmployeeId, { method: "DELETE" })
+      fetch(API + "/employees/" + id, { method: "DELETE", headers: getAuthHeaders() })
         .then(function (r) {
           if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
           return r.json();
@@ -1018,15 +995,16 @@
     }
 
     if (editEmployeeBtn) editEmployeeBtn.addEventListener("click", function () { openEditEmployeeModal(); });
-    if (deleteEmployeeSidebarBtn) deleteEmployeeSidebarBtn.addEventListener("click", deleteEmployeeAction);
+    if (deleteEmployeeSidebarBtn) deleteEmployeeSidebarBtn.addEventListener("click", function (e) { e.preventDefault(); deleteEmployeeAction(); });
     if (closeEditEmployeeBtn) closeEditEmployeeBtn.addEventListener("click", closeEditEmployeeModal);
     if (editEmployeeModal && editEmployeeModal.querySelector(".modal-overlay")) {
       editEmployeeModal.querySelector(".modal-overlay").addEventListener("click", function (e) {
         if (e.target === editEmployeeModal.querySelector(".modal-overlay")) closeEditEmployeeModal();
       });
     }
-    if (saveEditEmployeeBtn) saveEditEmployeeBtn.addEventListener("click", saveEditEmployee);
-    if (deleteEmployeeBtn) deleteEmployeeBtn.addEventListener("click", deleteEmployeeAction);
+    if (editEmployeeForm) {
+      editEmployeeForm.addEventListener("submit", function (e) { e.preventDefault(); });
+    }
 
     if (saveAssignmentBtn) {
       saveAssignmentBtn.addEventListener("click", function () {
@@ -1035,7 +1013,7 @@
           var towerId = selected.dataset.towerId;
           fetch(API + "/employees/" + activeEmployeeId + "/assign-tower", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders(true),
             body: JSON.stringify({ tower_id: Number(towerId) }),
           })
             .then(function (r) {
