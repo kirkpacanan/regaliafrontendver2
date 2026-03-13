@@ -13,6 +13,9 @@
     <link rel="stylesheet" href="./staff.css" />
   </head>
   <body>
+    <script>
+      (function(){ var t=["default","ocean","sunset","forest","purple","midnight","rose"]; var n=localStorage.getItem("theme_color")||"default"; t.forEach(function(x){document.body.classList.remove("theme-"+x);}); if(n!=="default")document.body.classList.add("theme-"+n); })();
+    </script>
     <div class="dashboard">
       <div class="sidebar-overlay" data-sidebar-overlay></div>
       <aside class="sidebar">
@@ -695,6 +698,8 @@
         var nextBtn = document.querySelector("[data-calendar-next]");
         if (prevBtn) prevBtn.addEventListener("click", function () { currentCalendar.setMonth(currentCalendar.getMonth() - 1); renderCalendar(); });
         if (nextBtn) nextBtn.addEventListener("click", function () { currentCalendar.setMonth(currentCalendar.getMonth() + 1); renderCalendar(); });
+
+        refreshBookings();
       })();
       // Populate notifications from bookings
       (function () {
