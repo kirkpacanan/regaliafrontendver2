@@ -979,15 +979,28 @@
     }
 
     if (editEmployeeBtn) editEmployeeBtn.addEventListener("click", function () { openEditEmployeeModal(); });
-    if (deleteEmployeeSidebarBtn) deleteEmployeeSidebarBtn.addEventListener("click", deleteEmployeeAction);
+    if (deleteEmployeeSidebarBtn) deleteEmployeeSidebarBtn.addEventListener("click", function (e) { e.preventDefault(); deleteEmployeeAction(); });
     if (closeEditEmployeeBtn) closeEditEmployeeBtn.addEventListener("click", closeEditEmployeeModal);
     if (editEmployeeModal && editEmployeeModal.querySelector(".modal-overlay")) {
       editEmployeeModal.querySelector(".modal-overlay").addEventListener("click", function (e) {
         if (e.target === editEmployeeModal.querySelector(".modal-overlay")) closeEditEmployeeModal();
       });
     }
-    if (saveEditEmployeeBtn) saveEditEmployeeBtn.addEventListener("click", saveEditEmployee);
-    if (deleteEmployeeBtn) deleteEmployeeBtn.addEventListener("click", deleteEmployeeAction);
+    if (editEmployeeModal) {
+      editEmployeeModal.addEventListener("click", function (e) {
+        var target = e.target && e.target.closest ? e.target.closest("[data-save-edit-employee], [data-delete-employee]") : null;
+        if (!target) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (target.getAttribute("data-save-edit-employee") !== null) saveEditEmployee();
+        else if (target.getAttribute("data-delete-employee") !== null) deleteEmployeeAction();
+      });
+    }
+    if (editEmployeeForm) {
+      editEmployeeForm.addEventListener("submit", function (e) { e.preventDefault(); });
+    }
+    if (saveEditEmployeeBtn) saveEditEmployeeBtn.addEventListener("click", function (e) { e.preventDefault(); saveEditEmployee(); });
+    if (deleteEmployeeBtn) deleteEmployeeBtn.addEventListener("click", function (e) { e.preventDefault(); deleteEmployeeAction(); });
 
     if (saveAssignmentBtn) {
       saveAssignmentBtn.addEventListener("click", function () {
