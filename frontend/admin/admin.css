@@ -947,13 +947,17 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
 }
 
 .assign-sidebar__body .booking-detail-block p {
-  margin: 0 0 0.4rem;
+  margin: 0 0 0.6rem;
   font-size: 0.9rem;
   color: #3b5b5f;
 }
 
+.assign-sidebar__body .booking-detail-block p:last-child {
+  margin-bottom: 0;
+}
+
 .booking-detail-block h4 {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.85rem;
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
@@ -961,8 +965,34 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
 }
 
 .booking-detail-block p {
-  margin: 0 0 0.35rem;
+  margin: 0 0 0.5rem;
   font-size: 0.9rem;
+}
+
+.booking-detail-block p:last-child {
+  margin-bottom: 0;
+}
+
+/* Additional Charges block in booking detail sidebar */
+.booking-detail-block #booking-charges-content {
+  margin-top: 0.5rem;
+}
+
+.booking-detail-block #booking-charges-content .charge-item {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.booking-detail-block #booking-charges-content .charge-item:last-of-type {
+  margin-bottom: 0;
+}
+
+.booking-detail-block #booking-charges-content .charge-total {
+  margin-top: 1rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid rgba(47, 95, 103, 0.15);
+  font-size: 0.95rem;
 }
 
 /* Extra spacing for Status and Signature sections */
@@ -1476,12 +1506,139 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
   }
 }
 
-[data-all-charges-list] table {
+/* --- All Additional Charges section --- */
+.charges-section {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.charges-section .bookings-section-title {
+  margin-bottom: 0.25rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.charges-section__subtitle {
+  margin: 0 0 1rem;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.charges-loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.charges-section [data-all-charges-list],
+.charges-section .charges-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.charges-card {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.charges-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.1);
+}
+
+.charges-card__header {
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 1rem;
+}
+
+.charges-card__header strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.charges-card__meta {
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 400;
+  margin-left: 0.5rem;
+}
+
+.charges-table {
+  width: 100%;
   border-collapse: collapse;
+  font-size: 0.9rem;
 }
-[data-all-charges-list] table tr:not(:last-child) td {
-  border-bottom: 1px solid rgba(255,255,255,0.06);
+
+.charges-table thead th {
+  padding: 0.75rem 1.25rem;
+  text-align: left;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.85);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
 }
-[data-all-charges-list] table thead th {
-  border-bottom: 1px solid rgba(255,255,255,0.12);
+
+.charges-table thead th:nth-child(2) { text-align: center; }
+.charges-table thead th:nth-child(3),
+.charges-table thead th:nth-child(4) { text-align: right; }
+
+.charges-table tbody td {
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.charges-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.charges-table__qty { text-align: center; }
+.charges-table__price,
+.charges-table__total { text-align: right; }
+
+.charges-table__subtotal td {
+  padding: 0.85rem 1.25rem !important;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border-bottom: none !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.charges-table__subtotal td:last-child {
+  color: var(--accent-1);
+}
+
+.charges-grand-total {
+  margin-top: 1.25rem;
+  padding: 1rem 1.5rem;
+  background: linear-gradient(135deg, rgba(30, 157, 177, 0.15) 0%, rgba(122, 203, 89, 0.08) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  text-align: right;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.charges-grand-total span {
+  color: var(--accent-1);
+  font-size: 1.25rem;
+}
+
+.charges-section .empty-state {
+  padding: 2rem;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
 }

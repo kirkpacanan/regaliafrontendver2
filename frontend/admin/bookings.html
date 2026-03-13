@@ -165,14 +165,14 @@
           <div class="empty-state" data-bookings-empty style="display: none;">No bookings yet. Guest submissions will appear here.</div>
         </div>
 
-        <div class="bookings-content" style="margin-top:0;">
+        <div class="bookings-content charges-section">
           <div class="bookings-section">
             <h3 class="bookings-section-title">All Additional Charges</h3>
-            <p style="margin:0 0 12px;font-size:13px;opacity:.7;">Extra charges added by staff for guests</p>
-            <div class="bookings-list" data-all-charges-list>
-              <div class="empty-state">Loading charges...</div>
+            <p class="charges-section__subtitle">Extra charges added by staff for guests</p>
+            <div class="charges-grid" data-all-charges-list>
+              <div class="charges-loading">Loading charges...</div>
             </div>
-            <div data-all-charges-total style="text-align:right;font-weight:600;font-size:15px;padding:12px 0;display:none;"></div>
+            <div class="charges-grand-total" data-all-charges-total></div>
           </div>
         </div>
       </main>

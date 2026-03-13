@@ -1231,12 +1231,12 @@
             .then(function (charges) {
               var el = document.getElementById("booking-charges-content");
               if (!el) return;
-              if (!charges.length) { el.innerHTML = "<p style=\"opacity:.6;\">No additional charges</p>"; return; }
+              if (!charges.length) { el.innerHTML = "<p class=\"charge-empty\" style=\"opacity:.6;\">No additional charges</p>"; return; }
               var total = 0;
               el.innerHTML = charges.map(function (c) {
                 var lt = c.quantity * c.unit_price; total += lt;
-                return "<p><strong>" + escapeHtml(c.description) + "</strong> — " + c.quantity + " × ₱" + Number(c.unit_price).toFixed(2) + " = <strong>₱" + lt.toFixed(2) + "</strong></p>";
-              }).join("") + "<p style=\"border-top:1px solid rgba(255,255,255,0.15);padding-top:8px;margin-top:8px;\"><strong>Total Charges: ₱" + total.toFixed(2) + "</strong></p>";
+                return "<p class=\"charge-item\"><strong>" + escapeHtml(c.description) + "</strong> — " + c.quantity + " × ₱" + Number(c.unit_price).toFixed(2) + " = <strong>₱" + lt.toFixed(2) + "</strong></p>";
+              }).join("") + "<p class=\"charge-total\"><strong>Total Charges: ₱" + total.toFixed(2) + "</strong></p>";
             }).catch(function () {
               var el = document.getElementById("booking-charges-content");
               if (el) el.innerHTML = "<p style=\"opacity:.6;\">Could not load charges</p>";
