@@ -1050,7 +1050,12 @@
     var closeDetailBtns = document.querySelectorAll("[data-close-booking-detail]");
     var confirmBtn = document.querySelector("[data-confirm-booking]");
     var rejectBtn = document.querySelector("[data-reject-booking]");
+    var cancelBtn = document.querySelector("[data-cancel-booking]");
+    var checkoutBtn = document.querySelector("[data-checkout-booking]");
+    var deleteBtn = document.querySelector("[data-delete-booking]");
     var rejectModal = document.querySelector("[data-reject-reason-modal]");
+    var rejectModalTitle = document.querySelector("[data-reject-modal-title]");
+    var submitRejectBtn = document.querySelector("[data-submit-reject]");
     var rejectReasonInput = document.querySelector("[data-reject-reason]");
     var closeRejectBtn = document.querySelector("[data-close-reject-modal]");
     var cancelRejectBtn = document.querySelector("[data-cancel-reject]");
@@ -1058,6 +1063,7 @@
 
     var bookings = [];
     var activeBookingId = null;
+    var activeBookingData = null;
     function getAuthHeaders(withJson) {
       var h = {};
       if (withJson) h["Content-Type"] = "application/json";
@@ -1243,7 +1249,21 @@
               if (el) el.innerHTML = "<p style=\"opacity:.6;\">Could not load charges</p>";
             });
 
-          if (detailActions) detailActions.style.display = b.status === "pending" ? "flex" : "none";
+          activeBookingData = b;
+          if (detailActions) {
+            detailActions.style.display = "flex";
+            var confirmEl = document.querySelector("[data-confirm-booking]");
+            var rejectEl = document.querySelector("[data-reject-booking]");
+            var cancelEl = document.querySelector("[data-cancel-booking]");
+            var checkoutEl = document.querySelector("[data-checkout-booking]");
+            var deleteEl = document.querySelector("[data-delete-booking]");
+            if (confirmEl) confirmEl.style.display = b.status === "pending" ? "inline-flex" : "none";
+            if (rejectEl) rejectEl.style.display = b.status === "pending" ? "inline-flex" : "none";
+            if (cancelEl) cancelEl.style.display = b.status === "confirmed" ? "inline-flex" : "none";
+            var canCheckout = b.status === "confirmed" && b.checked_in_at && !b.checked_out_at;
+            if (checkoutEl) checkoutEl.style.display = canCheckout ? "inline-flex" : "none";
+            if (deleteEl) deleteEl.style.display = "inline-flex";
+          }
           if (detailSidebar) {
             detailSidebar.classList.add("is-open");
             detailSidebar.setAttribute("aria-hidden", "false");
@@ -1294,8 +1314,10 @@
         });
     }
 
-    function openRejectModal() {
+    function openRejectModal(isCancel) {
       if (rejectReasonInput) rejectReasonInput.value = "";
+      if (rejectModalTitle) rejectModalTitle.textContent = isCancel ? "Reason for cancellation" : "Reason for rejection";
+      if (submitRejectBtn) submitRejectBtn.textContent = isCancel ? "Cancel booking" : "Reject booking";
       if (rejectModal) rejectModal.classList.add("is-open");
     }
 
@@ -1303,10 +1325,41 @@
       if (rejectModal) rejectModal.classList.remove("is-open");
     }
 
+    function checkoutBooking() {
+      if (!activeBookingId) return;
+      fetch(API + "/bookings/" + activeBookingId + "/check-out", { method: "POST", headers: getAuthHeaders() })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+          return r.json();
+        })
+        .then(function () {
+          closeDetailModal();
+          loadBookings();
+          alert("Guest checked out. Unit is now available.");
+        })
+        .catch(function (err) { alert(err.message || "Failed to check out."); });
+    }
+
+    function deleteBooking() {
+      if (!activeBookingId) return;
+      if (!confirm("Permanently delete this booking? This cannot be undone.")) return;
+      fetch(API + "/bookings/" + activeBookingId, { method: "DELETE", headers: getAuthHeaders() })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+          return r.json();
+        })
+        .then(function () {
+          closeDetailModal();
+          loadBookings();
+          alert("Booking deleted.");
+        })
+        .catch(function (err) { alert(err.message || "Failed to delete."); });
+    }
+
     function submitReject() {
       var reason = rejectReasonInput && rejectReasonInput.value.trim();
       if (!reason) {
-        alert("Please provide a reason for rejection.");
+        alert("Please provide a reason.");
         return;
       }
       if (!activeBookingId) return;
@@ -1329,6 +1382,42 @@
         });
     }
 
+    function checkoutBooking() {
+      if (!activeBookingId) return;
+      if (!confirm("Check out this guest? This will record the check-out and free the unit.")) return;
+      fetch(API + "/bookings/" + activeBookingId + "/check-out", { method: "POST", headers: getAuthHeaders() })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+          return r.json();
+        })
+        .then(function () {
+          closeDetailModal();
+          loadBookings();
+          alert("Guest checked out successfully.");
+        })
+        .catch(function (err) {
+          alert(err.message || "Failed to check out.");
+        });
+    }
+
+    function deleteBooking() {
+      if (!activeBookingId) return;
+      if (!confirm("Permanently delete this booking? This cannot be undone.")) return;
+      fetch(API + "/bookings/" + activeBookingId, { method: "DELETE", headers: getAuthHeaders() })
+        .then(function (r) {
+          if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
+          return r.json();
+        })
+        .then(function () {
+          closeDetailModal();
+          loadBookings();
+          alert("Booking deleted.");
+        })
+        .catch(function (err) {
+          alert(err.message || "Failed to delete.");
+        });
+    }
+
     if (listNext7 && listMonth && listLater) {
       var lists = document.querySelectorAll(".bookings-list");
       lists.forEach(function (list) {
@@ -1343,7 +1432,10 @@
       detailSidebar.querySelector(".assign-sidebar__backdrop").addEventListener("click", closeDetailModal);
     }
     if (confirmBtn) confirmBtn.addEventListener("click", confirmBooking);
-    if (rejectBtn) rejectBtn.addEventListener("click", openRejectModal);
+    if (rejectBtn) rejectBtn.addEventListener("click", function () { openRejectModal(false); });
+    if (cancelBtn) cancelBtn.addEventListener("click", function () { openRejectModal(true); });
+    if (checkoutBtn) checkoutBtn.addEventListener("click", checkoutBooking);
+    if (deleteBtn) deleteBtn.addEventListener("click", deleteBooking);
     if (closeRejectBtn) closeRejectBtn.addEventListener("click", closeRejectModal);
     if (cancelRejectBtn) cancelRejectBtn.addEventListener("click", closeRejectModal);
     if (rejectModal && rejectModal.querySelector(".modal-overlay")) {

@@ -248,9 +248,12 @@
         <div class="assign-sidebar__body assign-sidebar__body--scroll">
           <div class="booking-detail-body" data-booking-detail-body></div>
         </div>
-        <div class="assign-sidebar__footer" data-booking-detail-actions>
-          <button class="submit-button danger" type="button" data-reject-booking>Reject booking</button>
-          <button class="submit-button full" type="button" data-confirm-booking>Confirm booking</button>
+        <div class="assign-sidebar__footer booking-detail-actions" data-booking-detail-actions>
+          <button class="submit-button full" type="button" data-confirm-booking style="display:none;">Confirm booking</button>
+          <button class="submit-button danger" type="button" data-reject-booking style="display:none;">Reject booking</button>
+          <button class="submit-button danger" type="button" data-cancel-booking style="display:none;">Cancel booking</button>
+          <button class="submit-button full" type="button" data-checkout-booking style="display:none;">Check out guest</button>
+          <button class="submit-button ghost" type="button" data-delete-booking style="display:none;">Delete booking</button>
         </div>
       </div>
     </div>
@@ -258,7 +261,7 @@
     <div class="modal-overlay" data-reject-reason-modal>
       <div class="modal-card">
         <div class="modal-header">
-          <h2>Reason for rejection</h2>
+          <h2 data-reject-modal-title>Reason for rejection</h2>
           <button class="icon-button" type="button" data-close-reject-modal aria-label="Close">
             <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
           </button>
@@ -269,7 +272,7 @@
           </label>
           <div class="step-actions">
             <button class="submit-button ghost" type="button" data-cancel-reject>Cancel</button>
-            <button class="submit-button danger" type="button" data-submit-reject>Reject booking</button>
+            <button class="submit-button danger" type="button" data-submit-reject data-submit-reject-label>Reject booking</button>
           </div>
         </div>
       </div>

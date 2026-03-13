@@ -1395,6 +1395,19 @@ app.put("/api/bookings/:id/reject", async (req, res) => {
   }
 });
 
+// Admin: permanently delete a booking
+app.delete("/api/bookings/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [result] = await db.promise().query("DELETE FROM BOOKING WHERE booking_id = ?", [id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found" });
+    res.json({ message: "Booking deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to delete booking" });
+  }
+});
+
 // Staff: record check-in (requires BOOKING.checked_in_at column)
 app.post("/api/bookings/:id/check-in", async (req, res) => {
   try {

@@ -927,11 +927,11 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
 
 .booking-detail-grid {
   display: grid;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
 .booking-detail-block {
-  padding: 1rem 1.25rem;
+  padding: 1.25rem 1.5rem;
   background: rgba(79, 127, 132, 0.08);
   border-radius: 12px;
 }
@@ -986,54 +986,70 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
 
 .booking-detail-block #booking-charges-content .charge-table .charge-row td,
 .booking-detail-block #booking-charges-content .charge-table .charge-total-row td {
-  padding: 0.35rem 0.5rem 0.35rem 0;
+  padding: 0.5rem 0 0.5rem 0;
   vertical-align: baseline;
 }
 
 .booking-detail-block #booking-charges-content .charge-table .charge-row:not(:last-child) td {
-  padding-bottom: 0.65rem;
+  padding-bottom: 0.85rem;
 }
 
 .booking-detail-block #booking-charges-content .charge-table .charge-desc {
-  padding-right: 0.75rem;
+  padding-right: 1rem;
   vertical-align: top;
 }
 
 .booking-detail-block #booking-charges-content .charge-table .charge-calc {
   text-align: right;
   white-space: nowrap;
-  padding-left: 0.5rem;
-  padding-right: 0.75rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 .booking-detail-block #booking-charges-content .charge-table .charge-subtotal,
 .booking-detail-block #booking-charges-content .charge-table .charge-total-amount {
   text-align: right;
   white-space: nowrap;
+  min-width: 5.5rem;
+  padding-left: 1rem;
 }
 
 .booking-detail-block #booking-charges-content .charge-table .charge-total-row td {
-  padding-top: 0.85rem;
+  padding-top: 1rem;
+  padding-bottom: 0.5rem;
   border-top: 1px solid rgba(47, 95, 103, 0.15);
   font-size: 0.95rem;
 }
 
-/* Extra spacing for Status and Signature sections */
+/* Extra spacing for Status, Signature, and Additional Charges sections */
 .booking-detail-block.booking-detail-block--status,
-.booking-detail-block.booking-detail-block--signature {
-  margin-top: 0.5rem;
+.booking-detail-block.booking-detail-block--signature,
+.booking-detail-block#booking-charges-block,
+.booking-detail-block[id="booking-charges-block"] {
+  margin-top: 1rem;
 }
 
-.booking-detail-block--signature {
-  margin-top: 0.25rem;
+.booking-detail-block--status h4 {
+  margin-bottom: 1rem;
+}
+
+.booking-detail-block--status p {
+  margin: 0;
+  line-height: 1.6;
 }
 
 .booking-detail-block--signature h4 {
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
 
 .booking-detail-block--signature .booking-signature-img {
-  margin-top: 0.25rem;
+  margin-top: 1rem;
+  display: block;
+}
+
+/* Additional Charges block spacing */
+.booking-detail-block #booking-charges-content {
+  margin-top: 1.25rem;
 }
 
 .booking-rejection-reason {
