@@ -849,7 +849,7 @@
     }
 
     function loadTowersForAssign() {
-      return fetch(API + "/towers")
+      return fetch(API + "/towers", { headers: getAuthHeaders() })
         .then(function (r) { return r.ok ? r.json() : []; })
         .then(function (data) {
           towers = data;
@@ -1219,6 +1219,7 @@
               "<p><strong>Occupation:</strong> " + escapeHtml(b.occupation) + "</p>" +
               "<p><strong>Email:</strong> " + escapeHtml(b.email) + "</p>" +
               "<p><strong>Contact:</strong> " + escapeHtml(b.contact_number) + "</p>" +
+              (b.id_document ? "<p><strong>ID document:</strong></p><img src=\"" + escapeHtml(b.id_document) + "\" alt=\"ID document\" class=\"booking-payment-proof-img\" style=\"max-width:100%;border-radius:8px;\" /></p>" : "") +
               "</div>" +
               "<div class=\"booking-detail-block\"><h4>Unit &amp; stay</h4>" +
               "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +

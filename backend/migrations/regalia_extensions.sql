@@ -50,8 +50,12 @@ CALL add_col_if_missing('BOOKING_GUEST', 'status', 'VARCHAR(32) NOT NULL DEFAULT
 CALL add_col_if_missing('TOWER', 'owner_employee_id', 'INT NULL');
 CALL add_col_if_missing('UNIT', 'owner_employee_id', 'INT NULL');
 
+-- BOOKING: check-in/check-out timestamps (for QR check-in and dashboard)
+CALL add_col_if_missing('BOOKING', 'checked_in_at', 'DATETIME NULL');
+CALL add_col_if_missing('BOOKING', 'checked_out_at', 'DATETIME NULL');
+
 DROP PROCEDURE IF EXISTS add_col_if_missing;
 
 -- Optional indexes (ignore error 1061 "Duplicate key name" if index already exists)
-CREATE INDEX idx_tower_owner_employee_id ON TOWER (owner_employee_id);
-CREATE INDEX idx_unit_owner_employee_id ON UNIT (owner_employee_id);
+-- CREATE INDEX idx_tower_owner_employee_id ON TOWER (owner_employee_id);
+-- CREATE INDEX idx_unit_owner_employee_id ON UNIT (owner_employee_id);
