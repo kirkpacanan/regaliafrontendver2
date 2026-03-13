@@ -703,10 +703,17 @@ app.get("/api/bookings", optionalAuth, async (req, res) => {
           [ownerId]
         );
       } else if (staffId) {
-        [rows] = await db.promise().query(
-          baseSelect + ` WHERE u.tower_id IN (SELECT et.tower_id FROM EMPLOYEE_TOWER et WHERE et.employee_id = ?)` + orderBy,
-          [staffId]
-        );
+        const [towerRows] = await db.promise().query("SELECT tower_id FROM EMPLOYEE_TOWER WHERE employee_id = ?", [staffId]);
+        const towerIds = (towerRows || []).map((r) => r.tower_id).filter((id) => id != null);
+        if (towerIds.length > 0) {
+          const placeholders = towerIds.map(() => "?").join(",");
+          [rows] = await db.promise().query(
+            baseSelect + ` WHERE u.tower_id IN (${placeholders})` + orderBy,
+            towerIds
+          );
+        } else {
+          [rows] = await db.promise().query(baseSelect + orderBy);
+        }
       } else {
         [rows] = await db.promise().query(baseSelect + orderBy);
       }
@@ -738,17 +745,24 @@ app.get("/api/bookings", optionalAuth, async (req, res) => {
           }
         } else if (staffId) {
           try {
-            [rows] = await db.promise().query(
-              `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
-                b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
-                u.unit_number, u.unit_type, t.tower_name
-               FROM BOOKING b
-               LEFT JOIN UNIT u ON u.unit_id = b.unit_id
-               LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-               WHERE u.tower_id IN (SELECT et.tower_id FROM EMPLOYEE_TOWER et WHERE et.employee_id = ?)
-               ORDER BY b.check_in_date ASC, b.created_at DESC`,
-              [staffId]
-            );
+            const [towerRows] = await db.promise().query("SELECT tower_id FROM EMPLOYEE_TOWER WHERE employee_id = ?", [staffId]);
+            const towerIds = (towerRows || []).map((r) => r.tower_id).filter((id) => id != null);
+            if (towerIds.length > 0) {
+              const placeholders = towerIds.map(() => "?").join(",");
+              [rows] = await db.promise().query(
+                `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.contact_number, b.check_in_date, b.check_out_date,
+                  b.inclusive_dates, b.status, b.rejection_reason, b.created_at,
+                  u.unit_number, u.unit_type, t.tower_name
+                 FROM BOOKING b
+                 LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+                 LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+                 WHERE u.tower_id IN (${placeholders})
+                 ORDER BY b.check_in_date ASC, b.created_at DESC`,
+                towerIds
+              );
+            } else {
+              [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
+            }
           } catch (e) {
             [rows] = await db.promise().query(BOOKINGS_BASE_SQL);
           }

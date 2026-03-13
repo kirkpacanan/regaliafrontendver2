@@ -111,10 +111,6 @@
     var updateCloseBtns = document.querySelectorAll("[data-close-update]");
     var updateTitle = document.querySelector("[data-update-title]");
     var bookingLinkInput = document.querySelector("[data-booking-link]");
-    var guestRegisterLinkInput = document.querySelector("[data-guest-register-link]");
-    var copyGuestRegisterBtn = document.querySelector("[data-copy-guest-register]");
-    var openGuestRegisterBtn = document.querySelector("[data-open-guest-register]");
-    var generateGuestRegisterBtn = document.querySelector("[data-generate-guest-register]");
     var saveUpdateBtn = document.querySelector("[data-save-update]");
     var copyBtn = document.querySelector("[data-copy-link]");
     var openLinkBtn = document.querySelector("[data-open-link]");
@@ -424,7 +420,6 @@
       }
       var link = buildBookingLink(unit);
       if (bookingLinkInput) bookingLinkInput.value = link;
-      if (guestRegisterLinkInput) guestRegisterLinkInput.value = "";
     }
 
     function closeUpdateModal() {
@@ -668,40 +663,6 @@
       if (!bookingLinkInput) return;
       navigator.clipboard.writeText(bookingLinkInput.value).catch(function () { bookingLinkInput.select(); });
     });
-    if (generateGuestRegisterBtn && guestRegisterLinkInput) {
-      generateGuestRegisterBtn.addEventListener("click", function () {
-        if (!activeUnit || !activeUnit.unit_id) return;
-        generateGuestRegisterBtn.disabled = true;
-        generateGuestRegisterBtn.textContent = "Generating...";
-        fetch(API + "/walkin-token", {
-          method: "POST",
-          headers: getAuthHeaders(true),
-          body: JSON.stringify({ unit_id: activeUnit.unit_id }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            if (data.error) { alert(data.error); return; }
-            if (data.registerUrl) guestRegisterLinkInput.value = data.registerUrl;
-          })
-          .catch(function (err) { alert(err.message || "Failed to generate link."); })
-          .finally(function () {
-            generateGuestRegisterBtn.disabled = false;
-            generateGuestRegisterBtn.textContent = "Generate link";
-          });
-      });
-    }
-    if (copyGuestRegisterBtn && guestRegisterLinkInput) {
-      copyGuestRegisterBtn.addEventListener("click", function () {
-        if (!guestRegisterLinkInput.value) return;
-        navigator.clipboard.writeText(guestRegisterLinkInput.value).catch(function () { guestRegisterLinkInput.select(); });
-      });
-    }
-    if (openGuestRegisterBtn && guestRegisterLinkInput) {
-      openGuestRegisterBtn.addEventListener("click", function () {
-        if (guestRegisterLinkInput.value) window.open(guestRegisterLinkInput.value, "_blank");
-      });
-    }
-
     loadProperties();
   }
 

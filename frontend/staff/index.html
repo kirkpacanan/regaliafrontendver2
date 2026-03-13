@@ -219,9 +219,12 @@
         var R = window.RegaliaStaff;
         if (!R) return;
         R.getBookings().then(function (bookings) {
+          if (!Array.isArray(bookings)) bookings = [];
           var todayKey = R.toDateKey(new Date());
           var todayUpcoming = bookings.filter(function (b) {
-            return b.status === "confirmed" && R.toDateKey(b.check_in_date) === todayKey && !b.checked_in_at;
+            if (b.status !== "confirmed" || !b.check_in_date) return false;
+            try { if (R.toDateKey(b.check_in_date) !== todayKey) return false; } catch (e) { return false; }
+            return !b.checked_in_at;
           }).length;
           var checkedIn = bookings.filter(function (b) {
             return b.status === "confirmed" && b.checked_in_at && !b.checked_out_at;
@@ -286,6 +289,9 @@
           }).join("");
           listEl = document.querySelector("[data-dashboard-units]");
           if (listEl) listEl.innerHTML = unitList || "<div class=\"list-item\"><div>No units</div></div>";
+        }).catch(function (err) {
+          console.warn("Dashboard: could not load bookings", err);
+          var el = document.querySelector("[data-stats-today-upcoming]"); if (el) el.textContent = "—";
         });
       })();
       const toggle = document.querySelector(".topbar .menu-toggle");
