@@ -517,15 +517,14 @@
           return h;
         }
         function saveThemeToServer(name) {
+          localStorage.setItem("theme_color", name);
           if (statusEl) { statusEl.textContent = "Saving..."; statusEl.className = "theme-status"; }
           fetch("/api/employee/theme", {
             method: "PUT", headers: getHeaders(), body: JSON.stringify({ theme_color: name })
           }).then(function (r) { return r.json(); }).then(function () {
-            localStorage.setItem("theme_color", name);
             if (statusEl) { statusEl.textContent = "Theme saved!"; statusEl.className = "theme-status success"; }
             setTimeout(function () { if (statusEl) statusEl.textContent = ""; }, 2000);
           }).catch(function () {
-            localStorage.setItem("theme_color", name);
             if (statusEl) { statusEl.textContent = "Saved locally (server unavailable)"; statusEl.className = "theme-status"; }
           });
         }
