@@ -1611,3 +1611,14 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
     flex-wrap: wrap;
   }
 }
+
+[data-charge-booking-select] option {
+  background: #1a3a3e;
+  color: #fff;
+}
+
+[data-charge-form] input:focus,
+[data-charge-booking-select]:focus {
+  border-color: var(--accent-1, #1e9db1);
+  box-shadow: 0 0 0 2px var(--accent-shadow, rgba(30,157,177,0.25));
+}

@@ -178,6 +178,27 @@
           <div class="list" data-checkedout-list></div>
         </section>
 
+        <section class="panel">
+          <h3>Additional Charges</h3>
+          <p class="muted" style="margin:0 0 12px;font-size:13px;">Add extra charges for checked-in guests</p>
+          <div style="margin-bottom:16px;">
+            <label style="display:block;margin-bottom:6px;font-size:13px;opacity:.8;">Select Booking</label>
+            <select data-charge-booking-select style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:#fff;font-family:inherit;font-size:14px;outline:none;">
+              <option value="">— Choose a booking —</option>
+            </select>
+          </div>
+          <form data-charge-form style="display:none;">
+            <div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;margin-bottom:10px;">
+              <input type="text" name="description" placeholder="Charge description" required style="padding:9px 12px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:#fff;font-family:inherit;font-size:13px;outline:none;" />
+              <input type="number" name="quantity" placeholder="Qty" min="1" value="1" required style="width:70px;padding:9px 10px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:#fff;font-family:inherit;font-size:13px;outline:none;text-align:center;" />
+              <input type="number" name="unit_price" placeholder="Price" min="0" step="0.01" required style="width:100px;padding:9px 10px;border-radius:8px;border:1.5px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:#fff;font-family:inherit;font-size:13px;outline:none;text-align:right;" />
+            </div>
+            <button type="submit" class="btn ghost" style="font-size:13px;padding:8px 18px;">+ Add Charge</button>
+          </form>
+          <div data-charge-list style="margin-top:14px;"></div>
+          <div data-charge-total style="margin-top:10px;text-align:right;font-weight:600;font-size:15px;display:none;"></div>
+        </section>
+
         <section class="panel calendar-panel">
           <h3>Booking Calendar</h3>
           <div class="calendar">
@@ -438,6 +459,99 @@
 
           currentCalendar = new Date();
           renderCalendar();
+
+          // --- Additional Charges ---
+          var chargeSelect = document.querySelector("[data-charge-booking-select]");
+          var chargeForm = document.querySelector("[data-charge-form]");
+          var chargeList = document.querySelector("[data-charge-list]");
+          var chargeTotal = document.querySelector("[data-charge-total]");
+          if (chargeSelect) {
+            var confirmedBookings = allBookings.filter(function (b) {
+              return b.status === "confirmed";
+            });
+            confirmedBookings.forEach(function (b) {
+              var opt = document.createElement("option");
+              opt.value = b.booking_id;
+              opt.textContent = (b.guest_name || "Guest") + " — Unit " + (b.unit_number || b.unit_id);
+              chargeSelect.appendChild(opt);
+            });
+
+            var currentCharges = [];
+
+            function renderCharges() {
+              if (!chargeList) return;
+              if (currentCharges.length === 0) {
+                chargeList.innerHTML = "<div class=\"list-item\" style=\"opacity:.6;\"><div>No charges added</div></div>";
+                if (chargeTotal) chargeTotal.style.display = "none";
+                return;
+              }
+              var total = 0;
+              chargeList.innerHTML = currentCharges.map(function (c) {
+                var lineTotal = (c.quantity * c.unit_price);
+                total += lineTotal;
+                return "<div class=\"list-item\" data-charge-row=\"" + c.charge_id + "\" style=\"align-items:center;\">" +
+                  "<div style=\"flex:1;\"><strong>" + R.escapeHtml(c.description) + "</strong>" +
+                  "<small style=\"display:block;opacity:.7;\">" + c.quantity + " × ₱" + Number(c.unit_price).toFixed(2) + " = ₱" + lineTotal.toFixed(2) + "</small></div>" +
+                  "<button class=\"btn ghost\" data-remove-charge=\"" + c.charge_id + "\" style=\"font-size:0.7rem;padding:4px 10px;color:#ff5252;\">Remove</button></div>";
+              }).join("");
+              if (chargeTotal) {
+                chargeTotal.style.display = "block";
+                chargeTotal.textContent = "Total: ₱" + total.toFixed(2);
+              }
+            }
+
+            function loadCharges(bookingId) {
+              if (!bookingId) { currentCharges = []; renderCharges(); return; }
+              fetch(R.API + "/bookings/" + bookingId + "/charges", { headers: { "Authorization": "Bearer " + (localStorage.getItem("token") || "") } })
+                .then(function (r) { return r.ok ? r.json() : []; })
+                .then(function (data) { currentCharges = data; renderCharges(); })
+                .catch(function () { currentCharges = []; renderCharges(); });
+            }
+
+            chargeSelect.addEventListener("change", function () {
+              var bid = chargeSelect.value;
+              if (chargeForm) chargeForm.style.display = bid ? "block" : "none";
+              loadCharges(bid);
+            });
+
+            if (chargeForm) chargeForm.addEventListener("submit", function (e) {
+              e.preventDefault();
+              var bid = chargeSelect.value;
+              if (!bid) return;
+              var desc = chargeForm.querySelector("[name=description]").value.trim();
+              var qty = parseInt(chargeForm.querySelector("[name=quantity]").value, 10);
+              var price = parseFloat(chargeForm.querySelector("[name=unit_price]").value);
+              if (!desc || !qty || isNaN(price)) return;
+              fetch(R.API + "/bookings/" + bid + "/charges", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": "Bearer " + (localStorage.getItem("token") || "") },
+                body: JSON.stringify({ description: desc, quantity: qty, unit_price: price })
+              }).then(function (r) { return r.json(); })
+                .then(function (charge) {
+                  if (charge.error) { alert(charge.error); return; }
+                  currentCharges.unshift(charge);
+                  renderCharges();
+                  chargeForm.reset();
+                  chargeForm.querySelector("[name=quantity]").value = 1;
+                }).catch(function () { alert("Failed to add charge"); });
+            });
+
+            if (chargeList) chargeList.addEventListener("click", function (e) {
+              var btn = e.target.closest("[data-remove-charge]");
+              if (!btn) return;
+              var cid = Number(btn.getAttribute("data-remove-charge"));
+              btn.disabled = true; btn.textContent = "…";
+              fetch("/api/charges/" + cid, {
+                method: "DELETE",
+                headers: { "Authorization": "Bearer " + (localStorage.getItem("token") || "") }
+              }).then(function (r) { return r.json(); })
+                .then(function (data) {
+                  if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = "Remove"; return; }
+                  currentCharges = currentCharges.filter(function (c) { return c.charge_id !== cid; });
+                  renderCharges();
+                }).catch(function () { alert("Failed to remove"); btn.disabled = false; btn.textContent = "Remove"; });
+            });
+          }
         });
 
         var prevBtn = document.querySelector("[data-calendar-prev]");

@@ -164,6 +164,17 @@
           </div>
           <div class="empty-state" data-bookings-empty style="display: none;">No bookings yet. Guest submissions will appear here.</div>
         </div>
+
+        <div class="bookings-content" style="margin-top:0;">
+          <div class="bookings-section">
+            <h3 class="bookings-section-title">All Additional Charges</h3>
+            <p style="margin:0 0 12px;font-size:13px;opacity:.7;">Extra charges added by staff for guests</p>
+            <div class="bookings-list" data-all-charges-list>
+              <div class="empty-state">Loading charges...</div>
+            </div>
+            <div data-all-charges-total style="text-align:right;font-weight:600;font-size:15px;padding:12px 0;display:none;"></div>
+          </div>
+        </div>
       </main>
 
       <!-- Settings Modal: Theme Picker -->
@@ -452,6 +463,62 @@
             pwForm.reset();
           }).catch(function () { if (pwMsg) pwMsg.textContent = "Server unavailable"; });
         });
+      })();
+
+      // Load all additional charges for admin overview
+      (function () {
+        function getAuthHeaders() {
+          var h = {};
+          try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+          return h;
+        }
+        function escapeHtml(s) { return s ? String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;") : ""; }
+        var listEl = document.querySelector("[data-all-charges-list]");
+        var totalEl = document.querySelector("[data-all-charges-total]");
+        if (!listEl) return;
+        fetch("/api/charges/all", { headers: getAuthHeaders() })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (charges) {
+            if (!charges.length) {
+              listEl.innerHTML = "<div class=\"empty-state\">No additional charges yet</div>";
+              return;
+            }
+            var grandTotal = 0;
+            var grouped = {};
+            charges.forEach(function (c) {
+              var key = c.booking_id;
+              if (!grouped[key]) grouped[key] = { guest: c.guest_name || "Guest", unit: c.unit_number || "—", tower: c.tower_name || "", items: [], total: 0 };
+              var lt = c.quantity * c.unit_price;
+              grouped[key].items.push(c);
+              grouped[key].total += lt;
+              grandTotal += lt;
+            });
+            var html = "";
+            Object.keys(grouped).forEach(function (bid) {
+              var g = grouped[bid];
+              html += "<div class=\"booking-card\" style=\"margin-bottom:16px;padding:16px;background:rgba(255,255,255,0.06);border-radius:12px;border:1px solid rgba(255,255,255,0.1);\">" +
+                "<div style=\"display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;\">" +
+                "<div><strong>" + escapeHtml(g.guest) + "</strong><span style=\"opacity:.6;margin-left:8px;\">Unit " + escapeHtml(g.unit) + (g.tower ? " · " + escapeHtml(g.tower) : "") + "</span></div>" +
+                "<span style=\"font-weight:600;color:var(--accent-1,#1e9db1);\">₱" + g.total.toFixed(2) + "</span></div>" +
+                "<table style=\"width:100%;font-size:13px;border-collapse:collapse;\">" +
+                "<thead><tr style=\"opacity:.6;text-align:left;\"><th style=\"padding:4px 8px;\">Description</th><th style=\"padding:4px 8px;text-align:center;\">Qty</th><th style=\"padding:4px 8px;text-align:right;\">Price</th><th style=\"padding:4px 8px;text-align:right;\">Total</th></tr></thead><tbody>";
+              g.items.forEach(function (c) {
+                var lt = c.quantity * c.unit_price;
+                html += "<tr><td style=\"padding:4px 8px;\">" + escapeHtml(c.description) + "</td>" +
+                  "<td style=\"padding:4px 8px;text-align:center;\">" + c.quantity + "</td>" +
+                  "<td style=\"padding:4px 8px;text-align:right;\">₱" + Number(c.unit_price).toFixed(2) + "</td>" +
+                  "<td style=\"padding:4px 8px;text-align:right;\">₱" + lt.toFixed(2) + "</td></tr>";
+              });
+              html += "</tbody></table></div>";
+            });
+            listEl.innerHTML = html;
+            if (totalEl) {
+              totalEl.style.display = "block";
+              totalEl.innerHTML = "Grand Total: <span style=\"color:var(--accent-1,#1e9db1);\">₱" + grandTotal.toFixed(2) + "</span>";
+            }
+          }).catch(function () {
+            listEl.innerHTML = "<div class=\"empty-state\">Could not load charges</div>";
+          });
       })();
 
       (function deleteAccount() {

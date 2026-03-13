@@ -72,6 +72,11 @@
     });
   }
 
+  function escapeHtml(str) {
+    if (!str) return "";
+    return String(str).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  }
+
   window.RegaliaStaff = {
     API: API,
     getBookings: getBookings,
@@ -83,5 +88,6 @@
     postCheckIn: postCheckIn,
     postCheckOut: postCheckOut,
     resendQr: resendQr,
+    escapeHtml: escapeHtml,
   };
 })();

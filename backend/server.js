@@ -1441,6 +1441,85 @@ app.post("/api/bookings/:id/check-out", async (req, res) => {
   }
 });
 
+// ---------------- Additional Charges ----------------
+// Auto-create table if missing
+(async () => {
+  try {
+    await db.promise().query(`
+      CREATE TABLE IF NOT EXISTS ADDITIONAL_CHARGE (
+        charge_id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_id INT NOT NULL,
+        description VARCHAR(255) NOT NULL,
+        quantity INT NOT NULL DEFAULT 1,
+        unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        added_by INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (booking_id) REFERENCES BOOKING(booking_id) ON DELETE CASCADE,
+        INDEX idx_charge_booking (booking_id)
+      )
+    `);
+  } catch (e) { /* table may already exist */ }
+})();
+
+app.get("/api/bookings/:id/charges", optionalAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [rows] = await db.promise().query(
+      "SELECT charge_id, booking_id, description, quantity, unit_price, (quantity * unit_price) AS total, added_by, created_at FROM ADDITIONAL_CHARGE WHERE booking_id = ? ORDER BY created_at DESC",
+      [id]
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to fetch charges" });
+  }
+});
+
+app.post("/api/bookings/:id/charges", optionalAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const { description, quantity, unit_price } = req.body;
+    if (!description || !quantity || unit_price == null) return res.status(400).json({ error: "description, quantity, and unit_price are required" });
+    const addedBy = req.user ? req.user.employee_id : null;
+    const [result] = await db.promise().query(
+      "INSERT INTO ADDITIONAL_CHARGE (booking_id, description, quantity, unit_price, added_by) VALUES (?, ?, ?, ?, ?)",
+      [id, String(description).trim(), Number(quantity), Number(unit_price), addedBy]
+    );
+    const [rows] = await db.promise().query("SELECT charge_id, booking_id, description, quantity, unit_price, (quantity * unit_price) AS total, added_by, created_at FROM ADDITIONAL_CHARGE WHERE charge_id = ?", [result.insertId]);
+    res.json(rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to add charge" });
+  }
+});
+
+app.delete("/api/charges/:chargeId", optionalAuth, async (req, res) => {
+  try {
+    const chargeId = Number(req.params.chargeId);
+    const [result] = await db.promise().query("DELETE FROM ADDITIONAL_CHARGE WHERE charge_id = ?", [chargeId]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Charge not found" });
+    res.json({ message: "Charge deleted" });
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to delete charge" });
+  }
+});
+
+app.get("/api/charges/all", optionalAuth, async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      `SELECT ac.charge_id, ac.booking_id, ac.description, ac.quantity, ac.unit_price,
+        (ac.quantity * ac.unit_price) AS total, ac.created_at,
+        b.guest_name, b.unit_id, u.unit_number, t.tower_name
+       FROM ADDITIONAL_CHARGE ac
+       LEFT JOIN BOOKING b ON b.booking_id = ac.booking_id
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       ORDER BY ac.created_at DESC`
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message || "Failed to fetch all charges" });
+  }
+});
+
 // Staff: undo check-out (clear checked_out_at)
 app.post("/api/bookings/:id/undo-check-out", async (req, res) => {
   try {

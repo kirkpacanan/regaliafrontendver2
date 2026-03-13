@@ -57,6 +57,19 @@ CALL add_col_if_missing('BOOKING', 'checked_out_at', 'DATETIME NULL');
 -- EMPLOYEE: theme color preference (persisted per user)
 CALL add_col_if_missing('EMPLOYEE', 'theme_color', 'VARCHAR(32) NULL DEFAULT ''default'' COMMENT ''UI color theme''');
 
+-- ADDITIONAL_CHARGE: extra charges added by staff per booking
+CREATE TABLE IF NOT EXISTS ADDITIONAL_CHARGE (
+  charge_id INT AUTO_INCREMENT PRIMARY KEY,
+  booking_id INT NOT NULL,
+  description VARCHAR(255) NOT NULL,
+  quantity INT NOT NULL DEFAULT 1,
+  unit_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+  added_by INT NULL COMMENT 'employee_id of staff who added it',
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (booking_id) REFERENCES BOOKING(booking_id) ON DELETE CASCADE,
+  INDEX idx_charge_booking (booking_id)
+);
+
 DROP PROCEDURE IF EXISTS add_col_if_missing;
 
 -- Optional indexes (ignore error 1061 "Duplicate key name" if index already exists)

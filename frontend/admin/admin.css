@@ -1475,3 +1475,13 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
     max-width: 100%;
   }
 }
+
+[data-all-charges-list] table {
+  border-collapse: collapse;
+}
+[data-all-charges-list] table tr:not(:last-child) td {
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+[data-all-charges-list] table thead th {
+  border-bottom: 1px solid rgba(255,255,255,0.12);
+}
