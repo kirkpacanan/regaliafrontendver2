@@ -166,7 +166,7 @@
         <section class="content-grid section">
           <div class="panel">
             <h3>Today: Upcoming &amp; movements</h3>
-            <p class="muted" style="margin:0 0 12px;font-size:13px;">Upcoming (not yet checked in) • Checked in • Departures</p>
+            <p class="muted" style="margin:0 0 12px;font-size:13px;">Upcoming • Checked in • Departures • Checked out</p>
             <div class="list" data-dashboard-movements></div>
           </div>
 
@@ -331,17 +331,27 @@
           bookings.filter(function (b) { return b.status === "confirmed"; }).forEach(function (b) {
             var ciToday = R.toDateKey(b.check_in_date) === todayKey;
             var coToday = R.toDateKey(b.check_out_date) === todayKey;
-            var alreadyCheckedIn = !!b.checked_in_at && !b.checked_out_at;
-            if (ciToday) movements.push({ type: alreadyCheckedIn ? "checked-in" : "upcoming", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name });
-            if (coToday) movements.push({ type: "departure", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name });
+            var alreadyCheckedOut = !!b.checked_out_at;
+            var alreadyCheckedIn = !!b.checked_in_at && !alreadyCheckedOut;
+            if (alreadyCheckedOut) {
+              var coAtToday = R.toDateKey(b.checked_out_at) === todayKey;
+              if (coAtToday || coToday || ciToday) movements.push({ type: "checked-out", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name, id: b.booking_id });
+            } else if (ciToday && alreadyCheckedIn) {
+              movements.push({ type: "checked-in", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name, id: b.booking_id });
+            } else if (ciToday && !alreadyCheckedIn) {
+              movements.push({ type: "upcoming", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name, id: b.booking_id });
+            } else if (coToday && !alreadyCheckedOut) {
+              movements.push({ type: "departure", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name, id: b.booking_id });
+            }
           });
-          movements.sort(function (a, b) { return (a.type === "upcoming" ? 0 : a.type === "checked-in" ? 1 : 2) - (b.type === "upcoming" ? 0 : b.type === "checked-in" ? 1 : 2); });
+          var typeOrder = { upcoming: 0, "checked-in": 1, departure: 2, "checked-out": 3 };
+          movements.sort(function (a, b) { return (typeOrder[a.type] || 9) - (typeOrder[b.type] || 9); });
           var listEl = document.querySelector("[data-dashboard-movements]");
           if (listEl) {
+            var labelMap = { upcoming: "Today upcoming", "checked-in": "Checked in", departure: "Departure today", "checked-out": "Checked out" };
+            var tagMap = { upcoming: "tag", "checked-in": "tag status--occupied", departure: "tag", "checked-out": "tag status--checked-out" };
             listEl.innerHTML = movements.slice(0, 12).map(function (m) {
-              var label = m.type === "upcoming" ? "Today upcoming" : m.type === "checked-in" ? "Checked in" : "Departure";
-              var tag = m.type === "upcoming" ? "tag" : m.type === "checked-in" ? "tag status--occupied" : "tag";
-              return "<div class=\"list-item\"><div>" + (m.name || "Guest") + " (Unit " + (m.unit || "—") + ")<small><span class=\"" + tag + "\">" + label + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"6 9 12 15 18 9\"></polyline></svg></span></div>";
+              return "<a href=\"./bookings.html\" class=\"list-item\" style=\"text-decoration:none;color:inherit;cursor:pointer;\"><div>" + (m.name || "Guest") + " (Unit " + (m.unit || "—") + ")<small><span class=\"" + (tagMap[m.type] || "tag") + "\">" + (labelMap[m.type] || m.type) + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"6 9 12 15 18 9\"></polyline></svg></span></a>";
             }).join("") || "<div class=\"list-item\"><div>No movements today</div></div>";
           }
 

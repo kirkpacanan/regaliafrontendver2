@@ -1339,6 +1339,11 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
   color: #fff3cf;
 }
 
+.status--checked-out {
+  background: rgba(255, 140, 140, 0.22);
+  color: #ffcccc;
+}
+
 .stats .stat-card:nth-child(1) {
   animation: fadeInUp 0.55s ease 0.1s forwards;
   opacity: 0;
