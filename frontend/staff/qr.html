@@ -471,7 +471,22 @@
             var checkedIn = !!booking.checked_in_at;
             var checkedOut = !!booking.checked_out_at;
             if (!checkedIn) {
-              showCheckinConfirm(booking);
+              if (scanStatus) scanStatus.textContent = "Checking in…";
+              R.postCheckIn(booking.booking_id).then(function () {
+                addRecentScan(booking);
+                showCheckinSuccess(booking);
+                fetch(API + "/bookings/" + booking.booking_id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
+                  var names = guests && guests.length ? guests.map(function (g) { return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name; }).join(", ") : "";
+                  if (scanStatus) scanStatus.textContent = names ? "Check-in recorded: " + (booking.guest_name || "Guest") + ". Authorized guests: " + names : "Check-in recorded: " + (booking.guest_name || "Guest");
+                }).catch(function () {
+                  if (scanStatus) scanStatus.textContent = "Check-in recorded: " + (booking.guest_name || "Guest");
+                });
+                updateScannerStatus();
+              }).catch(function (e) {
+                todayFailed++;
+                updateScannerStatus();
+                if (scanStatus) scanStatus.textContent = e.message || "Check-in failed";
+              });
             } else if (!checkedOut) {
               showCheckoutConfirm(booking);
             } else {
