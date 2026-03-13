@@ -910,7 +910,7 @@
       if (!full_name || !email) { alert("Full name and email are required."); return; }
       fetch(API + "/employees/" + activeEmployeeId, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(true),
         body: JSON.stringify({ full_name: full_name, email: email, contact_number: contact_number, address: address, role_type: role_type }),
       })
         .then(function (r) {
@@ -930,7 +930,7 @@
     function deleteEmployeeAction() {
       if (!activeEmployeeId) return;
       if (!confirm("Delete this employee? This cannot be undone.")) return;
-      fetch(API + "/employees/" + activeEmployeeId, { method: "DELETE" })
+      fetch(API + "/employees/" + activeEmployeeId, { method: "DELETE", headers: getAuthHeaders() })
         .then(function (r) {
           if (!r.ok) return r.json().then(function (e) { throw new Error(e.error || "Failed"); });
           return r.json();
@@ -996,7 +996,7 @@
           var towerId = selected.dataset.towerId;
           fetch(API + "/employees/" + activeEmployeeId + "/assign-tower", {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers: getAuthHeaders(true),
             body: JSON.stringify({ tower_id: Number(towerId) }),
           })
             .then(function (r) {
