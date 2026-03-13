@@ -1064,6 +1064,7 @@
     var bookings = [];
     var activeBookingId = null;
     var activeBookingData = null;
+    var rejectActionMode = "reject";
     function getAuthHeaders(withJson) {
       var h = {};
       if (withJson) h["Content-Type"] = "application/json";
@@ -1112,13 +1113,13 @@
 
     function statusClass(s) {
       if (s === "confirmed") return "booking-status--confirmed";
-      if (s === "rejected") return "booking-status--rejected";
+      if (s === "rejected" || s === "cancelled") return "booking-status--rejected";
       return "booking-status--pending";
     }
 
     function statusLabel(s) {
       if (s === "confirmed") return "Confirmed";
-      if (s === "rejected") return "Cancelled";
+      if (s === "rejected" || s === "cancelled") return "Cancelled";
       return "Pending";
     }
 
@@ -1315,6 +1316,7 @@
     }
 
     function openRejectModal(isCancel) {
+      rejectActionMode = isCancel ? "cancel" : "reject";
       if (rejectReasonInput) rejectReasonInput.value = "";
       if (rejectModalTitle) rejectModalTitle.textContent = isCancel ? "Reason for cancellation" : "Reason for rejection";
       if (submitRejectBtn) submitRejectBtn.textContent = isCancel ? "Cancel booking" : "Reject booking";
@@ -1376,9 +1378,10 @@
           closeRejectModal();
           closeDetailModal();
           loadBookings();
+          alert(rejectActionMode === "cancel" ? "Booking cancelled." : "Booking rejected.");
         })
         .catch(function (err) {
-          alert(err.message || "Failed to reject.");
+          alert(err.message || (rejectActionMode === "cancel" ? "Failed to cancel." : "Failed to reject."));
         });
     }
 
