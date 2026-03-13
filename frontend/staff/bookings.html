@@ -305,6 +305,8 @@
         var currentCalendar = new Date();
         var bookingsByDate = {};
         var allBookings = [];
+        var undoCheckinListenerAdded = false;
+        var undoCheckoutListenerAdded = false;
 
         function buildBookingsByDate(bookings) {
           var map = {};
@@ -477,7 +479,11 @@
           if (id) openStaffBookingDetail(id);
         });
 
-        R.getBookings().then(function (bookings) {
+        function refreshBookings() {
+          R.getBookings().then(renderBookingsData).catch(function () {});
+        }
+
+        function renderBookingsData(bookings) {
           allBookings = bookings;
           bookingsByDate = buildBookingsByDate(bookings);
           var todayKey = R.toDateKey(new Date());
@@ -536,22 +542,23 @@
                   var time = new Date(b.checked_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                   return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" data-ci-item=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + "<small>" + (b.guest_name || "Guest") + " • Checked in at " + time + "</small></div><button class=\"btn ghost\" style=\"font-size:0.75rem;padding:0.3rem 0.7rem;color:#ff5252;\" data-undo-checkin=\"" + b.booking_id + "\">Undo</button></div>";
                 }).join("");
-            ciListEl.addEventListener("click", function (e) {
-              var btn = e.target.closest("[data-undo-checkin]");
-              if (!btn) return;
-              var bid = Number(btn.getAttribute("data-undo-checkin"));
-              btn.disabled = true; btn.textContent = "Undoing…";
-              var h = { "Content-Type": "application/json" };
-              try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (x) {}
-              fetch("/api/bookings/" + bid + "/undo-check-in", { method: "POST", headers: h })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                  if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = "Undo"; return; }
-                  var item = ciListEl.querySelector("[data-ci-item='" + bid + "']");
-                  if (item) item.remove();
-                  if (!ciListEl.children.length) ciListEl.innerHTML = "<div class=\"list-item\"><div>No check-ins today</div></div>";
-                }).catch(function () { alert("Failed to undo."); btn.disabled = false; btn.textContent = "Undo"; });
-            });
+            if (!undoCheckinListenerAdded) {
+              ciListEl.addEventListener("click", function (e) {
+                var btn = e.target.closest("[data-undo-checkin]");
+                if (!btn) return;
+                var bid = Number(btn.getAttribute("data-undo-checkin"));
+                btn.disabled = true; btn.textContent = "Undoing…";
+                var h = { "Content-Type": "application/json" };
+                try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (x) {}
+                fetch("/api/bookings/" + bid + "/undo-check-in", { method: "POST", headers: h })
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = "Undo"; return; }
+                    refreshBookings();
+                  }).catch(function () { alert("Failed to undo."); btn.disabled = false; btn.textContent = "Undo"; });
+              });
+              undoCheckinListenerAdded = true;
+            }
           }
 
           var todayCheckedOut = bookings.filter(function (b) {
@@ -565,21 +572,22 @@
                   var time = new Date(b.checked_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                   return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" data-co-item=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + "<small>" + (b.guest_name || "Guest") + " • Checked out at " + time + "</small></div><button class=\"btn ghost\" style=\"font-size:0.75rem;padding:0.3rem 0.7rem;color:#ff5252;\" data-undo-checkout=\"" + b.booking_id + "\">Undo</button></div>";
                 }).join("");
-            coListEl.addEventListener("click", function (e) {
-              var btn = e.target.closest("[data-undo-checkout]");
-              if (!btn) return;
-              var bid = Number(btn.getAttribute("data-undo-checkout"));
-              btn.disabled = true; btn.textContent = "Undoing…";
-              var headers = { "Content-Type": "application/json" }; try { var t = localStorage.getItem("token"); if (t) headers.Authorization = "Bearer " + t; } catch (x) {}
-              fetch("/api/bookings/" + bid + "/undo-check-out", { method: "POST", headers: headers })
-                .then(function (r) { return r.json(); })
-                .then(function (data) {
-                  if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = "Undo"; return; }
-                  var item = coListEl.querySelector("[data-co-item='" + bid + "']");
-                  if (item) item.remove();
-                  if (!coListEl.children.length) coListEl.innerHTML = "<div class=\"list-item\"><div>No check-outs today</div></div>";
-                }).catch(function () { alert("Failed to undo."); btn.disabled = false; btn.textContent = "Undo"; });
-            });
+            if (!undoCheckoutListenerAdded) {
+              coListEl.addEventListener("click", function (e) {
+                var btn = e.target.closest("[data-undo-checkout]");
+                if (!btn) return;
+                var bid = Number(btn.getAttribute("data-undo-checkout"));
+                btn.disabled = true; btn.textContent = "Undoing…";
+                var headers = { "Content-Type": "application/json" }; try { var t = localStorage.getItem("token"); if (t) headers.Authorization = "Bearer " + t; } catch (x) {}
+                fetch("/api/bookings/" + bid + "/undo-check-out", { method: "POST", headers: headers })
+                  .then(function (r) { return r.json(); })
+                  .then(function (data) {
+                    if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = "Undo"; return; }
+                    refreshBookings();
+                  }).catch(function () { alert("Failed to undo."); btn.disabled = false; btn.textContent = "Undo"; });
+              });
+              undoCheckoutListenerAdded = true;
+            }
           }
 
           currentCalendar = new Date();
@@ -591,6 +599,7 @@
           var chargeList = document.querySelector("[data-charge-list]");
           var chargeTotal = document.querySelector("[data-charge-total]");
           if (chargeSelect) {
+            while (chargeSelect.options.length > 1) chargeSelect.remove(1);
             var confirmedBookings = allBookings.filter(function (b) {
               return b.status === "confirmed";
             });
