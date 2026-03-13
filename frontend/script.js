@@ -144,7 +144,10 @@ if (loginForm) {
         localStorage.setItem("token", data.token);
         if (data.role) localStorage.setItem("role", data.role);
         if (data.employee) localStorage.setItem("employee", JSON.stringify(data.employee));
-        if (data.theme_color) localStorage.setItem("theme_color", data.theme_color);
+        // Only set theme from server if user has no saved preference (preserves last chosen theme across logins)
+        if (!localStorage.getItem("theme_color") && data.theme_color) {
+          localStorage.setItem("theme_color", data.theme_color);
+        }
 
         // Redirect based on role: OWNER → admin panel; staff roles → staff area
         if (data.role === "OWNER") {

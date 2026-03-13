@@ -1520,6 +1520,26 @@ app.get("/api/charges/all", optionalAuth, async (req, res) => {
   }
 });
 
+// Staff: undo check-in (clear checked_in_at)
+app.post("/api/bookings/:id/undo-check-in", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const [result] = await db.promise().query(
+      "UPDATE BOOKING SET checked_in_at = NULL WHERE booking_id = ? AND status = 'confirmed' AND checked_in_at IS NOT NULL",
+      [id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not checked in" });
+    const [rows] = await db.promise().query(
+      "SELECT booking_id, guest_name, unit_id, checked_in_at, checked_out_at, check_out_date FROM BOOKING WHERE booking_id = ?",
+      [id]
+    );
+    res.json({ message: "Check-in undone", booking: rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to undo check-in" });
+  }
+});
+
 // Staff: undo check-out (clear checked_out_at)
 app.post("/api/bookings/:id/undo-check-out", async (req, res) => {
   try {

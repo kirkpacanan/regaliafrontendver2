@@ -148,10 +148,10 @@
           <div class="panel">
             <h3>Scanner Status</h3>
             <div class="list">
-              <div class="list-item">
+              <div class="list-item" data-status-camera>
                 <div>
-                  Camera: Online
-                  <small>Last heartbeat: 2s ago</small>
+                  <span data-status-camera-label>Camera: Offline</span>
+                  <small data-status-camera-detail>Tap Start Scan to begin</small>
                 </div>
                 <span class="icon">
                   <svg viewBox="0 0 24 24">
@@ -162,7 +162,7 @@
               <div class="list-item">
                 <div>
                   Today’s Scans
-                  <small>18 successful • 2 failed</small>
+                  <small data-status-scans-detail>0 successful • 0 failed</small>
                 </div>
                 <span class="icon">
                   <svg viewBox="0 0 24 24">
@@ -261,6 +261,29 @@
             <div class="walkin-qr-box" data-walkin-qr-image></div>
             <p class="walkin-modal-url" data-walkin-url></p>
             <button type="button" class="btn ghost walkin-modal-close" data-walkin-close>Close</button>
+          </div>
+        </div>
+
+        <div class="modal-overlay walkin-modal-overlay" id="checkin-confirm-modal" style="display:none;">
+          <div class="modal walkin-modal" style="max-width:420px;text-align:left;">
+            <h3 class="walkin-modal-title" style="margin:0 0 0.75rem;">Confirm Check-in</h3>
+            <p class="muted" style="margin:0 0 0.75rem;font-size:0.9rem;">Review booking details before checking in:</p>
+            <div data-checkin-details style="background:rgba(255,255,255,0.06);border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:0.9rem;"></div>
+            <div style="display:flex;gap:0.65rem;justify-content:flex-end;">
+              <button type="button" class="btn ghost" data-checkin-cancel>Cancel</button>
+              <button type="button" class="btn ghost" style="background:rgba(122,203,89,0.25);color:#7acb59;" data-checkin-confirm>Check In</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-overlay walkin-modal-overlay" id="checkin-success-modal" style="display:none;">
+          <div class="modal walkin-modal" style="max-width:340px;text-align:center;">
+            <div style="width:56px;height:56px;margin:0 auto 1rem;background:rgba(122,203,89,0.25);border-radius:50%;display:grid;place-items:center;">
+              <svg viewBox="0 0 24 24" style="width:28px;height:28px;stroke:#7acb59;fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round;"><polyline points="20 6 9 17 4 12"></polyline></svg>
+            </div>
+            <h3 class="walkin-modal-title" style="margin:0 0 0.5rem;">Successfully checked in!</h3>
+            <p data-checkin-success-guest style="margin:0 0 1rem;font-size:0.9rem;color:var(--muted);"></p>
+            <button type="button" class="btn ghost" data-checkin-success-ok>OK</button>
           </div>
         </div>
 
@@ -376,8 +399,33 @@
         var stream = null;
         var scanInterval = null;
         var recentScans = [];
+        var lastScanTime = null;
+        var todaySuccess = 0;
+        var todayFailed = 0;
+        var cameraState = "offline"; // offline | starting | online
+
+        function updateScannerStatus() {
+          var camLabel = document.querySelector("[data-status-camera-label]");
+          var camDetail = document.querySelector("[data-status-camera-detail]");
+          var scansDetail = document.querySelector("[data-status-scans-detail]");
+          if (camLabel) {
+            camLabel.textContent = cameraState === "online" ? "Camera: Online" : cameraState === "starting" ? "Camera: Starting…" : "Camera: Offline";
+          }
+          if (camDetail) {
+            if (lastScanTime) {
+              var sec = Math.floor((Date.now() - lastScanTime) / 1000);
+              camDetail.textContent = sec < 60 ? "Last scan: " + sec + "s ago" : sec < 3600 ? "Last scan: " + Math.floor(sec / 60) + "m ago" : "Last scan: " + Math.floor(sec / 3600) + "h ago";
+            } else {
+              camDetail.textContent = cameraState === "online" ? "Camera active" : cameraState === "starting" ? "Requesting camera…" : "Tap Start Scan to begin";
+            }
+          }
+          if (scansDetail) scansDetail.textContent = todaySuccess + " successful • " + todayFailed + " failed";
+        }
 
         function addRecentScan(booking) {
+          lastScanTime = Date.now();
+          todaySuccess++;
+          updateScannerStatus();
           var t = new Date();
           var timeStr = t.getHours() + ":" + (t.getMinutes() < 10 ? "0" : "") + t.getMinutes() + " " + (t.getHours() >= 12 ? "PM" : "AM");
           recentScans.unshift({
@@ -406,9 +454,9 @@
             if (scanStatus) scanStatus.textContent = "App not ready. Refresh the page.";
             return;
           }
-          fetch(API + "/bookings/" + id, { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : null; }).then(function (booking) {
-            if (!booking) { if (scanStatus) scanStatus.textContent = "Booking not found."; return; }
-            if (booking.status !== "confirmed") { if (scanStatus) scanStatus.textContent = "Booking not confirmed."; return; }
+          fetch(API + "/bookings/" + id, { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { todayFailed++; updateScannerStatus(); if (scanStatus) scanStatus.textContent = "Booking not found."; return null; }).then(function (booking) {
+            if (!booking) { todayFailed++; updateScannerStatus(); if (scanStatus) scanStatus.textContent = "Booking not found."; return; }
+            if (booking.status !== "confirmed") { todayFailed++; updateScannerStatus(); if (scanStatus) scanStatus.textContent = "Booking not confirmed."; return; }
             function showGuestsAndStatus(msg, guests) {
               if (scanStatus) {
                 var names = "";
@@ -423,21 +471,16 @@
             var checkedIn = !!booking.checked_in_at;
             var checkedOut = !!booking.checked_out_at;
             if (!checkedIn) {
-              R.postCheckIn(id).then(function () {
-                fetch(API + "/bookings/" + id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
-                  showGuestsAndStatus("Check-in recorded: " + (booking.guest_name || "Guest") + ".", guests);
-                }).catch(function () {
-                  if (scanStatus) scanStatus.textContent = "Check-in recorded: " + (booking.guest_name || "Guest");
-                });
-                addRecentScan(booking);
-              }).catch(function (e) {
-                if (scanStatus) scanStatus.textContent = e.message || "Check-in failed";
-              });
+              showCheckinConfirm(booking);
             } else if (!checkedOut) {
               showCheckoutConfirm(booking);
             } else {
               if (scanStatus) scanStatus.textContent = "Already checked out.";
             }
+          }).catch(function () {
+            todayFailed++;
+            updateScannerStatus();
+            if (scanStatus) scanStatus.textContent = "Could not load booking.";
           });
         }
 
@@ -477,6 +520,7 @@
             checkoutConfirmBtn.disabled = false;
             checkoutConfirmBtn.textContent = "Check Out";
           }).catch(function (e) {
+            todayFailed++; updateScannerStatus();
             if (scanStatus) scanStatus.textContent = e.message || "Check-out failed";
             hideCheckoutConfirm();
             checkoutConfirmBtn.disabled = false;
@@ -484,6 +528,77 @@
           });
         });
         if (checkoutModal) checkoutModal.addEventListener("click", function (e) { if (e.target === checkoutModal) hideCheckoutConfirm(); });
+
+        var checkinModal = document.getElementById("checkin-confirm-modal");
+        var checkinDetailsEl = document.querySelector("[data-checkin-details]");
+        var checkinCancelBtn = document.querySelector("[data-checkin-cancel]");
+        var checkinConfirmBtn = document.querySelector("[data-checkin-confirm]");
+        var checkinSuccessModal = document.getElementById("checkin-success-modal");
+        var checkinSuccessGuestEl = document.querySelector("[data-checkin-success-guest]");
+        var checkinSuccessOkBtn = document.querySelector("[data-checkin-success-ok]");
+        var pendingCheckinBooking = null;
+
+        function formatDate(d) {
+          if (!d) return "—";
+          var x = new Date(d);
+          return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
+        }
+        function showCheckinConfirm(booking) {
+          pendingCheckinBooking = booking;
+          var unit = (booking.unit_number || booking.unit_id || "—");
+          var tower = booking.tower_name ? " · " + booking.tower_name : "";
+          var html = "<p style=\"margin:0 0 0.4rem;\"><strong>Guest:</strong> " + (booking.guest_name || "Guest") + "</p>" +
+            "<p style=\"margin:0 0 0.4rem;\"><strong>Unit:</strong> " + unit + tower + "</p>" +
+            "<p style=\"margin:0 0 0.4rem;\"><strong>Check-in:</strong> " + formatDate(booking.check_in_date) + "</p>" +
+            "<p style=\"margin:0 0 0;\"><strong>Check-out:</strong> " + formatDate(booking.check_out_date) + "</p>";
+          if (booking.email) html += "<p style=\"margin:0.5rem 0 0;\"><strong>Email:</strong> " + booking.email + "</p>";
+          if (booking.contact_number) html += "<p style=\"margin:0.2rem 0 0;\"><strong>Contact:</strong> " + booking.contact_number + "</p>";
+          if (checkinDetailsEl) checkinDetailsEl.innerHTML = html;
+          if (checkinModal) checkinModal.style.display = "flex";
+        }
+        function hideCheckinConfirm() {
+          if (checkinModal) checkinModal.style.display = "none";
+          pendingCheckinBooking = null;
+        }
+        function showCheckinSuccess(booking) {
+          if (checkinSuccessGuestEl) checkinSuccessGuestEl.textContent = (booking && booking.guest_name) || "Guest";
+          if (checkinSuccessModal) checkinSuccessModal.style.display = "flex";
+        }
+        function hideCheckinSuccess() {
+          if (checkinSuccessModal) checkinSuccessModal.style.display = "none";
+        }
+        if (checkinCancelBtn) checkinCancelBtn.addEventListener("click", function () {
+          hideCheckinConfirm();
+          if (scanStatus) scanStatus.textContent = "Check-in cancelled.";
+        });
+        if (checkinConfirmBtn) checkinConfirmBtn.addEventListener("click", function () {
+          if (!pendingCheckinBooking || !R) return;
+          var booking = pendingCheckinBooking;
+          checkinConfirmBtn.disabled = true;
+          checkinConfirmBtn.textContent = "Processing…";
+          R.postCheckIn(booking.booking_id).then(function () {
+            hideCheckinConfirm();
+            addRecentScan(booking);
+            showCheckinSuccess(booking);
+            fetch(API + "/bookings/" + booking.booking_id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
+              var names = guests && guests.length ? guests.map(function (g) { return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name; }).join(", ") : "";
+              if (scanStatus) scanStatus.textContent = names ? "Check-in recorded: " + (booking.guest_name || "Guest") + ". Authorized guests: " + names : "Check-in recorded: " + (booking.guest_name || "Guest");
+            }).catch(function () {
+              if (scanStatus) scanStatus.textContent = "Check-in recorded: " + (booking.guest_name || "Guest");
+            });
+            checkinConfirmBtn.disabled = false;
+            checkinConfirmBtn.textContent = "Check In";
+          }).catch(function (e) {
+            todayFailed++; updateScannerStatus();
+            if (scanStatus) scanStatus.textContent = e.message || "Check-in failed";
+            hideCheckinConfirm();
+            checkinConfirmBtn.disabled = false;
+            checkinConfirmBtn.textContent = "Check In";
+          });
+        });
+        if (checkinSuccessOkBtn) checkinSuccessOkBtn.addEventListener("click", hideCheckinSuccess);
+        if (checkinModal) checkinModal.addEventListener("click", function (e) { if (e.target === checkinModal) hideCheckinConfirm(); });
+        if (checkinSuccessModal) checkinSuccessModal.addEventListener("click", function (e) { if (e.target === checkinSuccessModal) hideCheckinSuccess(); });
 
         function tryDecodeFromVideo() {
           if (!scanVideo || !window.jsQR) return;
@@ -574,6 +689,8 @@
         }
         if (stopButton) stopButton.addEventListener("click", stopScan);
 
+        updateScannerStatus();
+
         var uploadBtn = document.querySelector("[data-upload-qr]");
         if (uploadBtn) {
           var input = document.createElement("input");
@@ -645,8 +762,7 @@
                 if (b.checked_in_at && !b.checked_out_at) {
                   showCheckoutConfirm(b);
                 } else if (!b.checked_in_at) {
-                  if (!confirm(b.guest_name + " • Unit " + (b.unit_number || b.unit_id) + "\nCheck in?")) return;
-                  R.postCheckIn(b.booking_id).then(function () { alert("Check-in recorded."); addRecentScan(b); }).catch(function (e) { alert(e.message); });
+                  showCheckinConfirm(b);
                 } else {
                   alert("Already checked out.");
                 }

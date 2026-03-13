@@ -174,6 +174,11 @@
         </section>
 
         <section class="panel">
+          <h3>Checked In Today</h3>
+          <div class="list" data-checkedin-list></div>
+        </section>
+
+        <section class="panel">
           <h3>Checked Out Today</h3>
           <div class="list" data-checkedout-list></div>
         </section>
@@ -430,6 +435,35 @@
                 }).join("");
           }
 
+          var todayCheckedIn = bookings.filter(function (b) {
+            return b.checked_in_at && !b.checked_out_at && R.toDateKey(b.checked_in_at) === todayKey;
+          });
+          var ciListEl = document.querySelector("[data-checkedin-list]");
+          if (ciListEl) {
+            ciListEl.innerHTML = todayCheckedIn.length === 0
+              ? "<div class=\"list-item\"><div>No check-ins today</div></div>"
+              : todayCheckedIn.map(function (b) {
+                  var time = new Date(b.checked_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  return "<div class=\"list-item\" data-ci-item=\"" + b.booking_id + "\"><div>Unit " + (b.unit_number || b.unit_id) + "<small>" + (b.guest_name || "Guest") + " • Checked in at " + time + "</small></div><button class=\"btn ghost\" style=\"font-size:0.75rem;padding:0.3rem 0.7rem;color:#ff5252;\" data-undo-checkin=\"" + b.booking_id + "\">Undo</button></div>";
+                }).join("");
+            ciListEl.addEventListener("click", function (e) {
+              var btn = e.target.closest("[data-undo-checkin]");
+              if (!btn) return;
+              var bid = Number(btn.getAttribute("data-undo-checkin"));
+              btn.disabled = true; btn.textContent = "Undoing…";
+              var h = { "Content-Type": "application/json" };
+              try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (x) {}
+              fetch("/api/bookings/" + bid + "/undo-check-in", { method: "POST", headers: h })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                  if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = "Undo"; return; }
+                  var item = ciListEl.querySelector("[data-ci-item='" + bid + "']");
+                  if (item) item.remove();
+                  if (!ciListEl.children.length) ciListEl.innerHTML = "<div class=\"list-item\"><div>No check-ins today</div></div>";
+                }).catch(function () { alert("Failed to undo."); btn.disabled = false; btn.textContent = "Undo"; });
+            });
+          }
+
           var todayCheckedOut = bookings.filter(function (b) {
             return b.checked_out_at && R.toDateKey(b.checked_out_at) === todayKey;
           });
@@ -446,7 +480,8 @@
               if (!btn) return;
               var bid = Number(btn.getAttribute("data-undo-checkout"));
               btn.disabled = true; btn.textContent = "Undoing…";
-              fetch("/api/bookings/" + bid + "/undo-check-out", { method: "POST", headers: { "Content-Type": "application/json" } })
+              var headers = { "Content-Type": "application/json" }; try { var t = localStorage.getItem("token"); if (t) headers.Authorization = "Bearer " + t; } catch (x) {}
+              fetch("/api/bookings/" + bid + "/undo-check-out", { method: "POST", headers: headers })
                 .then(function (r) { return r.json(); })
                 .then(function (data) {
                   if (data.error) { alert(data.error); btn.disabled = false; btn.textContent = "Undo"; return; }
