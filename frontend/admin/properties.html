@@ -625,7 +625,7 @@
           var emp = JSON.parse(localStorage.getItem("employee") || "{}");
           var token = localStorage.getItem("token");
           if (!emp.employee_id) { localStorage.clear(); window.location.href = "../index.html"; return; }
-          fetch("https://regalia-eon6.onrender.com/api/employees/" + emp.employee_id, {
+          fetch("/api/employees/" + emp.employee_id, {
             method: "DELETE", headers: { "Authorization": "Bearer " + token }
           }).then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
             .then(function () { localStorage.clear(); window.location.href = "../index.html"; })

@@ -71,7 +71,7 @@ if (signupForm) {
 
 
     try {
-      const response = await fetch("https://regalia-eon6.onrender.com/signup", {
+      const response = await fetch("/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)
@@ -123,7 +123,7 @@ if (loginForm) {
     }
 
     try {
-      const response = await fetch("https://regalia-eon6.onrender.com/login", {
+      const response = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
