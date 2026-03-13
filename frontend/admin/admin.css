@@ -978,18 +978,41 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
   margin-top: 0.5rem;
 }
 
-.booking-detail-block #booking-charges-content .charge-item {
-  margin: 0 0 0.65rem;
+.booking-detail-block #booking-charges-content .charge-table {
+  width: 100%;
+  border-collapse: collapse;
   font-size: 0.9rem;
-  line-height: 1.45;
 }
 
-.booking-detail-block #booking-charges-content .charge-item:last-of-type {
-  margin-bottom: 0;
+.booking-detail-block #booking-charges-content .charge-table .charge-row td,
+.booking-detail-block #booking-charges-content .charge-table .charge-total-row td {
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  vertical-align: baseline;
 }
 
-.booking-detail-block #booking-charges-content .charge-total {
-  margin-top: 1rem;
+.booking-detail-block #booking-charges-content .charge-table .charge-row:not(:last-child) td {
+  padding-bottom: 0.65rem;
+}
+
+.booking-detail-block #booking-charges-content .charge-table .charge-desc {
+  padding-right: 0.75rem;
+  vertical-align: top;
+}
+
+.booking-detail-block #booking-charges-content .charge-table .charge-calc {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: 0.5rem;
+  padding-right: 0.75rem;
+}
+
+.booking-detail-block #booking-charges-content .charge-table .charge-subtotal,
+.booking-detail-block #booking-charges-content .charge-table .charge-total-amount {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.booking-detail-block #booking-charges-content .charge-table .charge-total-row td {
   padding-top: 0.85rem;
   border-top: 1px solid rgba(47, 95, 103, 0.15);
   font-size: 0.95rem;

@@ -246,6 +246,22 @@
         </div>
       </div>
 
+      <!-- Booking detail sidebar -->
+      <div class="staff-booking-sidebar" id="staffBookingDetailSidebar" data-staff-booking-detail aria-hidden="true">
+        <div class="staff-booking-sidebar__backdrop" data-close-staff-booking-detail></div>
+        <div class="staff-booking-sidebar__content" id="staffBookingDetailContent">
+          <div class="staff-booking-sidebar__header">
+            <h3 class="staff-booking-sidebar__title" data-staff-booking-detail-title>Booking details</h3>
+            <button class="icon-button" type="button" data-close-staff-booking-detail aria-label="Close">
+              <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+            </button>
+          </div>
+          <div class="staff-booking-sidebar__body">
+            <div class="staff-booking-detail-body" data-staff-booking-detail-body></div>
+          </div>
+        </div>
+      </div>
+
       <!-- Profile Modal -->
       <div class="settings-overlay" data-profile-overlay>
         <div class="settings-modal">
@@ -279,6 +295,7 @@
           </div>
         </div>
       </div>
+
     </div>
     <script src="./staffscript.js"></script>
     <script>
@@ -389,12 +406,76 @@
                   status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Upcoming" : (b.status === "pending" ? "Pending" : b.status));
                   tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
                 }
+                item.dataset.bookingId = b.booking_id;
+                item.style.cursor = "pointer";
                 item.innerHTML = "<div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>" + (b.guest_name || "Guest") + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span>";
                 list.appendChild(item);
               });
             });
           });
         }
+
+        var staffDetailSidebar = document.querySelector("[data-staff-booking-detail]");
+        var staffDetailTitle = document.querySelector("[data-staff-booking-detail-title]");
+        var staffDetailBody = document.querySelector("[data-staff-booking-detail-body]");
+        function escapeHtml(s) { if (!s) return ""; return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+        function formatDate(d) { if (!d) return "—"; var x = new Date(d); return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2,"0") + "-" + String(x.getDate()).padStart(2,"0"); }
+        function openStaffBookingDetail(bookingId) {
+          if (!staffDetailTitle || !staffDetailBody) return;
+          staffDetailBody.innerHTML = "<p style=\"opacity:.6;\">Loading...</p>";
+          if (staffDetailSidebar) { staffDetailSidebar.classList.add("is-open"); staffDetailSidebar.setAttribute("aria-hidden","false"); }
+          var content = staffDetailSidebar ? staffDetailSidebar.querySelector(".staff-booking-sidebar__content") : null;
+          if (content) content.classList.add("is-visible");
+          fetch((R && R.API ? R.API : "/api") + "/bookings/" + bookingId, { headers: { "Authorization": "Bearer " + (localStorage.getItem("token") || "") } })
+            .then(function(r) { return r.ok ? r.json() : null; })
+            .then(function(b) {
+              if (!b || !staffDetailTitle || !staffDetailBody) return;
+              staffDetailTitle.textContent = "Booking – " + (b.guest_name || "Guest") + " · " + (b.unit_number || "") + (b.tower_name ? " " + b.tower_name : "");
+              var unitInfo = [b.unit_number, b.unit_type, b.tower_name].filter(Boolean).join(" · ") || "—";
+              var html = "<div class=\"booking-detail-grid\"><div class=\"booking-detail-block\"><h4>Personal information</h4>" +
+                "<p><strong>Name:</strong> " + escapeHtml(b.guest_name) + "</p>" +
+                "<p><strong>Address:</strong> " + escapeHtml(b.permanent_address) + "</p>" +
+                "<p><strong>Age:</strong> " + escapeHtml(b.age) + " &nbsp; <strong>Nationality:</strong> " + escapeHtml(b.nationality) + "</p>" +
+                "<p><strong>Email:</strong> " + escapeHtml(b.email) + "</p>" +
+                "<p><strong>Contact:</strong> " + escapeHtml(b.contact_number) + "</p>" +
+                (b.id_document ? "<p><strong>ID document:</strong></p><p><img src=\"" + b.id_document + "\" alt=\"ID document\" class=\"booking-payment-proof-img\" style=\"max-width:100%;border-radius:8px;\" /></p>" : "") +
+                "</div><div class=\"booking-detail-block\"><h4>Unit &amp; stay</h4>" +
+                "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +
+                "<p><strong>Check-in:</strong> " + formatDate(b.check_in_date) + " &nbsp; <strong>Check-out:</strong> " + formatDate(b.check_out_date) + "</p>" +
+                "<p><strong>Paid:</strong> " + escapeHtml(b.paid_yes_no) + (b.amount_paid ? " – " + escapeHtml(b.amount_paid) : "") + "</p>" +
+                "<p><strong>Booking platform:</strong> " + escapeHtml(b.booking_platform) + "</p>" +
+                (b.payment_method === "upload" && b.payment_proof ? "<p><strong>Payment method:</strong> Online</p><p><img src=\"" + b.payment_proof + "\" alt=\"Payment proof\" class=\"booking-payment-proof-img\" style=\"max-width:100%;border-radius:8px;\" /></p>" : "<p><strong>Payment method:</strong> " + escapeHtml(b.payment_method || "Cash") + "</p>") +
+                "</div><div class=\"booking-detail-block booking-detail-block--status\"><h4>Status</h4><p><strong>" + escapeHtml(b.status) + "</strong></p></div></div>";
+              if (b.signature_data) html += "<div class=\"booking-detail-block booking-detail-block--signature\"><h4>Signature</h4><img src=\"" + b.signature_data + "\" alt=\"Signature\" class=\"booking-signature-img\" style=\"max-width:100%;border-radius:8px;\" /></div>";
+              html += "<div class=\"booking-detail-block\" id=\"staff-booking-charges\"><h4>Additional Charges</h4><div id=\"staff-booking-charges-content\"><p style=\"opacity:.6;\">Loading...</p></div></div>";
+              staffDetailBody.innerHTML = html;
+              fetch((R && R.API ? R.API : "/api") + "/bookings/" + b.booking_id + "/charges", { headers: { "Authorization": "Bearer " + (localStorage.getItem("token") || "") } })
+                .then(function(r) { return r.ok ? r.json() : []; })
+                .then(function(charges) {
+                  var el = document.getElementById("staff-booking-charges-content");
+                  if (!el) return;
+                  if (!charges.length) { el.innerHTML = "<p class=\"charge-empty\" style=\"opacity:.6;\">No additional charges</p>"; return; }
+                  var total = 0;
+                  var rows = charges.map(function(c) { var lt = c.quantity * c.unit_price; total += lt; return "<tr class=\"charge-row\"><td class=\"charge-desc\"><strong>" + escapeHtml(c.description) + "</strong></td><td class=\"charge-calc\">" + c.quantity + " × ₱" + Number(c.unit_price).toFixed(2) + "</td><td class=\"charge-subtotal\"><strong>₱" + lt.toFixed(2) + "</strong></td></tr>"; }).join("");
+                  el.innerHTML = "<table class=\"charge-table\"><tbody>" + rows + "<tr class=\"charge-total-row\"><td colspan=\"2\" class=\"charge-total-label\"><strong>Total Charges</strong></td><td class=\"charge-total-amount\"><strong>₱" + total.toFixed(2) + "</strong></td></tr></tbody></table>";
+                }).catch(function() { var el = document.getElementById("staff-booking-charges-content"); if (el) el.innerHTML = "<p style=\"opacity:.6;\">Could not load charges</p>"; });
+            })
+            .catch(function() { if (staffDetailBody) staffDetailBody.innerHTML = "<p style=\"opacity:.6;\">Could not load booking.</p>"; });
+        }
+        function closeStaffBookingDetail() {
+          var content = staffDetailSidebar ? staffDetailSidebar.querySelector(".staff-booking-sidebar__content") : null;
+          if (content) content.classList.remove("is-visible");
+          setTimeout(function() { if (staffDetailSidebar) { staffDetailSidebar.classList.remove("is-open"); staffDetailSidebar.setAttribute("aria-hidden","true"); } }, 300);
+        }
+        document.querySelectorAll("[data-close-staff-booking-detail]").forEach(function(btn) { btn.addEventListener("click", closeStaffBookingDetail); });
+        if (staffDetailSidebar && staffDetailSidebar.querySelector(".staff-booking-sidebar__backdrop")) { staffDetailSidebar.querySelector(".staff-booking-sidebar__backdrop").addEventListener("click", closeStaffBookingDetail); }
+        document.addEventListener("click", function(e) {
+          var item = e.target.closest(".list-item[data-booking-id], .list-item[data-ci-item], .list-item[data-co-item]");
+          if (!item) return;
+          if (e.target.closest("[data-undo-checkin], [data-undo-checkout]")) return;
+          var id = item.getAttribute("data-booking-id") || item.getAttribute("data-ci-item") || item.getAttribute("data-co-item");
+          if (id) openStaffBookingDetail(id);
+        });
 
         R.getBookings().then(function (bookings) {
           allBookings = bookings;
@@ -425,7 +506,7 @@
                   var nights = R.getNights(b.check_in_date, b.check_out_date);
                   var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
                   var status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Confirmed" : "Pending");
-                  return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
+                  return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
                 }).join("");
           }
 
@@ -440,7 +521,7 @@
                   var nights = R.getNights(b.check_in_date, b.check_out_date);
                   var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
                   var status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Confirmed" : "Pending");
-                  return "<div class=\"list-item\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
+                  return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
                 }).join("");
           }
 
@@ -453,7 +534,7 @@
               ? "<div class=\"list-item\"><div>No check-ins today</div></div>"
               : todayCheckedIn.map(function (b) {
                   var time = new Date(b.checked_in_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                  return "<div class=\"list-item\" data-ci-item=\"" + b.booking_id + "\"><div>Unit " + (b.unit_number || b.unit_id) + "<small>" + (b.guest_name || "Guest") + " • Checked in at " + time + "</small></div><button class=\"btn ghost\" style=\"font-size:0.75rem;padding:0.3rem 0.7rem;color:#ff5252;\" data-undo-checkin=\"" + b.booking_id + "\">Undo</button></div>";
+                  return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" data-ci-item=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + "<small>" + (b.guest_name || "Guest") + " • Checked in at " + time + "</small></div><button class=\"btn ghost\" style=\"font-size:0.75rem;padding:0.3rem 0.7rem;color:#ff5252;\" data-undo-checkin=\"" + b.booking_id + "\">Undo</button></div>";
                 }).join("");
             ciListEl.addEventListener("click", function (e) {
               var btn = e.target.closest("[data-undo-checkin]");
@@ -482,7 +563,7 @@
               ? "<div class=\"list-item\"><div>No check-outs today</div></div>"
               : todayCheckedOut.map(function (b) {
                   var time = new Date(b.checked_out_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                  return "<div class=\"list-item\" data-co-item=\"" + b.booking_id + "\"><div>Unit " + (b.unit_number || b.unit_id) + "<small>" + (b.guest_name || "Guest") + " • Checked out at " + time + "</small></div><button class=\"btn ghost\" style=\"font-size:0.75rem;padding:0.3rem 0.7rem;color:#ff5252;\" data-undo-checkout=\"" + b.booking_id + "\">Undo</button></div>";
+                  return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" data-co-item=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + "<small>" + (b.guest_name || "Guest") + " • Checked out at " + time + "</small></div><button class=\"btn ghost\" style=\"font-size:0.75rem;padding:0.3rem 0.7rem;color:#ff5252;\" data-undo-checkout=\"" + b.booking_id + "\">Undo</button></div>";
                 }).join("");
             coListEl.addEventListener("click", function (e) {
               var btn = e.target.closest("[data-undo-checkout]");

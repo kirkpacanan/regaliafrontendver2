@@ -543,18 +543,25 @@
           var x = new Date(d);
           return x.getFullYear() + "-" + String(x.getMonth() + 1).padStart(2, "0") + "-" + String(x.getDate()).padStart(2, "0");
         }
+        function escapeHtml(s) {
+          if (!s) return "";
+          return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+        }
         function showCheckinConfirm(booking) {
           pendingCheckinBooking = booking;
           var unit = (booking.unit_number || booking.unit_id || "—");
           var tower = booking.tower_name ? " · " + booking.tower_name : "";
-          var html = "<p style=\"margin:0 0 0.4rem;\"><strong>Guest:</strong> " + (booking.guest_name || "Guest") + "</p>" +
-            "<p style=\"margin:0 0 0.4rem;\"><strong>Unit:</strong> " + unit + tower + "</p>" +
+          var html = "<p style=\"margin:0 0 0.4rem;\"><strong>Guest:</strong> " + escapeHtml(booking.guest_name || "Guest") + "</p>" +
+            "<p style=\"margin:0 0 0.4rem;\"><strong>Unit:</strong> " + escapeHtml(unit) + escapeHtml(tower) + "</p>" +
             "<p style=\"margin:0 0 0.4rem;\"><strong>Check-in:</strong> " + formatDate(booking.check_in_date) + "</p>" +
             "<p style=\"margin:0 0 0;\"><strong>Check-out:</strong> " + formatDate(booking.check_out_date) + "</p>";
-          if (booking.email) html += "<p style=\"margin:0.5rem 0 0;\"><strong>Email:</strong> " + booking.email + "</p>";
-          if (booking.contact_number) html += "<p style=\"margin:0.2rem 0 0;\"><strong>Contact:</strong> " + booking.contact_number + "</p>";
+          if (booking.email) html += "<p style=\"margin:0.5rem 0 0;\"><strong>Email:</strong> " + escapeHtml(booking.email) + "</p>";
+          if (booking.contact_number) html += "<p style=\"margin:0.2rem 0 0;\"><strong>Contact:</strong> " + escapeHtml(booking.contact_number) + "</p>";
+          if (booking.id_document) html += "<p style=\"margin:0.75rem 0 0.4rem;\"><strong>ID document:</strong></p><img src=\"" + escapeHtml(booking.id_document) + "\" alt=\"ID document\" style=\"max-width:100%;border-radius:8px;margin-top:0.25rem;\" />";
+          if (booking.payment_method === "upload" && booking.payment_proof) html += "<p style=\"margin:0.75rem 0 0.4rem;\"><strong>Payment proof:</strong></p><img src=\"" + escapeHtml(booking.payment_proof) + "\" alt=\"Payment proof\" style=\"max-width:100%;border-radius:8px;margin-top:0.25rem;\" />";
+          else if (booking.payment_method) html += "<p style=\"margin:0.5rem 0 0;\"><strong>Payment method:</strong> " + escapeHtml(booking.payment_method === "cash" || !booking.payment_method ? "Cash" : booking.payment_method) + "</p>";
           if (checkinDetailsEl) checkinDetailsEl.innerHTML = html;
-          if (checkinModal) checkinModal.style.display = "flex";
+          if (checkinModal) { checkinModal.style.display = "flex"; checkinModal.style.maxWidth = "480px"; }
         }
         function hideCheckinConfirm() {
           if (checkinModal) checkinModal.style.display = "none";
