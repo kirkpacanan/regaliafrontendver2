@@ -306,6 +306,7 @@
         var R = window.RegaliaStaff;
         var monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
         var currentCalendar = new Date();
+        var selectedCalendarDate = "";
         var bookingsByDate = {};
         var allBookings = [];
         var undoCheckinListenerAdded = false;
@@ -323,6 +324,42 @@
             }
           });
           return map;
+        }
+
+        function getBookingStatusMeta(b, confirmedLabel) {
+          if (b.checked_out_at) {
+            return { status: "Checked out", tagClass: "tag--checked-out" };
+          }
+          if (b.checked_in_at) {
+            return { status: "Checked in", tagClass: "tag--checked-in" };
+          }
+          if (b.status === "pending") {
+            return { status: "Pending", tagClass: "tag--pending" };
+          }
+          if (b.status === "confirmed" && b.booking_platform === "walk_in") {
+            return { status: "Confirmed - Walk in", tagClass: "tag--paid" };
+          }
+          return { status: confirmedLabel || "Confirmed", tagClass: "tag--paid" };
+        }
+
+        function renderCalendarDetails(date) {
+          var details = document.querySelector("[data-calendar-details]");
+          var list = details ? details.querySelector(".list") : null;
+          var title = details ? details.querySelector(".calendar-details__title") : null;
+          var bookings = bookingsByDate[date] || [];
+          if (!list || !title) return;
+          list.innerHTML = "";
+          title.textContent = date + " • " + bookings.length + " booking(s)";
+          bookings.forEach(function (b) {
+            var item = document.createElement("div");
+            var nights = R.getNights(b.check_in_date, b.check_out_date);
+            var statusMeta = getBookingStatusMeta(b, "Upcoming");
+            item.className = "list-item";
+            item.dataset.bookingId = b.booking_id;
+            item.style.cursor = "pointer";
+            item.innerHTML = "<div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>" + (b.guest_name || "Guest") + " • <span class=\"tag " + statusMeta.tagClass + "\">" + statusMeta.status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span>";
+            list.appendChild(item);
+          });
         }
 
         function renderCalendar() {
@@ -391,33 +428,21 @@
             cell.addEventListener("click", function () {
               grid.querySelectorAll(".calendar-cell").forEach(function (c) { c.classList.remove("selected"); });
               cell.classList.add("selected");
-              var date = cell.dataset.date;
-              var bookings = bookingsByDate[date] || [];
-              if (!list || !title) return;
-              list.innerHTML = "";
-              title.textContent = date + " • " + bookings.length + " booking(s)";
-              bookings.forEach(function (b) {
-                var item = document.createElement("div");
-                item.className = "list-item";
-                var nights = R.getNights(b.check_in_date, b.check_out_date);
-                var status, tagClass;
-                if (b.checked_out_at) {
-                  status = "Checked out";
-                  tagClass = "tag--checked-out";
-                } else if (b.checked_in_at) {
-                  status = "Checked in";
-                  tagClass = "tag--checked-in";
-                } else {
-                  status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Upcoming" : (b.status === "pending" ? "Pending" : b.status));
-                  tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
-                }
-                item.dataset.bookingId = b.booking_id;
-                item.style.cursor = "pointer";
-                item.innerHTML = "<div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>" + (b.guest_name || "Guest") + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span>";
-                list.appendChild(item);
-              });
+              selectedCalendarDate = cell.dataset.date;
+              renderCalendarDetails(selectedCalendarDate);
             });
           });
+
+          if (selectedCalendarDate) {
+            var selectedCell = grid.querySelector(".calendar-cell[data-date=\"" + selectedCalendarDate + "\"]");
+            if (selectedCell) {
+              selectedCell.classList.add("selected");
+              renderCalendarDetails(selectedCalendarDate);
+            }
+          } else if (list && title) {
+            title.textContent = "Select a date to view bookings.";
+            list.innerHTML = "";
+          }
         }
 
         var staffDetailSidebar = document.querySelector("[data-staff-booking-detail]");
@@ -516,9 +541,8 @@
               ? "<div class=\"list-item\"><div>No bookings today</div></div>"
               : todayBookings.map(function (b) {
                   var nights = R.getNights(b.check_in_date, b.check_out_date);
-                  var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
-                  var status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Confirmed" : "Pending");
-                  return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
+                  var statusMeta = getBookingStatusMeta(b, "Confirmed");
+                  return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + statusMeta.tagClass + "\">" + statusMeta.status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
                 }).join("");
           }
 
@@ -531,9 +555,8 @@
               ? "<div class=\"list-item\"><div>No upcoming bookings</div></div>"
               : upcoming.map(function (b) {
                   var nights = R.getNights(b.check_in_date, b.check_out_date);
-                  var tagClass = b.status === "pending" ? "tag--pending" : "tag--paid";
-                  var status = (b.status === "confirmed" && b.booking_platform === "walk_in") ? "Confirmed - Walk in" : (b.status === "confirmed" ? "Confirmed" : "Pending");
-                  return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + tagClass + "\">" + status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
+                  var statusMeta = getBookingStatusMeta(b, "Confirmed");
+                  return "<div class=\"list-item\" data-booking-id=\"" + b.booking_id + "\" style=\"cursor:pointer;\"><div>Unit " + (b.unit_number || b.unit_id) + " • " + nights + " Night(s)<small>Check-in: " + R.formatShortDate(b.check_in_date) + " • <span class=\"tag " + statusMeta.tagClass + "\">" + statusMeta.status + "</span></small></div><span class=\"icon\"><svg viewBox=\"0 0 24 24\"><polyline points=\"5 13 9 17 19 7\"></polyline></svg></span></div>";
                 }).join("");
           }
 
@@ -596,7 +619,6 @@
             }
           }
 
-          currentCalendar = new Date();
           renderCalendar();
 
           // --- Additional Charges ---
