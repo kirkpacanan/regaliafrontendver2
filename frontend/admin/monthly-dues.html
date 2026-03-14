@@ -548,15 +548,23 @@
         normalizePaidMonths(d);
         return Array.isArray(d.paid_months) && d.paid_months.indexOf(yyyyMm) >= 0;
       }
+      function getFirstMonthOfDue(d) {
+        if (!d.due_date || d.due_date.length < 7) return null;
+        return d.due_date.slice(0, 7);
+      }
       function dueAppliesToMonth(d, yyyyMm) {
-        if (d.recurring) return true;
-        if (!d.due_date || d.due_date.length < 7) return false;
-        return d.due_date.slice(0, 7) === yyyyMm;
+        if (!d.recurring) {
+          if (!d.due_date || d.due_date.length < 7) return false;
+          return d.due_date.slice(0, 7) === yyyyMm;
+        }
+        var first = getFirstMonthOfDue(d);
+        if (first) return yyyyMm >= first;
+        return true;
       }
       function isDueTodayOrOverdue(d) {
-        var viewMonth = getViewMonth();
         var today = new Date();
         var thisMonth = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0");
+        if (!dueAppliesToMonth(d, thisMonth)) return false;
         if (isPaidForMonth(d, thisMonth)) return false;
         if (d.recurring) {
           var day = getDueDay(d);
@@ -565,8 +573,9 @@
         if (!d.due_date || d.due_date.length < 7) return false;
         var due = new Date(d.due_date + (d.due_date.length === 7 ? "-01" : ""));
         due.setHours(0, 0, 0, 0);
-        today.setHours(0, 0, 0, 0);
-        return due.getTime() <= today.getTime();
+        var todayStart = new Date(today);
+        todayStart.setHours(0, 0, 0, 0);
+        return due.getTime() <= todayStart.getTime();
       }
       function getViewMonth() {
         var sel = document.querySelector("[data-dues-view-month]");

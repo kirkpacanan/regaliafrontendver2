@@ -155,51 +155,53 @@
           </div>
         </header>
 
-        <!-- Record payment modal -->
-        <div class="modal-overlay" id="record-payment-overlay" data-record-payment-overlay style="display: none;">
-          <div class="modal record-payment-modal">
-            <div class="modal-header">
-              <h3>Record payment</h3>
-              <button type="button" class="modal-close" data-record-payment-close aria-label="Close">&times;</button>
+        <!-- Record payment modal (same look as Profile panel) -->
+        <div class="settings-overlay" id="record-payment-overlay" data-record-payment-overlay>
+          <div class="settings-modal">
+            <div class="settings-header">
+              <h2>Record payment</h2>
+              <button type="button" class="settings-close" data-record-payment-close aria-label="Close">&times;</button>
             </div>
-            <form data-record-payment-form>
-              <div class="modal-body">
-                <label class="form-field">
-                  <span>Payer / Description</span>
-                  <input type="text" name="payer_description" data-record-payer placeholder="Guest name or description" required />
-                </label>
-                <label class="form-field">
-                  <span>Unit (optional)</span>
-                  <select name="unit_id" data-record-unit>
-                    <option value="">— None —</option>
-                  </select>
-                </label>
-                <label class="form-field">
-                  <span>Amount (₱)</span>
-                  <input type="number" name="amount" data-record-amount min="0" step="0.01" placeholder="0.00" required />
-                </label>
-                <label class="form-field">
-                  <span>Payment date</span>
-                  <input type="date" name="payment_date" data-record-date required />
-                </label>
-                <label class="form-field">
-                  <span>Method</span>
-                  <select name="method" data-record-method>
-                    <option value="Cash">Cash</option>
-                    <option value="Card">Card</option>
-                    <option value="Bank transfer">Bank transfer</option>
-                    <option value="Online">Online</option>
-                    <option value="Other">Other</option>
-                  </select>
-                </label>
-                <input type="hidden" name="booking_id" data-record-booking-id />
-                <div class="form-msg" data-record-payment-msg></div>
+            <div class="settings-body">
+              <div class="settings-section">
+                <form class="settings-form" data-record-payment-form>
+                  <label class="settings-field">
+                    <span>Payer / Description</span>
+                    <input type="text" name="payer_description" data-record-payer placeholder="Guest name or description" required />
+                  </label>
+                  <label class="settings-field">
+                    <span>Unit (optional)</span>
+                    <select name="unit_id" data-record-unit>
+                      <option value="">— None —</option>
+                    </select>
+                  </label>
+                  <label class="settings-field">
+                    <span>Amount (₱)</span>
+                    <input type="number" name="amount" data-record-amount min="0" step="0.01" placeholder="0.00" required />
+                  </label>
+                  <label class="settings-field">
+                    <span>Payment date</span>
+                    <input type="date" name="payment_date" data-record-date required />
+                  </label>
+                  <label class="settings-field">
+                    <span>Method</span>
+                    <select name="method" data-record-method>
+                      <option value="Cash">Cash</option>
+                      <option value="Card">Card</option>
+                      <option value="Bank transfer">Bank transfer</option>
+                      <option value="Online">Online</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </label>
+                  <input type="hidden" name="booking_id" data-record-booking-id />
+                  <div class="settings-msg" data-record-payment-msg></div>
+                  <div class="settings-form-actions">
+                    <button type="button" class="btn ghost settings-save" data-record-payment-cancel>Cancel</button>
+                    <button type="submit" class="btn ghost settings-save">Save payment</button>
+                  </div>
+                </form>
               </div>
-              <div class="modal-footer">
-                <button type="button" class="btn ghost" data-record-payment-cancel>Cancel</button>
-                <button type="submit" class="btn-primary">Save payment</button>
-              </div>
-            </form>
+            </div>
           </div>
         </div>
 
@@ -309,11 +311,12 @@
                   <th>Amount</th>
                   <th>Status</th>
                   <th>Method</th>
+                  <th class="payment-table-actions">Actions</th>
                 </tr>
               </thead>
               <tbody data-payments-tbody>
                 <tr data-payments-empty>
-                  <td colspan="5" class="payment-placeholder-cell">
+                  <td colspan="6" class="payment-placeholder-cell">
                     <span class="payment-placeholder-message">Loading…</span>
                   </td>
                 </tr>
@@ -587,16 +590,20 @@
           var totalReceived = 0;
           var thisMonthTotal = 0;
           var pendingCount = 0;
+          var pendingAmount = 0;
           (payments || allPayments).forEach(function (p) {
             var amt = Number(p.amount) || 0;
             if (String(p.status || "").toLowerCase() === "completed") {
               totalReceived += amt;
               var pd = p.payment_date ? new Date(p.payment_date) : null;
               if (pd && pd.getFullYear() === thisYear && pd.getMonth() === thisMonth) thisMonthTotal += amt;
-            } else { pendingCount++; }
+            } else {
+              pendingCount++;
+              pendingAmount += amt;
+            }
           });
           if (totalEl) totalEl.textContent = formatPeso(totalReceived);
-          if (pendingEl) pendingEl.textContent = pendingCount > 0 ? pendingCount + " pending" : "0";
+          if (pendingEl) pendingEl.textContent = pendingCount > 0 ? formatPeso(pendingAmount) + " (" + pendingCount + " pending)" : "0";
           if (monthEl) monthEl.textContent = formatPeso(thisMonthTotal);
         }
         function renderPaymentTable() {
@@ -613,7 +620,7 @@
             var guestCell = unit ? guest + " · " + unit : guest;
             var status = String(p.status || "").toLowerCase();
             var statusLabel = status === "completed" ? "Completed" : status === "pending" ? "Pending" : p.status || "—";
-            tr.innerHTML = "<td>" + escapeHtml(formatDate(p.payment_date)) + "</td><td>" + escapeHtml(guestCell) + "</td><td>" + formatPeso(p.amount) + "</td><td>" + escapeHtml(statusLabel) + "</td><td>" + escapeHtml(p.method || "—") + "</td>";
+            tr.innerHTML = "<td>" + escapeHtml(formatDate(p.payment_date)) + "</td><td>" + escapeHtml(guestCell) + "</td><td>" + formatPeso(p.amount) + "</td><td>" + escapeHtml(statusLabel) + "</td><td>" + escapeHtml(p.method || "—") + "</td><td class=\"payment-table-actions\"><button type=\"button\" class=\"payments-btn payments-btn--danger\" data-payment-delete data-payment-id=\"" + escapeHtml(String(p.payment_id)) + "\" title=\"Delete payment\">Delete</button></td>";
             tbody.appendChild(tr);
           });
         }
@@ -688,16 +695,10 @@
           if (bookingIdInput) bookingIdInput.value = prefill.booking_id != null ? String(prefill.booking_id) : "";
           if (methodSelect && prefill.method) methodSelect.value = prefill.method;
           if (msgEl) msgEl.textContent = "";
-          if (overlay) {
-            overlay.style.display = "flex";
-            overlay.classList.add("is-open");
-          }
+          if (overlay) overlay.classList.add("is-open");
         }
         function closeRecordModal() {
-          if (overlay) {
-            overlay.classList.remove("is-open");
-            overlay.style.display = "none";
-          }
+          if (overlay) overlay.classList.remove("is-open");
           if (form) form.reset();
         }
         var closeBtn = document.querySelector("[data-record-payment-close]");
@@ -764,17 +765,37 @@
             method: methodSelect && methodSelect.value ? methodSelect.value : "Cash",
             booking_id: bookingIdInput && bookingIdInput.value ? bookingIdInput.value : null
           };
-          if (!payload.payer_description) { if (msgEl) { msgEl.textContent = "Enter payer or description."; msgEl.className = "form-msg error"; } return; }
-          if (!payload.amount || payload.amount <= 0) { if (msgEl) { msgEl.textContent = "Enter a valid amount."; msgEl.className = "form-msg error"; } return; }
+          if (!payload.payer_description) { if (msgEl) { msgEl.textContent = "Enter payer or description."; msgEl.className = "settings-msg"; } return; }
+          if (!payload.amount || payload.amount <= 0) { if (msgEl) { msgEl.textContent = "Enter a valid amount."; msgEl.className = "settings-msg"; } return; }
           fetch(apiBase + "/payments", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify(payload) })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
             .then(function (res) {
-              if (!res.ok) { if (msgEl) { msgEl.textContent = res.data.error || "Failed to save."; msgEl.className = "form-msg error"; } return; }
+              if (!res.ok) { if (msgEl) { msgEl.textContent = res.data.error || "Failed to save."; msgEl.className = "settings-msg"; } return; }
               closeRecordModal();
               loadPayments();
             })
-            .catch(function () { if (msgEl) { msgEl.textContent = "Network error."; msgEl.className = "form-msg error"; } });
+            .catch(function () { if (msgEl) { msgEl.textContent = "Network error."; msgEl.className = "settings-msg"; } });
         });
+
+        if (tbody) {
+          tbody.addEventListener("click", function (e) {
+            var btn = e.target.closest("[data-payment-delete]");
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var id = btn.getAttribute("data-payment-id");
+            if (!id || !confirm("Delete this payment? This cannot be undone.")) return;
+            btn.disabled = true;
+            fetch(apiBase + "/payments/" + id, { method: "DELETE", headers: getAuthHeaders() })
+              .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+              .then(function (res) {
+                if (res.ok) loadPayments();
+                else if (res.data && res.data.error) alert(res.data.error);
+              })
+              .catch(function () { alert("Could not delete payment."); })
+              .finally(function () { btn.disabled = false; });
+          });
+        }
 
         var applyBtn = document.querySelector("[data-payments-apply]");
         var clearBtn = document.querySelector("[data-payments-clear-filter]");

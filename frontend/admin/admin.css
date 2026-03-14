@@ -258,6 +258,7 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
   opacity: 0; pointer-events: none; transition: opacity 0.25s ease;
 }
 .settings-overlay.is-open { opacity: 1; pointer-events: auto; }
+#record-payment-overlay.settings-overlay { z-index: 2001; }
 .settings-modal {
   background: rgba(18,72,84,0.97); backdrop-filter: blur(20px);
   border: 1px solid rgba(255,255,255,0.18); border-radius: 20px;
@@ -283,6 +284,29 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
 .settings-divider { height: 1px; background: rgba(255,255,255,0.12); margin: 1.1rem 0; }
 .settings-msg { font-size: 0.8rem; min-height: 1.2em; color: rgba(255,200,200,0.95); }
 .settings-msg.success { color: rgba(200,255,226,0.95); }
+.settings-field select {
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.08);
+  color: #fff;
+  font-size: 0.88rem;
+  font-family: inherit;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='rgba(255,255,255,0.7)' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  padding-right: 2rem;
+}
+.settings-field select:focus { outline: none; border-color: rgba(255,255,255,0.55); background-color: rgba(255,255,255,0.12); }
+.settings-form-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.settings-form-actions .settings-save:first-child { margin-top: 0; }
 
 .btn-primary {
   display: inline-flex;
@@ -320,6 +344,7 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
   opacity: 1;
   pointer-events: auto;
 }
+
 
 .modal-card {
   width: min(460px, 92vw);
@@ -784,6 +809,27 @@ label .required {
   border-color: #084d30;
   color: #fff;
 }
+.payments-btn--danger {
+  background: rgba(255, 82, 82, 0.9);
+  border-color: #c62828;
+  color: #fff;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.65rem;
+}
+.payments-btn--danger:hover {
+  background: #c62828;
+  border-color: #b71c1c;
+  color: #fff;
+}
+.payments-btn--danger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.payment-table-actions {
+  width: 1%;
+  white-space: nowrap;
+}
 
 .filter-label {
   display: inline-flex;
@@ -812,64 +858,6 @@ label .required {
 }
 
 .panel--charges { margin-bottom: 1.5rem; }
-
-.record-payment-modal {
-  width: min(420px, 92vw);
-  background: var(--panel-strong, #1a1d24);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.3);
-}
-.record-payment-modal .modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 1rem 1.25rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-.record-payment-modal .modal-header h3 { margin: 0; font-size: 1.1rem; }
-.record-payment-modal .modal-close {
-  background: none;
-  border: none;
-  color: var(--muted);
-  font-size: 1.5rem;
-  cursor: pointer;
-  padding: 0 0.25rem;
-  line-height: 1;
-}
-.record-payment-modal .modal-close:hover { color: var(--text); }
-.record-payment-modal .modal-body { padding: 1.25rem; }
-.record-payment-modal .form-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  margin-bottom: 1rem;
-}
-.record-payment-modal .form-field span {
-  font-size: 0.8rem;
-  color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.record-payment-modal .form-field input,
-.record-payment-modal .form-field select {
-  padding: 0.5rem 0.65rem;
-  border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
-  font-size: 0.95rem;
-}
-.record-payment-modal .form-msg { margin-top: 0.5rem; font-size: 0.85rem; min-height: 1.2em; }
-.record-payment-modal .form-msg.success { color: #7acb59; }
-.record-payment-modal .form-msg.error { color: #ff6b6b; }
-.record-payment-modal .modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 1rem 1.25rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
 
 .dues-form-panel {
   margin-bottom: 1.75rem;

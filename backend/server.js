@@ -1574,6 +1574,7 @@ app.delete("/api/bookings/:id", async (req, res) => {
 });
 
 // Staff: record check-in (requires BOOKING.checked_in_at column)
+// Creates a pending PAYMENT for accommodation (nights × unit price); it completes on check-out.
 app.post("/api/bookings/:id/check-in", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1582,34 +1583,7 @@ app.post("/api/bookings/:id/check-in", async (req, res) => {
       [id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not confirmed" });
-    const [rows] = await db.promise().query(
-      "SELECT booking_id, guest_name, unit_id, checked_in_at FROM BOOKING WHERE booking_id = ?",
-      [id]
-    );
-    res.json({ message: "Check-in recorded", booking: rows[0] });
-  } catch (err) {
-    if (err.code === "ER_BAD_FIELD_ERROR") return res.status(500).json({ error: "Add checked_in_at DATETIME NULL to BOOKING table" });
-    console.error(err);
-    res.status(500).json({ error: err.message || "Failed to record check-in" });
-  }
-});
 
-// Staff: record check-out (requires BOOKING.checked_out_at column)
-// Early checkout: if check_out_date is in the future, update it to today so the unit is freed.
-// Creates a PAYMENT record for accommodation (length of stay × unit price) so it appears in admin Payments.
-app.post("/api/bookings/:id/check-out", async (req, res) => {
-  try {
-    const id = Number(req.params.id);
-    const today = new Date().toISOString().slice(0, 10);
-    const [result] = await db.promise().query(
-      `UPDATE BOOKING SET checked_out_at = COALESCE(checked_out_at, NOW()),
-       check_out_date = CASE WHEN check_out_date > ? THEN ? ELSE check_out_date END
-       WHERE booking_id = ? AND status = 'confirmed'`,
-      [today, today, id]
-    );
-    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not confirmed" });
-
-    // Fetch booking + unit price + owner + payment method (from guest registration) for accommodation payment
     const [[row]] = await db.promise().query(
       `SELECT b.booking_id, b.guest_name, b.unit_id, b.check_in_date, b.check_out_date, b.payment_method,
               COALESCE(u.price, 0) AS unit_price,
@@ -1625,20 +1599,93 @@ app.post("/api/bookings/:id/check-out", async (req, res) => {
     const amount = nights * unitPrice;
     const ownerId = row && row.owner_employee_id != null ? row.owner_employee_id : null;
     const recordedBy = req.user ? req.user.employee_id : null;
-    // Use payment method from guest registration (cash / upload = Online)
     const rawMethod = row && row.payment_method ? String(row.payment_method).trim().toLowerCase() : "";
     const paymentMethod = rawMethod === "upload" ? "Online" : rawMethod === "cash" ? "Cash" : rawMethod || "Cash";
+    const expectedDate = row && row.check_out_date ? String(row.check_out_date).slice(0, 10) : new Date().toISOString().slice(0, 10);
 
-    if (amount > 0 && (row && row.unit_id)) {
-      const guestName = (row.guest_name || "Guest").trim();
-      const payerDesc = nights > 0
-        ? `${guestName} – Accommodation (${nights} night${nights !== 1 ? "s" : ""})`
-        : `${guestName} – Accommodation`;
-      await db.promise().query(
-        `INSERT INTO PAYMENT (booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_by, owner_employee_id)
-         VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?)`,
-        [id, row.unit_id, amount, today, payerDesc, paymentMethod, recordedBy, ownerId]
+    if (amount > 0 && row && row.unit_id) {
+      const [[existing]] = await db.promise().query(
+        "SELECT payment_id FROM PAYMENT WHERE booking_id = ? AND status = 'pending' LIMIT 1",
+        [id]
       );
+      if (!existing) {
+        const guestName = (row.guest_name || "Guest").trim();
+        const payerDesc = nights > 0
+          ? `${guestName} – Accommodation (${nights} night${nights !== 1 ? "s" : ""})`
+          : `${guestName} – Accommodation`;
+        await db.promise().query(
+          `INSERT INTO PAYMENT (booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_by, owner_employee_id)
+           VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
+          [id, row.unit_id, amount, expectedDate, payerDesc, paymentMethod, recordedBy, ownerId]
+        );
+      }
+    }
+
+    const [rows] = await db.promise().query(
+      "SELECT booking_id, guest_name, unit_id, checked_in_at FROM BOOKING WHERE booking_id = ?",
+      [id]
+    );
+    res.json({ message: "Check-in recorded", booking: rows[0] });
+  } catch (err) {
+    if (err.code === "ER_BAD_FIELD_ERROR") return res.status(500).json({ error: "Add checked_in_at DATETIME NULL to BOOKING table" });
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to record check-in" });
+  }
+});
+
+// Staff: record check-out (requires BOOKING.checked_out_at column)
+// Early checkout: if check_out_date is in the future, update it to today so the unit is freed.
+// Marks the pending accommodation payment (created at check-in) as completed; if none exists, creates one.
+app.post("/api/bookings/:id/check-out", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const today = new Date().toISOString().slice(0, 10);
+    const [result] = await db.promise().query(
+      `UPDATE BOOKING SET checked_out_at = COALESCE(checked_out_at, NOW()),
+       check_out_date = CASE WHEN check_out_date > ? THEN ? ELSE check_out_date END
+       WHERE booking_id = ? AND status = 'confirmed'`,
+      [today, today, id]
+    );
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not confirmed" });
+
+    const [[pending]] = await db.promise().query(
+      "SELECT payment_id FROM PAYMENT WHERE booking_id = ? AND status = 'pending' ORDER BY payment_id DESC LIMIT 1",
+      [id]
+    );
+    if (pending && pending.payment_id) {
+      await db.promise().query(
+        "UPDATE PAYMENT SET status = 'completed', payment_date = ? WHERE payment_id = ?",
+        [today, pending.payment_id]
+      );
+    } else {
+      const [[row]] = await db.promise().query(
+        `SELECT b.booking_id, b.guest_name, b.unit_id, b.check_in_date, b.check_out_date, b.payment_method,
+                COALESCE(u.price, 0) AS unit_price,
+                COALESCE(u.owner_employee_id, t.owner_employee_id) AS owner_employee_id
+         FROM BOOKING b
+         LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         WHERE b.booking_id = ?`,
+        [id]
+      );
+      const nights = row ? getNights(row.check_in_date, row.check_out_date) : 0;
+      const unitPrice = row && row.unit_price != null ? Number(row.unit_price) : 0;
+      const amount = nights * unitPrice;
+      const ownerId = row && row.owner_employee_id != null ? row.owner_employee_id : null;
+      const recordedBy = req.user ? req.user.employee_id : null;
+      const rawMethod = row && row.payment_method ? String(row.payment_method).trim().toLowerCase() : "";
+      const paymentMethod = rawMethod === "upload" ? "Online" : rawMethod === "cash" ? "Cash" : rawMethod || "Cash";
+      if (amount > 0 && row && row.unit_id) {
+        const guestName = (row.guest_name || "Guest").trim();
+        const payerDesc = nights > 0
+          ? `${guestName} – Accommodation (${nights} night${nights !== 1 ? "s" : ""})`
+          : `${guestName} – Accommodation`;
+        await db.promise().query(
+          `INSERT INTO PAYMENT (booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_by, owner_employee_id)
+           VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?)`,
+          [id, row.unit_id, amount, today, payerDesc, paymentMethod, recordedBy, ownerId]
+        );
+      }
     }
 
     const [rows] = await db.promise().query(
@@ -1836,6 +1883,46 @@ app.post("/api/payments", optionalAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to record payment" });
+  }
+});
+
+app.delete("/api/payments/:id", optionalAuth, async (req, res) => {
+  try {
+    const paymentId = Number(req.params.id);
+    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    const [[payment]] = await db.promise().query(
+      "SELECT payment_id, owner_employee_id, unit_id, booking_id FROM PAYMENT WHERE payment_id = ?",
+      [paymentId]
+    );
+    if (!payment) return res.status(404).json({ error: "Payment not found" });
+    if (ownerId != null) {
+      const isOwner = payment.owner_employee_id === ownerId;
+      if (!isOwner && payment.owner_employee_id != null) return res.status(403).json({ error: "Not allowed to delete this payment" });
+      if (payment.owner_employee_id == null) {
+        let canDelete = false;
+        if (payment.unit_id != null) {
+          const [unitRows] = await db.promise().query(
+            `SELECT 1 FROM UNIT u JOIN TOWER t ON t.tower_id = u.tower_id WHERE u.unit_id = ? AND COALESCE(u.owner_employee_id, t.owner_employee_id) = ?`,
+            [payment.unit_id, ownerId]
+          );
+          if (unitRows && unitRows.length > 0) canDelete = true;
+        }
+        if (!canDelete && payment.booking_id != null) {
+          const [bookingRows] = await db.promise().query(
+            `SELECT 1 FROM BOOKING b JOIN UNIT u ON u.unit_id = b.unit_id JOIN TOWER t ON t.tower_id = u.tower_id WHERE b.booking_id = ? AND COALESCE(u.owner_employee_id, t.owner_employee_id) = ?`,
+            [payment.booking_id, ownerId]
+          );
+          if (bookingRows && bookingRows.length > 0) canDelete = true;
+        }
+        if (!canDelete) return res.status(403).json({ error: "Not allowed to delete this payment" });
+      }
+    }
+    const [result] = await db.promise().query("DELETE FROM PAYMENT WHERE payment_id = ?", [paymentId]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Payment not found" });
+    res.json({ message: "Payment deleted" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to delete payment" });
   }
 });
 
