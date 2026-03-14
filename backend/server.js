@@ -1995,9 +1995,10 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
 app.delete("/api/monthly-dues/:id", optionalAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: "Not found" });
     const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
     const ownerId = role === "OWNER" ? req.user.employee_id : null;
-    if (ownerId) {
+    if (ownerId != null) {
       const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ? AND owner_employee_id = ?", [id, ownerId]);
       if (result.affectedRows === 0) return res.status(404).json({ error: "Not found" });
     } else {

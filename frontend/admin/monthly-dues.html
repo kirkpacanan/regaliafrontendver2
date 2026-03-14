@@ -683,9 +683,17 @@
           tr.innerHTML = "<td>" + escapeHtml(unitLabel) + "</td><td>" + amount + "</td><td>" + escapeHtml(dateDisplay) + "</td><td><button type=\"button\" class=\"btn ghost " + paidBtnClass + "\" data-dues-toggle-paid data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"" + escapeHtml(paidBtnLabel) + "\" title=\"" + escapeHtml(paidBtnLabel) + "\">" + (paid ? "<span class=\"dues-paid-check\" aria-hidden=\"true\">✓</span> " : "") + paidBtnText + "</button></td><td class=\"dues-col-actions\"><button type=\"button\" class=\"dues-btn-remove\" data-dues-remove data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"Remove this due\">" + removeSvg + "</button></td>";
           list.appendChild(tr);
         });
-        list.querySelectorAll("[data-dues-toggle-paid]").forEach(function (btn) {
-          btn.addEventListener("click", function () {
-            var id = btn.getAttribute("data-id");
+        });
+      }
+      var duesListEl = document.querySelector("[data-dues-list]");
+      if (duesListEl) {
+        duesListEl.addEventListener("click", function (e) {
+          var toggleBtn = e.target.closest("[data-dues-toggle-paid]");
+          if (toggleBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            var id = toggleBtn.getAttribute("data-id");
+            var viewMonth = getViewMonth();
             loadDues().then(function (dues) {
               var d = dues.find(function (x) { return String(x.id) === id; });
               if (!d) return;
@@ -698,16 +706,27 @@
               saveDues(dues);
               renderDues();
             });
-          });
-        });
-        list.querySelectorAll("[data-dues-remove]").forEach(function (btn) {
-          btn.addEventListener("click", function () {
-            var id = btn.getAttribute("data-id");
-            fetch("/api/monthly-dues/" + id, { method: "DELETE", headers: getAuthHeaders() })
-              .then(function (r) { if (r.ok) return loadDues().then(renderDues); })
-              .catch(function () { alert("Could not remove."); });
-          });
-        });
+            return;
+          }
+          var removeBtn = e.target.closest("[data-dues-remove]");
+          if (removeBtn) {
+            e.preventDefault();
+            e.stopPropagation();
+            var id = removeBtn.getAttribute("data-id");
+            fetch("/api/monthly-dues/" + encodeURIComponent(id), { method: "DELETE", headers: getAuthHeaders() })
+              .then(function (r) {
+                if (r.ok) return loadDues().then(renderDues);
+                return r.json().then(function (body) { throw new Error(body && body.error ? body.error : "Failed"); });
+              })
+              .catch(function (err) {
+                var dues = [];
+                try { var raw = localStorage.getItem(STORAGE_KEY); dues = raw ? JSON.parse(raw) : []; } catch (e) {}
+                var before = dues.length;
+                dues = dues.filter(function (d) { return String(d.id) !== String(id); });
+                if (dues.length < before) { saveDues(dues); renderDues(dues); }
+                else { alert("Could not remove. " + (err && err.message ? err.message : "")); }
+              });
+          }
         });
       }
       function escapeHtml(s) {
