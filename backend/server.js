@@ -1780,8 +1780,12 @@ app.get("/api/payments", optionalAuth, async (req, res) => {
          LEFT JOIN UNIT u ON u.unit_id = COALESCE(p.unit_id, b.unit_id)
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
          WHERE p.owner_employee_id = ?
+            OR (p.owner_employee_id IS NULL AND (
+              (p.unit_id IN (SELECT u2.unit_id FROM UNIT u2 JOIN TOWER t2 ON t2.tower_id = u2.tower_id WHERE COALESCE(u2.owner_employee_id, t2.owner_employee_id) = ?))
+              OR (p.booking_id IS NOT NULL AND EXISTS (SELECT 1 FROM BOOKING b2 JOIN UNIT u2 ON u2.unit_id = b2.unit_id JOIN TOWER t2 ON t2.tower_id = u2.tower_id WHERE b2.booking_id = p.booking_id AND COALESCE(u2.owner_employee_id, t2.owner_employee_id) = ?))
+            ))
          ORDER BY p.payment_date DESC, p.recorded_at DESC`,
-        [ownerId]
+        [ownerId, ownerId, ownerId]
       );
       rows = r;
     } else {

@@ -680,16 +680,24 @@
         function openRecordModal(prefill) {
           prefill = prefill || {};
           if (payerInput) payerInput.value = prefill.payer_description || "";
-          if (unitSelect) unitSelect.value = prefill.unit_id != null && prefill.unit_id !== "" ? prefill.unit_id : "";
+          var unitVal = prefill.unit_id != null && prefill.unit_id !== "" ? String(prefill.unit_id) : "";
+          if (unitSelect) unitSelect.value = unitVal;
           if (amountInput) amountInput.value = prefill.amount != null ? prefill.amount : "";
           var today = new Date().toISOString().slice(0, 10);
           if (dateInput) dateInput.value = prefill.payment_date || today;
-          if (bookingIdInput) bookingIdInput.value = prefill.booking_id != null ? prefill.booking_id : "";
+          if (bookingIdInput) bookingIdInput.value = prefill.booking_id != null ? String(prefill.booking_id) : "";
+          if (methodSelect && prefill.method) methodSelect.value = prefill.method;
           if (msgEl) msgEl.textContent = "";
-          if (overlay) overlay.style.display = "flex";
+          if (overlay) {
+            overlay.style.display = "flex";
+            overlay.classList.add("is-open");
+          }
         }
         function closeRecordModal() {
-          if (overlay) overlay.style.display = "none";
+          if (overlay) {
+            overlay.classList.remove("is-open");
+            overlay.style.display = "none";
+          }
           if (form) form.reset();
         }
         var closeBtn = document.querySelector("[data-record-payment-close]");
@@ -709,13 +717,41 @@
             var row = btn.closest("tr");
             var guestCell = row && row.cells[1];
             var payer = guestCell ? guestCell.textContent.trim() : "";
+            var bookingId = btn.getAttribute("data-booking-id");
+            var unitId = btn.getAttribute("data-unit-id");
+            var amount = btn.getAttribute("data-amount");
+            if (bookingId && amount && parseFloat(amount) > 0) {
+              recordChargePaymentDirect({ booking_id: bookingId, unit_id: unitId || null, amount: amount, payer_description: payer ? payer + " (Additional charges)" : "Additional charges" });
+              return;
+            }
             openRecordModal({
-              booking_id: btn.getAttribute("data-booking-id") || null,
-              unit_id: btn.getAttribute("data-unit-id") || null,
-              amount: btn.getAttribute("data-amount") || "",
+              booking_id: bookingId || null,
+              unit_id: unitId || null,
+              amount: amount || "",
               payer_description: payer ? payer + " (Additional charges)" : "Additional charges"
             });
           });
+        }
+        function recordChargePaymentDirect(opts) {
+          var payload = {
+            booking_id: opts.booking_id ? String(opts.booking_id).trim() : null,
+            unit_id: opts.unit_id ? String(opts.unit_id).trim() : null,
+            amount: parseFloat(opts.amount) || 0,
+            payment_date: new Date().toISOString().slice(0, 10),
+            payer_description: (opts.payer_description || "Additional charges").trim(),
+            method: "Cash"
+          };
+          if (!payload.payer_description) return;
+          if (payload.amount <= 0) return;
+          fetch(apiBase + "/payments", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify(payload) })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+              if (res.ok) {
+                loadPayments();
+                loadCharges();
+              }
+            })
+            .catch(function () {});
         }
         if (form) form.addEventListener("submit", function (e) {
           e.preventDefault();
