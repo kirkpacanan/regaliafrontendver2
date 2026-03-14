@@ -1816,9 +1816,11 @@ app.get("/api/charges/all", optionalAuth, async (req, res) => {
 // ---------------- Payments (record only; owner-scoped) ----------------
 app.get("/api/payments", optionalAuth, async (req, res) => {
   try {
-    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+    const isOwner = role === "OWNER";
+    const ownerId = isOwner ? req.user.employee_id : null;
     let rows;
-    if (ownerId) {
+    if (ownerId != null) {
       const [r] = await db.promise().query(
         `SELECT p.payment_id, p.booking_id, p.unit_id, p.amount, p.payment_date, p.payer_description, p.status, p.method, p.recorded_at,
           b.guest_name, u.unit_number, t.tower_name
@@ -1828,13 +1830,13 @@ app.get("/api/payments", optionalAuth, async (req, res) => {
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
          WHERE p.owner_employee_id = ?
             OR (p.owner_employee_id IS NULL AND (
-              (p.unit_id IN (SELECT u2.unit_id FROM UNIT u2 JOIN TOWER t2 ON t2.tower_id = u2.tower_id WHERE COALESCE(u2.owner_employee_id, t2.owner_employee_id) = ?))
-              OR (p.booking_id IS NOT NULL AND EXISTS (SELECT 1 FROM BOOKING b2 JOIN UNIT u2 ON u2.unit_id = b2.unit_id JOIN TOWER t2 ON t2.tower_id = u2.tower_id WHERE b2.booking_id = p.booking_id AND COALESCE(u2.owner_employee_id, t2.owner_employee_id) = ?))
+              (p.booking_id IS NOT NULL AND EXISTS (SELECT 1 FROM BOOKING b2 JOIN UNIT u2 ON u2.unit_id = b2.unit_id JOIN TOWER t2 ON t2.tower_id = u2.tower_id WHERE b2.booking_id = p.booking_id AND COALESCE(u2.owner_employee_id, t2.owner_employee_id) = ?))
+              OR (p.unit_id IS NOT NULL AND EXISTS (SELECT 1 FROM UNIT u2 JOIN TOWER t2 ON t2.tower_id = u2.tower_id WHERE u2.unit_id = p.unit_id AND COALESCE(u2.owner_employee_id, t2.owner_employee_id) = ?))
             ))
          ORDER BY p.payment_date DESC, p.recorded_at DESC`,
         [ownerId, ownerId, ownerId]
       );
-      rows = r;
+      rows = r || [];
     } else {
       const [r] = await db.promise().query(
         `SELECT p.payment_id, p.booking_id, p.unit_id, p.amount, p.payment_date, p.payer_description, p.status, p.method, p.recorded_at,
@@ -1845,9 +1847,9 @@ app.get("/api/payments", optionalAuth, async (req, res) => {
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
          ORDER BY p.payment_date DESC, p.recorded_at DESC`
       );
-      rows = r;
+      rows = r || [];
     }
-    res.json(rows || []);
+    res.json(rows);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to fetch payments" });

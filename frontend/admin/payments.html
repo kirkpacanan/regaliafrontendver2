@@ -534,7 +534,7 @@
         });
       })();
       (function paymentsSection() {
-        var apiBase = (typeof window !== "undefined" && window.location && window.location.origin) ? (window.location.origin + "/api") : "/api";
+        var apiBase = "/api";
         function getAuthHeaders(json) {
           var h = {};
           try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
@@ -626,17 +626,28 @@
         }
         function loadPayments() {
           return fetch(apiBase + "/payments", { headers: getAuthHeaders() })
-            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (r) {
+              if (r.ok) return r.json();
+              return r.text().then(function (text) {
+                var errMsg = "Could not load payments.";
+                try { var b = JSON.parse(text); if (b && b.error) errMsg = b.error; } catch (e) {}
+                throw new Error(errMsg);
+              });
+            })
             .then(function (list) {
               allPayments = Array.isArray(list) ? list : [];
               updateStats(allPayments);
               renderPaymentTable();
             })
-            .catch(function () {
+            .catch(function (err) {
               if (totalEl) totalEl.textContent = "—";
               if (pendingEl) pendingEl.textContent = "—";
               if (monthEl) monthEl.textContent = "—";
-              if (emptyRow) { emptyRow.style.display = ""; emptyRow.querySelector(".payment-placeholder-message").textContent = "Could not load payments."; }
+              if (emptyRow) {
+                emptyRow.style.display = "";
+                var msg = emptyRow.querySelector(".payment-placeholder-message");
+                if (msg) msg.textContent = (err && err.message) ? err.message : "Could not load payments. Sign in and ensure the server is running.";
+              }
             });
         }
 
