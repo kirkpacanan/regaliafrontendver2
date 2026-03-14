@@ -474,17 +474,37 @@
         });
       })();
 
-      var STORAGE_KEY = "regalia_monthly_dues";
-      function getAuthHeaders() {
+      function getAuthHeaders(json) {
         var h = {};
         try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+        if (json) h["Content-Type"] = "application/json";
         return h;
       }
       function loadDues() {
-        try {
-          var raw = localStorage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : [];
-        } catch (e) { return []; }
+        return fetch("/api/monthly-dues", { headers: getAuthHeaders() })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (apiDues) {
+            if (Array.isArray(apiDues) && apiDues.length >= 0) {
+              return apiDues.map(function (d) {
+                return {
+                  id: String(d.id),
+                  unit_id: d.unit_id != null ? String(d.unit_id) : null,
+                  unit_label: d.unit_label || "",
+                  amount: d.amount,
+                  due_date: d.due_date ? String(d.due_date).slice(0, 10) : null,
+                  recurring: d.recurring !== false,
+                  paid_months: Array.isArray(d.paid_months) ? d.paid_months : []
+                };
+              });
+            }
+            return [];
+          })
+          .catch(function () {
+            try {
+              var raw = localStorage.getItem(STORAGE_KEY);
+              return raw ? JSON.parse(raw) : [];
+            } catch (e) { return []; }
+          });
       }
       function saveDues(dues) {
         try {
@@ -614,16 +634,16 @@
         if (notifBadge) { notifBadge.style.display = "block"; notifBadge.textContent = dueList.length > 9 ? "9+" : String(dueList.length); }
       }
       function renderDues() {
-        var list = document.querySelector("[data-dues-list]");
-        var emptyRow = document.querySelector("[data-dues-empty]");
-        if (!list) return;
-        var allDues = loadDues();
-        var viewMonth = getViewMonth();
-        var dues = allDues.filter(function (d) { return dueAppliesToMonth(d, viewMonth); });
-        updateDueAlert(allDues);
-        var emptyMsg = document.querySelector("[data-dues-empty-msg]");
-        if (emptyMsg) emptyMsg.textContent = allDues.length === 0 ? "No dues added yet. Use the form above to add a monthly due." : "No dues for this month. Change the view month or add a recurring due.";
-        if (emptyRow) emptyRow.style.display = dues.length ? "none" : "";
+        loadDues().then(function (allDues) {
+          var list = document.querySelector("[data-dues-list]");
+          var emptyRow = document.querySelector("[data-dues-empty]");
+          if (!list) return;
+          var viewMonth = getViewMonth();
+          var dues = allDues.filter(function (d) { return dueAppliesToMonth(d, viewMonth); });
+          updateDueAlert(allDues);
+          var emptyMsg = document.querySelector("[data-dues-empty-msg]");
+          if (emptyMsg) emptyMsg.textContent = allDues.length === 0 ? "No dues added yet. Use the form above to add a monthly due." : "No dues for this month. Change the view month or add a recurring due.";
+          if (emptyRow) emptyRow.style.display = dues.length ? "none" : "";
         list.querySelectorAll("[data-due-id]").forEach(function (r) { r.remove(); });
         var removeSvg = "<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2\"></path><line x1=\"10\" y1=\"11\" x2=\"10\" y2=\"17\"></line><line x1=\"14\" y1=\"11\" x2=\"14\" y2=\"17\"></line></svg>";
         dues.forEach(function (d) {
@@ -643,26 +663,28 @@
         list.querySelectorAll("[data-dues-toggle-paid]").forEach(function (btn) {
           btn.addEventListener("click", function () {
             var id = btn.getAttribute("data-id");
-            var dues = loadDues();
-            var d = dues.find(function (x) { return x.id === id; });
-            if (!d) return;
-            normalizePaidMonths(d);
-            if (!Array.isArray(d.paid_months)) d.paid_months = [];
-            var idx = d.paid_months.indexOf(viewMonth);
-            if (idx >= 0) d.paid_months.splice(idx, 1);
-            else d.paid_months.push(viewMonth);
-            d.paid_months.sort();
-            saveDues(dues);
-            renderDues();
+            loadDues().then(function (dues) {
+              var d = dues.find(function (x) { return String(x.id) === id; });
+              if (!d) return;
+              normalizePaidMonths(d);
+              if (!Array.isArray(d.paid_months)) d.paid_months = [];
+              var idx = d.paid_months.indexOf(viewMonth);
+              if (idx >= 0) d.paid_months.splice(idx, 1);
+              else d.paid_months.push(viewMonth);
+              d.paid_months.sort();
+              saveDues(dues);
+              renderDues();
+            });
           });
         });
         list.querySelectorAll("[data-dues-remove]").forEach(function (btn) {
           btn.addEventListener("click", function () {
             var id = btn.getAttribute("data-id");
-            var dues = loadDues().filter(function (d) { return d.id !== id; });
-            saveDues(dues);
-            renderDues();
+            fetch("/api/monthly-dues/" + id, { method: "DELETE", headers: getAuthHeaders() })
+              .then(function (r) { if (r.ok) return loadDues().then(renderDues); })
+              .catch(function () { alert("Could not remove."); });
           });
+        });
         });
       }
       function escapeHtml(s) {
@@ -672,20 +694,42 @@
         return div.innerHTML;
       }
       var unitSelect = document.querySelector("[data-dues-unit]");
-      if (unitSelect) {
+      function loadUnitsIntoSelect() {
+        if (!unitSelect) return;
+        var firstOpt = unitSelect.querySelector("option[value='']");
+        var generalOpt = unitSelect.querySelector("option[value='general']");
+        var loadingOpt = document.createElement("option");
+        loadingOpt.value = "";
+        loadingOpt.disabled = true;
+        loadingOpt.textContent = "Loading units…";
+        while (unitSelect.options.length > 2) unitSelect.remove(2);
+        unitSelect.appendChild(loadingOpt);
         fetch("/api/properties", { headers: getAuthHeaders() })
           .then(function (r) { return r.ok ? r.json() : []; })
           .then(function (units) {
+            if (loadingOpt.parentNode) loadingOpt.remove();
             if (!Array.isArray(units)) return;
+            var fragment = document.createDocumentFragment();
             units.forEach(function (u) {
               var opt = document.createElement("option");
               opt.value = u.unit_id;
               opt.textContent = (u.tower_name || "—") + " – Unit " + (u.unit_number || u.unit_id || "—");
-              unitSelect.appendChild(opt);
+              fragment.appendChild(opt);
             });
+            if (generalOpt) unitSelect.insertBefore(fragment, generalOpt);
+            else unitSelect.appendChild(fragment);
           })
-          .catch(function () {});
+          .catch(function () {
+            if (loadingOpt.parentNode) loadingOpt.remove();
+            var opt = document.createElement("option");
+            opt.value = "";
+            opt.disabled = true;
+            opt.textContent = "Could not load units. Try again.";
+            if (generalOpt) unitSelect.insertBefore(opt, generalOpt);
+            else unitSelect.appendChild(opt);
+          });
       }
+      if (unitSelect) loadUnitsIntoSelect();
       var form = document.querySelector("[data-dues-form]");
       if (form) {
         form.addEventListener("submit", function (e) {
@@ -709,17 +753,35 @@
           var recurringEl = form.querySelector("[data-dues-recurring]");
           var recurring = recurringEl ? !!recurringEl.checked : true;
           var unitLabel = unitEl && unitEl.options[unitEl.selectedIndex] ? unitEl.options[unitEl.selectedIndex].text : unitValue === "general" ? "General / Other" : "—";
-          var dues = loadDues();
-          var id = "due_" + Date.now();
-          dues.push({ id: id, unit_id: unitValue === "general" ? null : unitValue, unit_label: unitLabel, amount: amount, due_date: due_date || null, recurring: recurring, paid_months: [] });
-          saveDues(dues);
-          renderDues();
-          form.reset();
-          if (dateEl) {
-            var now = new Date();
-            var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-            dateEl.value = nextMonth.getFullYear() + "-" + String(nextMonth.getMonth() + 1).padStart(2, "0") + "-" + String(nextMonth.getDate()).padStart(2, "0");
-          }
+          var payload = { unit_id: unitValue === "general" ? null : unitValue, amount: Number(amount), due_date: due_date || (new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0") + "-01") };
+          fetch("/api/monthly-dues", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify(payload) })
+            .then(function (r) {
+              if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "Failed"); });
+              return r.json();
+            })
+            .then(function () {
+              form.reset();
+              if (dateEl) {
+                var now = new Date();
+                var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                dateEl.value = nextMonth.getFullYear() + "-" + String(nextMonth.getMonth() + 1).padStart(2, "0") + "-" + String(nextMonth.getDate()).padStart(2, "0");
+              }
+              return loadDues().then(renderDues);
+            })
+            .catch(function (err) {
+              var dues = [];
+              try { var raw = localStorage.getItem(STORAGE_KEY); dues = raw ? JSON.parse(raw) : []; } catch (e) {}
+              var id = "due_" + Date.now();
+              dues.push({ id: id, unit_id: unitValue === "general" ? null : unitValue, unit_label: unitLabel, amount: amount, due_date: due_date || null, recurring: recurring, paid_months: [] });
+              saveDues(dues);
+              form.reset();
+              if (dateEl) {
+                var now = new Date();
+                var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+                dateEl.value = nextMonth.getFullYear() + "-" + String(nextMonth.getMonth() + 1).padStart(2, "0") + "-" + String(nextMonth.getDate()).padStart(2, "0");
+              }
+              renderDues();
+            });
         });
       }
       var dateInput = document.querySelector("[data-dues-date]");

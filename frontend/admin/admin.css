@@ -493,6 +493,12 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
   letter-spacing: normal;
 }
 
+label .required {
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
 .modal-form input::placeholder,
 .modal-form textarea::placeholder {
   color: rgba(79, 127, 132, 0.5);

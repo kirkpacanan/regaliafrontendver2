@@ -407,10 +407,14 @@ app.get("/api/units/:id", async (req, res) => {
 
 app.post("/api/units", optionalAuth, async (req, res) => {
   try {
-    const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls } = req.body;
+    const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, price } = req.body;
     if (!tower_id || !unit_number)
       return res.status(400).json({ error: "tower_id and unit_number required" });
+    const priceNum = price !== undefined && price !== "" && price != null ? Number(price) : NaN;
+    if (isNaN(priceNum) || priceNum < 0)
+      return res.status(400).json({ error: "price is required and must be >= 0" });
     const hasImages = image_urls != null && String(image_urls).trim() !== "";
+    const priceVal = priceNum;
     await tryBackfillTowerOwners();
     const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
@@ -418,8 +422,8 @@ app.post("/api/units", optionalAuth, async (req, res) => {
     try {
       if (hasImages) {
         [result] = await db.promise().query(
-          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, owner_employee_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, owner_employee_id, price)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             Number(tower_id),
             String(unit_number).trim(),
@@ -429,12 +433,13 @@ app.post("/api/units", optionalAuth, async (req, res) => {
             description ? String(description).trim() : null,
             String(image_urls).trim(),
             ownerId,
+            priceVal
           ]
         );
       } else {
         [result] = await db.promise().query(
-          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, owner_employee_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, owner_employee_id, price)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             Number(tower_id),
             String(unit_number).trim(),
@@ -443,6 +448,7 @@ app.post("/api/units", optionalAuth, async (req, res) => {
             unit_size != null ? Number(unit_size) : null,
             description ? String(description).trim() : null,
             ownerId,
+            priceVal
           ]
         );
       }
@@ -1631,6 +1637,40 @@ app.post("/api/bookings/:id/check-out", async (req, res) => {
       )
     `);
   } catch (e) { /* table may already exist */ }
+  try {
+    await db.promise().query(`
+      CREATE TABLE IF NOT EXISTS PAYMENT (
+        payment_id INT AUTO_INCREMENT PRIMARY KEY,
+        booking_id INT NULL,
+        unit_id INT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        payment_date DATE NOT NULL,
+        payer_description VARCHAR(255) NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'completed',
+        method VARCHAR(64) NULL,
+        recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        recorded_by INT NULL,
+        owner_employee_id INT NULL,
+        INDEX idx_payment_owner (owner_employee_id),
+        INDEX idx_payment_date (payment_date)
+      )
+    `);
+  } catch (e) { /* table may already exist */ }
+  try {
+    await db.promise().query(`
+      CREATE TABLE IF NOT EXISTS MONTHLY_DUE (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        unit_id INT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        due_date DATE NOT NULL,
+        status VARCHAR(32) NOT NULL DEFAULT 'pending',
+        owner_employee_id INT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_monthly_due_owner (owner_employee_id),
+        INDEX idx_monthly_due_date (due_date)
+      )
+    `);
+  } catch (e) { /* table may already exist */ }
 })();
 
 app.get("/api/bookings/:id/charges", optionalAuth, async (req, res) => {
@@ -1689,6 +1729,155 @@ app.get("/api/charges/all", optionalAuth, async (req, res) => {
     res.json(rows);
   } catch (err) {
     res.status(500).json({ error: err.message || "Failed to fetch all charges" });
+  }
+});
+
+// ---------------- Payments (record only; owner-scoped) ----------------
+app.get("/api/payments", optionalAuth, async (req, res) => {
+  try {
+    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    let rows;
+    if (ownerId) {
+      const [r] = await db.promise().query(
+        `SELECT p.payment_id, p.booking_id, p.unit_id, p.amount, p.payment_date, p.payer_description, p.status, p.method, p.recorded_at,
+          b.guest_name, u.unit_number, t.tower_name
+         FROM PAYMENT p
+         LEFT JOIN BOOKING b ON b.booking_id = p.booking_id
+         LEFT JOIN UNIT u ON u.unit_id = COALESCE(p.unit_id, b.unit_id)
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         WHERE p.owner_employee_id = ?
+         ORDER BY p.payment_date DESC, p.recorded_at DESC`,
+        [ownerId]
+      );
+      rows = r;
+    } else {
+      const [r] = await db.promise().query(
+        `SELECT p.payment_id, p.booking_id, p.unit_id, p.amount, p.payment_date, p.payer_description, p.status, p.method, p.recorded_at,
+          b.guest_name, u.unit_number, t.tower_name
+         FROM PAYMENT p
+         LEFT JOIN BOOKING b ON b.booking_id = p.booking_id
+         LEFT JOIN UNIT u ON u.unit_id = COALESCE(p.unit_id, b.unit_id)
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         ORDER BY p.payment_date DESC, p.recorded_at DESC`
+      );
+      rows = r;
+    }
+    res.json(rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to fetch payments" });
+  }
+});
+
+app.post("/api/payments", optionalAuth, async (req, res) => {
+  try {
+    const { booking_id, unit_id, amount, payment_date, payer_description, method } = req.body || {};
+    const amt = Number(amount);
+    if (!amt || amt <= 0) return res.status(400).json({ error: "amount required and must be positive" });
+    const date = payment_date && String(payment_date).trim() ? String(payment_date).trim().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    const recordedBy = req.user ? req.user.employee_id : null;
+    await db.promise().query(
+      `INSERT INTO PAYMENT (booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_by, owner_employee_id)
+       VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?)`,
+      [
+        booking_id != null ? Number(booking_id) : null,
+        unit_id != null ? Number(unit_id) : null,
+        amt,
+        date,
+        payer_description ? String(payer_description).trim() : null,
+        method ? String(method).trim() : null,
+        recordedBy,
+        ownerId,
+      ]
+    );
+    const [rows] = await db.promise().query(
+      "SELECT payment_id, booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_at FROM PAYMENT ORDER BY payment_id DESC LIMIT 1"
+    );
+    res.status(201).json(rows[0] || {});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to record payment" });
+  }
+});
+
+// ---------------- Monthly Dues (owner-scoped) ----------------
+app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
+  try {
+    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    let rows;
+    if (ownerId) {
+      const [r] = await db.promise().query(
+        `SELECT d.id, d.unit_id, d.amount, d.due_date, d.status, d.created_at,
+          u.unit_number, t.tower_name
+         FROM MONTHLY_DUE d
+         LEFT JOIN UNIT u ON u.unit_id = d.unit_id
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         WHERE d.owner_employee_id = ?
+         ORDER BY d.due_date DESC, d.id DESC`,
+        [ownerId]
+      );
+      rows = r;
+    } else {
+      const [r] = await db.promise().query(
+        `SELECT d.id, d.unit_id, d.amount, d.due_date, d.status, d.created_at,
+          u.unit_number, t.tower_name
+         FROM MONTHLY_DUE d
+         LEFT JOIN UNIT u ON u.unit_id = d.unit_id
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         ORDER BY d.due_date DESC, d.id DESC`
+      );
+      rows = r;
+    }
+    res.json((rows || []).map(row => ({
+      ...row,
+      unit_label: row.unit_id ? (row.tower_name ? row.tower_name + " – Unit " + (row.unit_number || row.unit_id) : "Unit " + (row.unit_number || row.unit_id)) : "General / Other",
+    })));
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to fetch monthly dues" });
+  }
+});
+
+app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
+  try {
+    const { unit_id, amount, due_date } = req.body || {};
+    const amt = Number(amount);
+    if (amt === undefined || isNaN(amt) || amt < 0) return res.status(400).json({ error: "amount required and must be >= 0" });
+    const date = due_date && String(due_date).trim() ? String(due_date).trim().slice(0, 10) : null;
+    if (!date) return res.status(400).json({ error: "due_date required (YYYY-MM-DD or YYYY-MM)" });
+    const dueDate = date.length === 7 ? date + "-01" : date.slice(0, 10);
+    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    const [result] = await db.promise().query(
+      "INSERT INTO MONTHLY_DUE (unit_id, amount, due_date, status, owner_employee_id) VALUES (?, ?, ?, 'pending', ?)",
+      [unit_id != null && unit_id !== "" && unit_id !== "general" ? Number(unit_id) : null, amt, dueDate, ownerId]
+    );
+    const [rows] = await db.promise().query(
+      "SELECT id, unit_id, amount, due_date, status, created_at FROM MONTHLY_DUE WHERE id = ?",
+      [result.insertId]
+    );
+    res.status(201).json(rows[0] || {});
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to add monthly due" });
+  }
+});
+
+app.delete("/api/monthly-dues/:id", optionalAuth, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    if (ownerId) {
+      const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ? AND owner_employee_id = ?", [id, ownerId]);
+      if (result.affectedRows === 0) return res.status(404).json({ error: "Not found" });
+    } else {
+      const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ?", [id]);
+      if (result.affectedRows === 0) return res.status(404).json({ error: "Not found" });
+    }
+    res.json({ message: "Monthly due removed" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to remove monthly due" });
   }
 });
 
