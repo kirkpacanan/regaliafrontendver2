@@ -1038,6 +1038,24 @@ body.theme-rose .sidebar { background: rgba(142, 34, 68, 0.25); }
   border-radius: 8px;
 }
 
+/* Check-out receipt modal (additional charges) */
+.receipt-modal .receipt-charges table {
+  width: 100%;
+  font-size: 0.9rem;
+  border-collapse: collapse;
+}
+.receipt-modal .receipt-charges td {
+  padding: 0.35rem 0.5rem 0.35rem 0;
+  color: var(--text);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.receipt-modal .receipt-charges td:last-child {
+  text-align: right;
+  white-space: nowrap;
+}
+.receipt-modal .receipt-total {
+  color: var(--text);
+}
 
 .muted {
   margin: 0.1rem 0 0;
