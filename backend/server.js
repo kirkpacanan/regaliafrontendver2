@@ -1947,13 +1947,14 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
     const ownerId = role === "OWNER" ? req.user.employee_id : null;
     let rows;
     if (ownerId != null) {
+      // Show dues for this owner OR unassigned (NULL) so previously added dues without owner still show
       const [r] = await db.promise().query(
         `SELECT d.id, d.unit_id, d.amount, d.due_date, d.status, d.created_at,
           u.unit_number, t.tower_name
          FROM MONTHLY_DUE d
          LEFT JOIN UNIT u ON u.unit_id = d.unit_id
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-         WHERE d.owner_employee_id = ?
+         WHERE (d.owner_employee_id = ? OR d.owner_employee_id IS NULL)
          ORDER BY d.due_date DESC, d.id DESC`,
         [ownerId]
       );
@@ -1987,8 +1988,18 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
     const date = due_date && String(due_date).trim() ? String(due_date).trim().slice(0, 10) : null;
     if (!date) return res.status(400).json({ error: "due_date required (YYYY-MM-DD or YYYY-MM)" });
     const dueDate = date.length === 7 ? date + "-01" : date.slice(0, 10);
-    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-    const ownerId = role === "OWNER" ? req.user.employee_id : null;
+    let ownerId = null;
+    if (req.user && req.user.employee_id) {
+      const role = req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+      if (role === "OWNER") ownerId = req.user.employee_id;
+      else {
+        const [[row]] = await db.promise().query(
+          "SELECT 1 FROM EMPLOYEE_ROLE WHERE employee_id = ? AND role_type = 'OWNER' AND status = 'active' LIMIT 1",
+          [req.user.employee_id]
+        );
+        if (row) ownerId = req.user.employee_id;
+      }
+    }
     const [result] = await db.promise().query(
       "INSERT INTO MONTHLY_DUE (unit_id, amount, due_date, status, owner_employee_id) VALUES (?, ?, ?, 'pending', ?)",
       [unit_id != null && unit_id !== "" && unit_id !== "general" ? Number(unit_id) : null, amt, dueDate, ownerId]
@@ -2011,7 +2022,7 @@ app.delete("/api/monthly-dues/:id", optionalAuth, async (req, res) => {
     const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
     const ownerId = role === "OWNER" ? req.user.employee_id : null;
     if (ownerId != null) {
-      const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ? AND owner_employee_id = ?", [id, ownerId]);
+      const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ? AND (owner_employee_id = ? OR owner_employee_id IS NULL)", [id, ownerId]);
       if (result.affectedRows === 0) return res.status(404).json({ error: "Not found" });
     } else {
       const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ?", [id]);
