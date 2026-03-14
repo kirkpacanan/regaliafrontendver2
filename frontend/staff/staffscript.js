@@ -20,6 +20,10 @@
     return fetch(API + "/bookings", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; });
   }
 
+  function getUnits() {
+    return fetch(API + "/units", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; });
+  }
+
   function formatDate(d) {
     if (!d) return "";
     var x = new Date(d);
@@ -80,6 +84,7 @@
   window.RegaliaStaff = {
     API: API,
     getBookings: getBookings,
+    getUnits: getUnits,
     formatDate: formatDate,
     formatShortDate: formatShortDate,
     toDateKey: toDateKey,

@@ -640,7 +640,7 @@ app.get("/api/employees", optionalAuth, async (req, res) => {
   try {
     const baseSelect = `SELECT e.employee_id, e.full_name, e.username, e.contact_number, e.email, e.address,
       (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) AS role_type,
-      (SELECT t.tower_name FROM EMPLOYEE_TOWER et JOIN TOWER t ON t.tower_id = et.tower_id WHERE et.employee_id = e.employee_id LIMIT 1) AS assigned_tower
+      (SELECT GROUP_CONCAT(t.tower_name ORDER BY t.tower_name SEPARATOR ', ') FROM EMPLOYEE_TOWER et JOIN TOWER t ON t.tower_id = et.tower_id WHERE et.employee_id = e.employee_id) AS assigned_tower
      FROM EMPLOYEE e`;
     let rows;
     if (req.user && req.user.role === "OWNER") {
@@ -716,19 +716,58 @@ app.post("/api/employees", optionalAuth, async (req, res) => {
   }
 });
 
-// Assign employee to tower (EMPLOYEE_TOWER)
+// Get employee's assigned towers (for assign sidebar – multi-select)
+app.get("/api/employees/:id/towers", optionalAuth, async (req, res) => {
+  try {
+    const employeeId = Number(req.params.id);
+    const [rows] = await db.promise().query(
+      `SELECT et.tower_id, t.tower_name, t.number_floors
+       FROM EMPLOYEE_TOWER et
+       JOIN TOWER t ON t.tower_id = et.tower_id
+       WHERE et.employee_id = ?
+       ORDER BY t.tower_name`,
+      [employeeId]
+    );
+    res.json({ towers: rows || [] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to fetch assignments" });
+  }
+});
+
+// Assign employee to one or more towers (EMPLOYEE_TOWER). Body: { tower_ids: [1, 2, 3] }. Empty array = unassign all.
 app.put("/api/employees/:id/assign-tower", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
-    const { tower_id } = req.body;
-    if (!tower_id) return res.status(400).json({ error: "tower_id required" });
+    const towerIds = req.body && req.body.tower_ids;
+    const ids = Array.isArray(towerIds)
+      ? towerIds.map((id) => Number(id)).filter((id) => id > 0)
+      : req.body && req.body.tower_id != null
+        ? [Number(req.body.tower_id)]
+        : null;
+    if (ids === null) return res.status(400).json({ error: "tower_ids (array) or tower_id required" });
 
     await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [employeeId]);
-    await db.promise().query("INSERT INTO EMPLOYEE_TOWER (employee_id, tower_id) VALUES (?, ?)", [employeeId, Number(tower_id)]);
+    for (const tid of ids) {
+      await db.promise().query("INSERT INTO EMPLOYEE_TOWER (employee_id, tower_id) VALUES (?, ?)", [employeeId, tid]);
+    }
     res.json({ message: "Assignment saved" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to assign tower" });
+  }
+});
+
+// Unassign employee from one tower. Body: { tower_id: 1 } or DELETE /api/employees/:id/towers/:towerId
+app.delete("/api/employees/:id/towers/:towerId", optionalAuth, async (req, res) => {
+  try {
+    const employeeId = Number(req.params.id);
+    const towerId = Number(req.params.towerId);
+    await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ? AND tower_id = ?", [employeeId, towerId]);
+    res.json({ message: "Tower unassigned" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to unassign" });
   }
 });
 

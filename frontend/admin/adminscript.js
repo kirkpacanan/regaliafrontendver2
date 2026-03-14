@@ -850,6 +850,28 @@
         });
     }
 
+    function addCheckToTowerButton(btn) {
+      if (btn.querySelector(".assign-tower__check")) return;
+      var check = document.createElement("span");
+      check.className = "assign-tower__check icon";
+      check.innerHTML = "<svg viewBox=\"0 0 24 24\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"></path><polyline points=\"22 4 12 14.01 9 11.01\"></polyline></svg>";
+      btn.classList.add("assign-tower--selected");
+      btn.appendChild(check);
+    }
+    function removeCheckFromTowerButton(btn) {
+      var ch = btn.querySelector(".assign-tower__check");
+      if (ch) btn.removeChild(ch);
+      btn.classList.remove("assign-tower--selected");
+    }
+    function setAssignedTowersSelection(assignedTowerIds) {
+      if (!assignTowersContainer) return;
+      var ids = (assignedTowerIds || []).map(function (x) { return Number(x); });
+      assignTowersContainer.querySelectorAll(".assign-tower").forEach(function (b) {
+        var tid = Number(b.dataset.towerId);
+        if (ids.indexOf(tid) !== -1) addCheckToTowerButton(b);
+        else removeCheckFromTowerButton(b);
+      });
+    }
     function loadTowersForAssign() {
       return fetch(API + "/towers", { headers: getAuthHeaders() })
         .then(function (r) { return r.ok ? r.json() : []; })
@@ -857,10 +879,10 @@
           towers = data;
           if (!assignTowersContainer) return;
           assignTowersContainer.innerHTML = "";
-          data.forEach(function (t, i) {
+          data.forEach(function (t) {
             var btn = document.createElement("button");
             btn.type = "button";
-            btn.className = "assign-tower" + (i === 0 ? " assign-tower--selected" : "");
+            btn.className = "assign-tower";
             btn.dataset.towerId = t.tower_id;
             btn.dataset.towerName = t.tower_name;
             btn.innerHTML =
@@ -872,22 +894,13 @@
                   "<p class=\"assign-tower__title\">" + escapeHtml(t.tower_name) + "</p>" +
                   "<p class=\"assign-tower__desc\">" + (t.number_floors ? t.number_floors + " floors" : "") + "</p>" +
                 "</div>" +
-              "</div>" +
-              (i === 0 ? "<span class=\"assign-tower__check icon\"><svg viewBox=\"0 0 24 24\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"></path><polyline points=\"22 4 12 14.01 9 11.01\"></polyline></svg></span>" : "");
+              "</div>";
             assignTowersContainer.appendChild(btn);
           });
           assignTowersContainer.querySelectorAll(".assign-tower").forEach(function (btn) {
             btn.addEventListener("click", function () {
-              assignTowersContainer.querySelectorAll(".assign-tower").forEach(function (b) {
-                b.classList.remove("assign-tower--selected");
-                var ch = b.querySelector(".assign-tower__check");
-                if (ch) b.removeChild(ch);
-              });
-              var check = document.createElement("span");
-              check.className = "assign-tower__check icon";
-              check.innerHTML = "<svg viewBox=\"0 0 24 24\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"></path><polyline points=\"22 4 12 14.01 9 11.01\"></polyline></svg>";
-              btn.classList.add("assign-tower--selected");
-              btn.appendChild(check);
+              if (btn.classList.contains("assign-tower--selected")) removeCheckFromTowerButton(btn);
+              else addCheckToTowerButton(btn);
             });
           });
         })
@@ -905,6 +918,14 @@
       assignSidebar.classList.add("is-open");
       assignSidebar.setAttribute("aria-hidden", "false");
       loadTowersForAssign().then(function () {
+        return fetch(API + "/employees/" + employeeId + "/towers", { headers: getAuthHeaders() });
+      }).then(function (r) { return r.ok ? r.json() : { towers: [] }; }).then(function (data) {
+        var ids = (data.towers || []).map(function (t) { return t.tower_id; });
+        setAssignedTowersSelection(ids);
+        requestAnimationFrame(function () {
+          assignContent.classList.add("is-visible");
+        });
+      }).catch(function () {
         requestAnimationFrame(function () {
           assignContent.classList.add("is-visible");
         });
@@ -1049,29 +1070,50 @@
 
     if (saveAssignmentBtn) {
       saveAssignmentBtn.addEventListener("click", function () {
-        var selected = assignTowersContainer && assignTowersContainer.querySelector(".assign-tower--selected");
-        if (selected && activeEmployeeId) {
-          var towerId = selected.dataset.towerId;
-          fetch(API + "/employees/" + activeEmployeeId + "/assign-tower", {
-            method: "PUT",
-            headers: getAuthHeaders(true),
-            body: JSON.stringify({ tower_id: Number(towerId) }),
+        if (!activeEmployeeId) { closeAssignModal(); return; }
+        var selected = assignTowersContainer ? assignTowersContainer.querySelectorAll(".assign-tower--selected") : [];
+        var towerIds = [].map.call(selected, function (b) { return Number(b.dataset.towerId); });
+        fetch(API + "/employees/" + activeEmployeeId + "/assign-tower", {
+          method: "PUT",
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({ tower_ids: towerIds }),
+        })
+          .then(function (r) {
+            if (r.status === 501) return r.json().then(function (e) { throw new Error(e.error); });
+            if (!r.ok) throw new Error("Failed to save");
+            return r.json();
           })
-            .then(function (r) {
-              if (r.status === 501) return r.json().then(function (e) { throw new Error(e.error); });
-              if (!r.ok) throw new Error("Failed to save");
-              return r.json();
-            })
-            .then(function () {
-              loadEmployees();
-              closeAssignModal();
-            })
-            .catch(function (err) {
-              alert(err.message || "Could not save assignment.");
-            });
-        } else {
-          closeAssignModal();
-        }
+          .then(function () {
+            loadEmployees();
+            closeAssignModal();
+          })
+          .catch(function (err) {
+            alert(err.message || "Could not save assignment.");
+          });
+      });
+    }
+    var unassignAllBtn = document.querySelector("[data-unassign-all]");
+    if (unassignAllBtn && assignTowersContainer) {
+      unassignAllBtn.addEventListener("click", function () {
+        if (!activeEmployeeId) return;
+        if (!confirm("Unassign this employee from all towers?")) return;
+        fetch(API + "/employees/" + activeEmployeeId + "/assign-tower", {
+          method: "PUT",
+          headers: getAuthHeaders(true),
+          body: JSON.stringify({ tower_ids: [] }),
+        })
+          .then(function (r) {
+            if (!r.ok) throw new Error("Failed to unassign");
+            return r.json();
+          })
+          .then(function () {
+            setAssignedTowersSelection([]);
+            loadEmployees();
+            closeAssignModal();
+          })
+          .catch(function (err) {
+            alert(err.message || "Could not unassign.");
+          });
       });
     }
 

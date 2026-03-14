@@ -302,8 +302,9 @@
       (function () {
         var R = window.RegaliaStaff;
         if (!R) return;
-        R.getBookings().then(function (bookings) {
-          if (!Array.isArray(bookings)) bookings = [];
+        Promise.all([R.getBookings(), R.getUnits ? R.getUnits() : Promise.resolve([])]).then(function (results) {
+          var bookings = Array.isArray(results[0]) ? results[0] : [];
+          var units = Array.isArray(results[1]) ? results[1] : [];
           var todayKey = R.toDateKey(new Date());
           var todayUpcoming = bookings.filter(function (b) {
             if (b.status !== "confirmed" || !b.check_in_date) return false;
@@ -365,22 +366,39 @@
                 }).join("");
           }
 
-          var unitMap = {};
+          var occupiedByUnit = {};
           bookings.forEach(function (b) {
-            var key = (b.tower_name || "") + "|" + (b.unit_number || b.unit_id);
-            if (!key || key === "|") return;
-            if (!unitMap[key]) unitMap[key] = { tower: b.tower_name, unit: b.unit_number || b.unit_id, occupied: false, guestName: null };
-            if (b.status === "confirmed" && b.checked_in_at && !b.checked_out_at) {
-              unitMap[key].occupied = true;
-              unitMap[key].guestName = b.guest_name || "Guest";
+            if (b.status === "confirmed" && b.checked_in_at && !b.checked_out_at && b.unit_id != null) {
+              occupiedByUnit[b.unit_id] = b.guest_name || "Guest";
             }
           });
-          var unitList = Object.keys(unitMap).slice(0, 20).map(function (k) {
-            var u = unitMap[k];
-            var status = u.occupied ? "status--occupied" : "status--available";
-            var label = u.occupied ? "Occupied: " + (u.guestName || "Guest") : "Available";
-            return "<div class=\"list-item\"><div>" + (u.tower || "—") + " (Unit " + u.unit + ")<div class=\"status " + status + "\"><span class=\"dot\"></span>" + label + "</div></div></div>";
-          }).join("");
+          var unitList = "";
+          if (units.length > 0) {
+            unitList = units.slice(0, 50).map(function (u) {
+              var guestName = occupiedByUnit[u.unit_id];
+              var occupied = !!guestName;
+              var status = occupied ? "status--occupied" : "status--available";
+              var label = occupied ? "Occupied: " + guestName : "Available";
+              return "<div class=\"list-item\"><div>" + (u.tower_name || "—") + " (Unit " + (u.unit_number || u.unit_id) + ")<div class=\"status " + status + "\"><span class=\"dot\"></span>" + label + "</div></div></div>";
+            }).join("");
+          } else {
+            var unitMap = {};
+            bookings.forEach(function (b) {
+              var key = (b.tower_name || "") + "|" + (b.unit_number || b.unit_id);
+              if (!key || key === "|") return;
+              if (!unitMap[key]) unitMap[key] = { tower: b.tower_name, unit: b.unit_number || b.unit_id, occupied: false, guestName: null };
+              if (b.status === "confirmed" && b.checked_in_at && !b.checked_out_at) {
+                unitMap[key].occupied = true;
+                unitMap[key].guestName = b.guest_name || "Guest";
+              }
+            });
+            unitList = Object.keys(unitMap).slice(0, 20).map(function (k) {
+              var u = unitMap[k];
+              var status = u.occupied ? "status--occupied" : "status--available";
+              var label = u.occupied ? "Occupied: " + (u.guestName || "Guest") : "Available";
+              return "<div class=\"list-item\"><div>" + (u.tower || "—") + " (Unit " + u.unit + ")<div class=\"status " + status + "\"><span class=\"dot\"></span>" + label + "</div></div></div>";
+            }).join("");
+          }
           listEl = document.querySelector("[data-dashboard-units]");
           if (listEl) listEl.innerHTML = unitList || "<div class=\"list-item\"><div>No units</div></div>";
 
