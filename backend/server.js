@@ -1595,7 +1595,8 @@ app.post("/api/bookings/:id/check-in", async (req, res) => {
 });
 
 // Staff: record check-out (requires BOOKING.checked_out_at column)
-// Early checkout: if check_out_date is in the future, update it to today so the unit is freed
+// Early checkout: if check_out_date is in the future, update it to today so the unit is freed.
+// Creates a PAYMENT record for accommodation (length of stay × unit price) so it appears in admin Payments.
 app.post("/api/bookings/:id/check-out", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -1607,6 +1608,39 @@ app.post("/api/bookings/:id/check-out", async (req, res) => {
       [today, today, id]
     );
     if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found or not confirmed" });
+
+    // Fetch booking + unit price + owner + payment method (from guest registration) for accommodation payment
+    const [[row]] = await db.promise().query(
+      `SELECT b.booking_id, b.guest_name, b.unit_id, b.check_in_date, b.check_out_date, b.payment_method,
+              COALESCE(u.price, 0) AS unit_price,
+              COALESCE(u.owner_employee_id, t.owner_employee_id) AS owner_employee_id
+       FROM BOOKING b
+       LEFT JOIN UNIT u ON u.unit_id = b.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE b.booking_id = ?`,
+      [id]
+    );
+    const nights = row ? getNights(row.check_in_date, row.check_out_date) : 0;
+    const unitPrice = row && row.unit_price != null ? Number(row.unit_price) : 0;
+    const amount = nights * unitPrice;
+    const ownerId = row && row.owner_employee_id != null ? row.owner_employee_id : null;
+    const recordedBy = req.user ? req.user.employee_id : null;
+    // Use payment method from guest registration (cash / upload = Online)
+    const rawMethod = row && row.payment_method ? String(row.payment_method).trim().toLowerCase() : "";
+    const paymentMethod = rawMethod === "upload" ? "Online" : rawMethod === "cash" ? "Cash" : rawMethod || "Cash";
+
+    if (amount > 0 && (row && row.unit_id)) {
+      const guestName = (row.guest_name || "Guest").trim();
+      const payerDesc = nights > 0
+        ? `${guestName} – Accommodation (${nights} night${nights !== 1 ? "s" : ""})`
+        : `${guestName} – Accommodation`;
+      await db.promise().query(
+        `INSERT INTO PAYMENT (booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_by, owner_employee_id)
+         VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?)`,
+        [id, row.unit_id, amount, today, payerDesc, paymentMethod, recordedBy, ownerId]
+      );
+    }
+
     const [rows] = await db.promise().query(
       "SELECT booking_id, guest_name, unit_id, checked_out_at, check_out_date FROM BOOKING WHERE booking_id = ?",
       [id]
