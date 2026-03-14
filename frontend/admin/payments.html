@@ -177,7 +177,7 @@
             </div>
             <div>
               <div class="label">Total received</div>
-              <div class="value">—</div>
+              <div class="value" data-payments-total>—</div>
             </div>
           </div>
           <div class="stat-card">
@@ -189,7 +189,7 @@
             </div>
             <div>
               <div class="label">Pending</div>
-              <div class="value">—</div>
+              <div class="value" data-payments-pending>—</div>
             </div>
           </div>
           <div class="stat-card">
@@ -203,17 +203,17 @@
             </div>
             <div>
               <div class="label">This month</div>
-              <div class="value">—</div>
+              <div class="value" data-payments-month>—</div>
             </div>
           </div>
         </section>
 
-        <!-- Payment history placeholder -->
+        <!-- Payment history -->
         <section class="panel">
           <h3>Payment history</h3>
-          <p class="panel-subtitle muted">Transactions and payment records will appear here once the backend is connected.</p>
+          <p class="panel-subtitle muted">Recorded payments (system records transactions; it does not collect payments).</p>
           <div class="payment-placeholder-table">
-            <table class="payment-table" aria-label="Payment history placeholder">
+            <table class="payment-table" aria-label="Payment history">
               <thead>
                 <tr>
                   <th>Date</th>
@@ -223,10 +223,10 @@
                   <th>Method</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr>
+              <tbody data-payments-tbody>
+                <tr data-payments-empty>
                   <td colspan="5" class="payment-placeholder-cell">
-                    <span class="payment-placeholder-message">Payment integration coming soon. Backend will be connected by the development team.</span>
+                    <span class="payment-placeholder-message">Loading…</span>
                   </td>
                 </tr>
               </tbody>
@@ -292,6 +292,7 @@
         </div>
       </div>
     </div>
+    <script src="./adminscript.js"></script>
     <script>
       (function () {
         try {

@@ -12,6 +12,8 @@
     initEmployees();
   } else if (page === "bookings") {
     initBookings();
+  } else if (page === "payments") {
+    initPayments();
   }
 
   function initDashboard() {
@@ -326,6 +328,11 @@
       }
       if (!payload.unit_number) {
         alert("Unit number is required.");
+        return;
+      }
+      var priceNum = payload.price != null && payload.price !== "" ? Number(payload.price) : NaN;
+      if (isNaN(priceNum) || priceNum < 0) {
+        alert("Price is required and must be 0 or greater.");
         return;
       }
       var promise = Promise.resolve(null);
@@ -1555,5 +1562,90 @@
     if (submitRejectBtn) submitRejectBtn.addEventListener("click", submitReject);
 
     loadBookings();
+  }
+
+  function initPayments() {
+    var totalEl = document.querySelector("[data-payments-total]");
+    var pendingEl = document.querySelector("[data-payments-pending]");
+    var monthEl = document.querySelector("[data-payments-month]");
+    var tbody = document.querySelector("[data-payments-tbody]");
+    var emptyRow = document.querySelector("[data-payments-empty]");
+
+    function getAuthHeaders() {
+      var h = {};
+      try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+      return h;
+    }
+    function esc(s) {
+      if (s == null || s === undefined) return "";
+      var d = document.createElement("div");
+      d.textContent = String(s);
+      return d.innerHTML;
+    }
+    function formatDate(str) {
+      if (!str) return "—";
+      try {
+        var s = String(str).slice(0, 10);
+        if (s.length === 10) return s;
+        return str;
+      } catch (e) { return str; }
+    }
+    function formatMoney(n) {
+      return "₱ " + Number(n).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    fetch(API + "/payments", { headers: getAuthHeaders() })
+      .then(function (r) { return r.ok ? r.json() : []; })
+      .then(function (list) {
+        if (!Array.isArray(list)) list = [];
+        var total = 0;
+        var thisMonth = 0;
+        var now = new Date();
+        var y = now.getFullYear();
+        var m = now.getMonth();
+        list.forEach(function (p) {
+          var amt = Number(p.amount) || 0;
+          total += amt;
+          var pd = p.payment_date ? String(p.payment_date).slice(0, 10) : "";
+          if (pd.length >= 7) {
+            var parts = pd.split("-");
+            if (parseInt(parts[0], 10) === y && parseInt(parts[1], 10) === m + 1) thisMonth += amt;
+          }
+        });
+        if (totalEl) totalEl.textContent = list.length ? formatMoney(total) : "—";
+        if (pendingEl) pendingEl.textContent = "—";
+        if (monthEl) monthEl.textContent = list.length ? formatMoney(thisMonth) : "—";
+
+        if (emptyRow) emptyRow.remove();
+        if (!tbody) return;
+        tbody.querySelectorAll("tr[data-payment-row]").forEach(function (r) { r.remove(); });
+        if (!list.length) {
+          var tr = document.createElement("tr");
+          tr.setAttribute("data-payments-empty", "");
+          tr.innerHTML = "<td colspan=\"5\" class=\"payment-placeholder-cell\"><span class=\"payment-placeholder-message\">No payment records yet. Record payments from checkout or add them here when the feature is available.</span></td>";
+          tbody.appendChild(tr);
+          return;
+        }
+        list.forEach(function (p) {
+          var guest = p.guest_name || p.payer_description || (p.unit_number ? "Unit " + p.unit_number + (p.tower_name ? " · " + p.tower_name : "") : "—");
+          var tr = document.createElement("tr");
+          tr.setAttribute("data-payment-row", "");
+          tr.innerHTML =
+            "<td>" + esc(formatDate(p.payment_date)) + "</td>" +
+            "<td>" + esc(guest) + "</td>" +
+            "<td>" + esc(formatMoney(p.amount)) + "</td>" +
+            "<td>" + esc(p.status || "completed") + "</td>" +
+            "<td>" + esc(p.method || "—") + "</td>";
+          tbody.appendChild(tr);
+        });
+      })
+      .catch(function () {
+        if (totalEl) totalEl.textContent = "—";
+        if (pendingEl) pendingEl.textContent = "—";
+        if (monthEl) monthEl.textContent = "—";
+        if (tbody && emptyRow) {
+          emptyRow.querySelector(".payment-placeholder-message").textContent = "Could not load payments. Check backend and try again.";
+        }
+      });
   }
 })();

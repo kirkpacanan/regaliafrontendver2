@@ -172,7 +172,7 @@
         <!-- Add due form -->
         <section class="panel dues-form-panel">
           <h3>Add monthly due</h3>
-          <p class="panel-subtitle muted">Select a unit, enter the amount in Philippine Peso (₱), and due date. Data is stored locally until the backend is connected.</p>
+          <p class="panel-subtitle muted">Select a unit, enter the amount in Philippine Peso (₱), and due date.</p>
           <form class="dues-form" data-dues-form>
             <div class="dues-form-row">
               <label class="dues-form-field">
@@ -457,28 +457,21 @@
         });
       })();
 
-      var STORAGE_KEY = "regalia_monthly_dues";
-      function getAuthHeaders() {
+      function getAuthHeaders(json) {
         var h = {};
         try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+        if (json) h["Content-Type"] = "application/json";
         return h;
       }
       function loadDues() {
-        try {
-          var raw = localStorage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : [];
-        } catch (e) { return []; }
+        return fetch("/api/monthly-dues", { headers: getAuthHeaders() })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .catch(function () { return []; });
       }
-      function saveDues(dues) {
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(dues));
-        } catch (e) {}
-      }
-      function renderDues() {
+      function renderDues(dues) {
         var list = document.querySelector("[data-dues-list]");
         var emptyRow = document.querySelector("[data-dues-empty]");
         if (!list) return;
-        var dues = loadDues();
         if (emptyRow) emptyRow.style.display = dues.length ? "none" : "";
         list.querySelectorAll("[data-due-id]").forEach(function (r) { r.remove(); });
         dues.forEach(function (d) {
@@ -487,10 +480,10 @@
           var unitLabel = (d.unit_label || d.description || "").trim() || "—";
           var amount = d.amount != null && d.amount !== "" ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
           var date = d.due_date || "—";
-          if (date.length === 7) {
-            var parts = date.split("-");
+          if (date && String(date).length >= 7) {
+            var parts = String(date).split("-");
             var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-            if (parts.length === 2) date = months[parseInt(parts[1], 10) - 1] + " " + parts[0];
+            if (parts.length >= 2) date = months[parseInt(parts[1], 10) - 1] + " " + parts[0];
           }
           tr.innerHTML = "<td>" + escapeHtml(unitLabel) + "</td><td>" + amount + "</td><td>" + escapeHtml(date) + "</td><td><button type=\"button\" class=\"btn ghost btn--sm\" data-dues-remove data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"Remove\">Remove</button></td>";
           list.appendChild(tr);
@@ -498,9 +491,9 @@
         list.querySelectorAll("[data-dues-remove]").forEach(function (btn) {
           btn.addEventListener("click", function () {
             var id = btn.getAttribute("data-id");
-            var dues = loadDues().filter(function (d) { return d.id !== id; });
-            saveDues(dues);
-            renderDues();
+            fetch("/api/monthly-dues/" + id, { method: "DELETE", headers: getAuthHeaders() })
+              .then(function (r) { if (r.ok) return loadDues().then(renderDues); })
+              .catch(function () { alert("Could not remove."); });
           });
         });
       }
@@ -545,17 +538,23 @@
             if (amountEl) amountEl.focus();
             return;
           }
-          var unitLabel = unitEl && unitEl.options[unitEl.selectedIndex] ? unitEl.options[unitEl.selectedIndex].text : unitValue === "general" ? "General / Other" : "—";
-          var dues = loadDues();
-          var id = "due_" + Date.now();
-          dues.push({ id: id, unit_id: unitValue === "general" ? null : unitValue, unit_label: unitLabel, amount: amount, due_date: due_date || null });
-          saveDues(dues);
-          renderDues();
-          form.reset();
-          if (dateEl) {
-            var now = new Date();
-            dateEl.value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
-          }
+          var payload = { unit_id: unitValue === "general" ? null : unitValue, amount: Number(amount), due_date: due_date || (new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0")) };
+          fetch("/api/monthly-dues", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify(payload) })
+            .then(function (r) {
+              if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "Failed"); });
+              return r.json();
+            })
+            .then(function () {
+              form.reset();
+              if (dateEl) {
+                var now = new Date();
+                dateEl.value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+              }
+              return loadDues().then(renderDues);
+            })
+            .catch(function (err) {
+              alert(err.message || "Could not add monthly due.");
+            });
         });
       }
       var now = new Date();
@@ -563,7 +562,7 @@
       if (dateInput && !dateInput.value) {
         dateInput.value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
       }
-      renderDues();
+      loadDues().then(renderDues);
     </script>
   </body>
 </html>

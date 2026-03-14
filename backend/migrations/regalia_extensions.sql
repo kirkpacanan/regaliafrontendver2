@@ -73,6 +73,37 @@ CREATE TABLE IF NOT EXISTS ADDITIONAL_CHARGE (
   INDEX idx_charge_booking (booking_id)
 );
 
+-- PAYMENT: record payments (system records, does not collect). ERD: PAYMENT
+CREATE TABLE IF NOT EXISTS PAYMENT (
+  payment_id INT AUTO_INCREMENT PRIMARY KEY,
+  booking_id INT NULL,
+  unit_id INT NULL,
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  payment_date DATE NOT NULL,
+  payer_description VARCHAR(255) NULL COMMENT 'guest name or unit label',
+  status VARCHAR(32) NOT NULL DEFAULT 'completed',
+  method VARCHAR(64) NULL COMMENT 'cash, bank_transfer, etc',
+  recorded_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  recorded_by INT NULL COMMENT 'employee_id',
+  owner_employee_id INT NULL,
+  INDEX idx_payment_owner (owner_employee_id),
+  INDEX idx_payment_date (payment_date),
+  INDEX idx_payment_booking (booking_id)
+);
+
+-- MONTHLY_DUE: recurring dues per unit (maintenance, pool, guards, etc). ERD: UNIT_MONTHLY_DUES
+CREATE TABLE IF NOT EXISTS MONTHLY_DUE (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  unit_id INT NULL COMMENT 'NULL = general/other',
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+  due_date DATE NOT NULL COMMENT 'e.g. first day of month',
+  status VARCHAR(32) NOT NULL DEFAULT 'pending',
+  owner_employee_id INT NULL,
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_monthly_due_owner (owner_employee_id),
+  INDEX idx_monthly_due_date (due_date)
+);
+
 DROP PROCEDURE IF EXISTS add_col_if_missing;
 
 -- Optional indexes (ignore error 1061 "Duplicate key name" if index already exists)
