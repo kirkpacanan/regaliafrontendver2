@@ -600,6 +600,26 @@
             hideCheckoutConfirm();
             checkoutConfirmBtn.disabled = false;
             checkoutConfirmBtn.textContent = "Check Out";
+            fetch(API + "/bookings/" + booking.booking_id + "/charges", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (charges) {
+              if (charges && charges.length > 0) {
+                var total = 0;
+                charges.forEach(function (c) { total += (c.quantity || 0) * (c.unit_price || 0); });
+                if (total > 0) {
+                  var today = new Date().toISOString().slice(0, 10);
+                  fetch(API + "/payments", {
+                    method: "POST",
+                    headers: getAuthHeaders(true),
+                    body: JSON.stringify({
+                      booking_id: booking.booking_id,
+                      amount: total,
+                      payer_description: (booking.guest_name || "Guest") + " (checkout)",
+                      payment_date: today,
+                      method: "checkout"
+                    })
+                  }).catch(function () {});
+                }
+              }
+            }).catch(function () {});
             fetch(API + "/bookings/" + booking.booking_id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
               var names = guests && guests.length ? guests.map(function (g) { return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name; }).join(", ") : "";
               if (scanStatus) scanStatus.textContent = names ? "Check-out recorded: " + (booking.guest_name || "Guest") + ". Authorized guests: " + names : "Check-out recorded: " + (booking.guest_name || "Guest");

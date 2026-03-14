@@ -474,6 +474,7 @@
         });
       })();
 
+      var STORAGE_KEY = "regalia_monthly_dues";
       function getAuthHeaders(json) {
         var h = {};
         try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
@@ -484,7 +485,7 @@
         return fetch("/api/monthly-dues", { headers: getAuthHeaders() })
           .then(function (r) { return r.ok ? r.json() : []; })
           .then(function (apiDues) {
-            if (Array.isArray(apiDues) && apiDues.length >= 0) {
+            if (Array.isArray(apiDues)) {
               return apiDues.map(function (d) {
                 return {
                   id: String(d.id),
@@ -813,18 +814,7 @@
               return loadDues().then(renderDues);
             })
             .catch(function (err) {
-              var dues = [];
-              try { var raw = localStorage.getItem(STORAGE_KEY); dues = raw ? JSON.parse(raw) : []; } catch (e) {}
-              var id = "due_" + Date.now();
-              dues.push({ id: id, unit_id: unitValue === "general" ? null : unitValue, unit_label: unitLabel, amount: amount, due_date: due_date || null, recurring: recurring, paid_months: [] });
-              saveDues(dues);
-              form.reset();
-              if (dateEl) {
-                var now = new Date();
-                var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-                dateEl.value = nextMonth.getFullYear() + "-" + String(nextMonth.getMonth() + 1).padStart(2, "0") + "-" + String(nextMonth.getDate()).padStart(2, "0");
-              }
-              renderDues(dues);
+              alert(err.message || "Could not add monthly due. Check that you are logged in and try again.");
             })
             .finally(function () {
               if (submitBtn) { submitBtn.disabled = false; submitBtn.removeAttribute("aria-busy"); }

@@ -1862,14 +1862,26 @@ app.post("/api/payments", optionalAuth, async (req, res) => {
     const amt = Number(amount);
     if (!amt || amt <= 0) return res.status(400).json({ error: "amount required and must be positive" });
     const date = payment_date && String(payment_date).trim() ? String(payment_date).trim().slice(0, 10) : new Date().toISOString().slice(0, 10);
-    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    let ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    let unitId = unit_id != null ? Number(unit_id) : null;
+    const bid = booking_id != null ? Number(booking_id) : null;
+    if (bid && ownerId == null) {
+      const [[row]] = await db.promise().query(
+        "SELECT b.unit_id, COALESCE(u.owner_employee_id, t.owner_employee_id) AS owner_employee_id FROM BOOKING b LEFT JOIN UNIT u ON u.unit_id = b.unit_id LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE b.booking_id = ?",
+        [bid]
+      );
+      if (row) {
+        if (row.owner_employee_id) ownerId = row.owner_employee_id;
+        if (row.unit_id) unitId = row.unit_id;
+      }
+    }
     const recordedBy = req.user ? req.user.employee_id : null;
     await db.promise().query(
       `INSERT INTO PAYMENT (booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_by, owner_employee_id)
        VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?)`,
       [
-        booking_id != null ? Number(booking_id) : null,
-        unit_id != null ? Number(unit_id) : null,
+        bid,
+        unitId,
         amt,
         date,
         payer_description ? String(payer_description).trim() : null,
