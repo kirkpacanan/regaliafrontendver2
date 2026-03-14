@@ -580,11 +580,15 @@
       }
       function getViewMonth() {
         var sel = document.querySelector("[data-dues-view-month]");
-        if (!sel || !sel.value) {
+        if (!sel || !sel.value || sel.value.length < 7) {
           var t = new Date();
           return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0");
         }
-        return sel.value;
+        return String(sel.value).slice(0, 7);
+      }
+      function setViewMonth(yyyyMm) {
+        var sel = document.querySelector("[data-dues-view-month]");
+        if (sel && yyyyMm && sel.querySelector("option[value=\"" + yyyyMm + "\"]")) { sel.value = yyyyMm; }
       }
       function buildViewMonthOptions() {
         var sel = document.querySelector("[data-dues-view-month]");
@@ -805,12 +809,14 @@
               return r.json();
             })
             .then(function () {
+              var addedMonth = due_date && due_date.length >= 7 ? due_date.slice(0, 7) : (new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0"));
               form.reset();
               if (dateEl) {
                 var now = new Date();
                 var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
                 dateEl.value = nextMonth.getFullYear() + "-" + String(nextMonth.getMonth() + 1).padStart(2, "0") + "-" + String(nextMonth.getDate()).padStart(2, "0");
               }
+              setViewMonth(addedMonth);
               return loadDues().then(renderDues);
             })
             .catch(function (err) {
