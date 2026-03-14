@@ -302,12 +302,26 @@
         </div>
 
         <div class="modal-overlay walkin-modal-overlay" id="checkout-receipt-modal" style="display:none;">
-          <div class="modal walkin-modal receipt-modal" style="max-width:420px;text-align:left;">
-            <h3 class="walkin-modal-title" style="margin:0 0 0.5rem;">Receipt</h3>
-            <p data-receipt-guest style="margin:0 0 0.75rem;font-size:0.9rem;color:var(--muted);"></p>
-            <div class="receipt-charges" data-receipt-charges></div>
-            <div class="receipt-total" data-receipt-total style="margin-top:0.75rem;padding-top:0.75rem;border-top:1px solid rgba(255,255,255,0.15);font-weight:600;font-size:1.05rem;"></div>
-            <div style="display:flex;justify-content:flex-end;margin-top:1rem;">
+          <div class="modal walkin-modal receipt-modal">
+            <div class="receipt-paper">
+              <div class="receipt-header">
+                <div class="receipt-brand">REGALIA</div>
+                <div class="receipt-title">Additional Charges</div>
+                <div class="receipt-line"></div>
+              </div>
+              <div class="receipt-guest" data-receipt-guest></div>
+              <div class="receipt-line"></div>
+              <div class="receipt-section-label">Item</div>
+              <div class="receipt-charges" data-receipt-charges></div>
+              <div class="receipt-line"></div>
+              <div class="receipt-total-row">
+                <span class="receipt-total-label">TOTAL DUE</span>
+                <span class="receipt-total" data-receipt-total></span>
+              </div>
+              <div class="receipt-line"></div>
+              <div class="receipt-footer">Please settle before check-out</div>
+            </div>
+            <div class="receipt-actions">
               <button type="button" class="btn ghost" data-receipt-ok>OK</button>
             </div>
           </div>
@@ -500,7 +514,7 @@
                 if (scanStatus) scanStatus.textContent = e.message || "Check-in failed";
               });
             } else if (!checkedOut) {
-              showCheckoutConfirm(booking);
+              startCheckoutFlow(booking);
             } else {
               if (scanStatus) scanStatus.textContent = "Already checked out.";
             }
@@ -516,6 +530,21 @@
         var checkoutCancelBtn = document.querySelector("[data-checkout-cancel]");
         var checkoutConfirmBtn = document.querySelector("[data-checkout-confirm]");
         var pendingCheckoutBooking = null;
+        var pendingBookingAfterReceipt = null;
+
+        function startCheckoutFlow(booking) {
+          fetch(API + "/bookings/" + booking.booking_id + "/charges", { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (charges) {
+              if (charges && charges.length > 0) {
+                pendingBookingAfterReceipt = booking;
+                showCheckoutReceipt(booking, charges);
+              } else {
+                showCheckoutConfirm(booking);
+              }
+            })
+            .catch(function () { showCheckoutConfirm(booking); });
+        }
 
         function showCheckoutConfirm(booking) {
           pendingCheckoutBooking = booking;
@@ -538,19 +567,25 @@
 
         function showCheckoutReceipt(booking, charges) {
           if (!receiptModal || !charges.length) return;
-          if (receiptGuestEl) receiptGuestEl.textContent = (booking.guest_name || "Guest") + " — Unit " + (booking.unit_number || booking.unit_id || "?") + (booking.tower_name ? " · " + booking.tower_name : "");
+          if (receiptGuestEl) receiptGuestEl.textContent = (booking.guest_name || "Guest") + " · Unit " + (booking.unit_number || booking.unit_id || "?") + (booking.tower_name ? " " + booking.tower_name : "");
           var total = 0;
-          var rows = charges.map(function (c) {
-            var lineTotal = (c.quantity || 0) * (c.unit_price || 0);
+          var itemsHtml = charges.map(function (c) {
+            var qty = c.quantity || 0;
+            var price = Number(c.unit_price || 0).toFixed(2);
+            var lineTotal = qty * (c.unit_price || 0);
             total += lineTotal;
-            return "<tr><td style=\"padding:0.35rem 0.5rem 0.35rem 0;\">" + escapeHtml(c.description || "") + "</td><td style=\"padding:0.35rem 0.5rem;text-align:right;white-space:nowrap;\">" + (c.quantity || 0) + " × ₱" + Number(c.unit_price || 0).toFixed(2) + "</td><td style=\"padding:0.35rem 0;text-align:right;white-space:nowrap;\">₱" + lineTotal.toFixed(2) + "</td></tr>";
+            return "<div class=\"receipt-item\"><span class=\"receipt-item-desc\">" + escapeHtml(c.description || "") + "</span><span class=\"receipt-item-amt\">₱" + lineTotal.toFixed(2) + "</span></div><div class=\"receipt-item-sub\">" + qty + " × ₱" + price + "</div>";
           }).join("");
-          if (receiptChargesEl) receiptChargesEl.innerHTML = "<table style=\"width:100%;font-size:0.9rem;border-collapse:collapse;\">" + rows + "</table>";
-          if (receiptTotalEl) receiptTotalEl.textContent = "Total: ₱" + total.toFixed(2);
+          if (receiptChargesEl) receiptChargesEl.innerHTML = itemsHtml;
+          if (receiptTotalEl) receiptTotalEl.textContent = "₱" + total.toFixed(2);
           receiptModal.style.display = "flex";
         }
         function hideCheckoutReceipt() {
           if (receiptModal) receiptModal.style.display = "none";
+          if (pendingBookingAfterReceipt) {
+            showCheckoutConfirm(pendingBookingAfterReceipt);
+            pendingBookingAfterReceipt = null;
+          }
         }
         if (receiptOkBtn) receiptOkBtn.addEventListener("click", hideCheckoutReceipt);
         if (receiptModal) receiptModal.addEventListener("click", function (e) { if (e.target === receiptModal) hideCheckoutReceipt(); });
@@ -565,20 +600,12 @@
             hideCheckoutConfirm();
             checkoutConfirmBtn.disabled = false;
             checkoutConfirmBtn.textContent = "Check Out";
-            fetch(API + "/bookings/" + booking.booking_id + "/charges", { headers: getAuthHeaders() })
-              .then(function (r) { return r.ok ? r.json() : []; })
-              .then(function (charges) {
-                if (charges && charges.length > 0) {
-                  showCheckoutReceipt(booking, charges);
-                }
-                fetch(API + "/bookings/" + booking.booking_id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
-                  var names = guests && guests.length ? guests.map(function (g) { return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name; }).join(", ") : "";
-                  if (scanStatus) scanStatus.textContent = names ? "Check-out recorded: " + (booking.guest_name || "Guest") + ". Authorized guests: " + names : "Check-out recorded: " + (booking.guest_name || "Guest");
-                }).catch(function () {
-                  if (scanStatus) scanStatus.textContent = "Check-out recorded: " + (booking.guest_name || "Guest");
-                });
-              })
-              .catch(function () {});
+            fetch(API + "/bookings/" + booking.booking_id + "/guests", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (guests) {
+              var names = guests && guests.length ? guests.map(function (g) { return g.purpose ? g.full_name + " (" + g.purpose + ")" : g.full_name; }).join(", ") : "";
+              if (scanStatus) scanStatus.textContent = names ? "Check-out recorded: " + (booking.guest_name || "Guest") + ". Authorized guests: " + names : "Check-out recorded: " + (booking.guest_name || "Guest");
+            }).catch(function () {
+              if (scanStatus) scanStatus.textContent = "Check-out recorded: " + (booking.guest_name || "Guest");
+            });
           }).catch(function (e) {
             todayFailed++; updateScannerStatus();
             if (scanStatus) scanStatus.textContent = e.message || "Check-out failed";
