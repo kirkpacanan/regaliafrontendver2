@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Manage Employees | Regalia Owner</title>
+    <title>Payments | Regalia Owner</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="./admin.css" />
   </head>
-  <body data-page="employees">
+  <body data-page="payments">
     <div class="dashboard">
       <aside class="sidebar">
         <div class="brand">
@@ -49,7 +49,7 @@
             </span>
             Properties
           </a>
-          <a class="active" href="./employees.html">
+          <a href="./employees.html">
             <span class="icon">
               <svg viewBox="0 0 24 24">
                 <path d="M16 7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2"></path>
@@ -60,7 +60,7 @@
             </span>
             Manage Employees
           </a>
-          <a href="./payments.html">
+          <a class="active" href="./payments.html">
             <span class="icon">
               <svg viewBox="0 0 24 24">
                 <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
@@ -107,26 +107,17 @@
       <main class="main">
         <header class="topbar">
           <div>
-            <h1>Manage Employees</h1>
-            <p>Manage your property staff and assignments.</p>
+            <h1>Payments</h1>
+            <p>View and manage payment transactions.</p>
           </div>
           <div class="top-actions">
-            <button class="btn-primary" type="button" data-add-employee>
-              <span class="icon fill">
-                <svg viewBox="0 0 24 24">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-              </span>
-              Add Employee
-            </button>
             <div class="notif-wrap">
               <button class="notif-btn" data-notif-btn aria-label="Notifications">
                 <svg viewBox="0 0 24 24">
                   <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
                   <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
                 </svg>
-                <span class="notif-badge" data-notif-badge></span>
+                <span class="notif-badge" data-notif-badge style="display: none;"></span>
               </button>
               <div class="topbar-dropdown notif-dropdown" data-notif-dropdown>
                 <div class="topbar-dropdown__title">Today's Activity</div>
@@ -178,13 +169,73 @@
           </div>
         </div>
 
+        <!-- Payment summary placeholders -->
+        <section class="stats stats--payments">
+          <div class="stat-card">
+            <div class="icon-tile icon-tile--text">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><text x="12" y="17" text-anchor="middle" class="icon-tile-peso">₱</text></svg>
+            </div>
+            <div>
+              <div class="label">Total received</div>
+              <div class="value">—</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-tile">
+              <svg viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+              </svg>
+            </div>
+            <div>
+              <div class="label">Pending</div>
+              <div class="value">—</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-tile">
+              <svg viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+                <line x1="16" y1="2" x2="16" y2="6"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+              </svg>
+            </div>
+            <div>
+              <div class="label">This month</div>
+              <div class="value">—</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Payment history placeholder -->
         <section class="panel">
-          <h3>Staff Directory</h3>
-          <div class="employees-grid" data-employees></div>
+          <h3>Payment history</h3>
+          <p class="panel-subtitle muted">Transactions and payment records will appear here once the backend is connected.</p>
+          <div class="payment-placeholder-table">
+            <table class="payment-table" aria-label="Payment history placeholder">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Guest / Booking</th>
+                  <th>Amount</th>
+                  <th>Status</th>
+                  <th>Method</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td colspan="5" class="payment-placeholder-cell">
+                    <span class="payment-placeholder-message">Payment integration coming soon. Backend will be connected by the development team.</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
 
-      <!-- Settings Modal: Theme Picker -->
+      <!-- Settings Modal -->
       <div class="settings-overlay" data-settings-overlay>
         <div class="settings-modal">
           <div class="settings-header">
@@ -241,134 +292,7 @@
         </div>
       </div>
     </div>
-
-    <!-- Add Employee (Create Account) modal -->
-    <div class="modal-overlay" data-employee-modal>
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2>Add Employee (Create Account)</h2>
-          <button class="icon-button" type="button" data-close-employee-modal aria-label="Close">
-            <svg viewBox="0 0 24 24">
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-              <line x1="6" y1="18" x2="18" y2="6"></line>
-            </svg>
-          </button>
-        </div>
-        <form class="modal-form" data-employee-form>
-          <label>
-            Full name
-            <input type="text" placeholder="Full name" name="full_name" required />
-          </label>
-          <label>
-            Username
-            <input type="text" placeholder="Username" name="username" required />
-          </label>
-          <label>
-            Password
-            <input type="password" placeholder="Password" name="password" required />
-          </label>
-          <label>
-            Email
-            <input type="email" placeholder="Email" name="email" required />
-          </label>
-          <label>
-            Contact number
-            <input type="text" placeholder="Contact number" name="contact_number" />
-          </label>
-          <label>
-            Address
-            <input type="text" placeholder="Address" name="address" />
-          </label>
-          <label>
-            Role
-            <select name="role_type">
-              <option value="Front Desk">Front Desk</option>
-              <option value="Property Manager">Property Manager</option>
-              <option value="Admin">Admin</option>
-              <option value="Security">Security</option>
-              <option value="Maintenance">Maintenance</option>
-            </select>
-          </label>
-          <div class="step-actions">
-            <button class="submit-button full" type="button" data-submit-employee>Create Employee</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Edit Employee modal -->
-    <div class="modal-overlay" data-edit-employee-modal>
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2>Edit Employee</h2>
-          <button class="icon-button" type="button" data-close-edit-employee aria-label="Close">
-            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
-          </button>
-        </div>
-        <form class="modal-form" data-edit-employee-form>
-          <label>Full name <input type="text" name="full_name" data-edit-full-name required /></label>
-          <label>Email <input type="email" name="email" data-edit-email required /></label>
-          <label>Contact number <input type="text" name="contact_number" data-edit-contact placeholder="Contact" /></label>
-          <label>Address <input type="text" name="address" data-edit-address placeholder="Address" /></label>
-          <label>Role
-            <select name="role_type" data-edit-role>
-              <option value="Front Desk">Front Desk</option>
-              <option value="Property Manager">Property Manager</option>
-              <option value="Admin">Admin</option>
-              <option value="Security">Security</option>
-              <option value="Maintenance">Maintenance</option>
-              <option value="OWNER">OWNER</option>
-            </select>
-          </label>
-          <div class="step-actions">
-            <button class="submit-button danger" type="button" data-delete-employee>Delete Employee</button>
-            <button class="submit-button" type="button" data-save-edit-employee>Save changes</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Assign Building sidebar -->
-    <div class="assign-sidebar" id="assignSidebar" aria-hidden="true">
-      <div class="assign-sidebar__backdrop" data-close-assign></div>
-      <div class="assign-sidebar__content" id="assignSidebarContent">
-        <div class="assign-sidebar__header">
-          <h3 class="assign-sidebar__title">Assign Building</h3>
-          <button class="icon-button" type="button" data-close-assign aria-label="Close">
-            <svg viewBox="0 0 24 24">
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-              <line x1="6" y1="18" x2="18" y2="6"></line>
-            </svg>
-          </button>
-        </div>
-        <div class="assign-sidebar__body">
-          <div class="assign-sidebar__employee">
-            <div class="assign-sidebar__avatar-wrap">
-              <img class="assign-sidebar__avatar" id="assignModalImg" src="" alt="" />
-            </div>
-            <h4 class="assign-sidebar__name" id="assignModalName">Employee Name</h4>
-            <p class="assign-sidebar__role" id="assignModalRole">Role</p>
-            <p class="assign-sidebar__id" id="assignModalID">ID: REG-000</p>
-          </div>
-          <div class="assign-sidebar__actions-row">
-            <button type="button" class="submit-button ghost" data-edit-employee-btn>Edit details</button>
-            <button type="button" class="submit-button danger" data-delete-employee-btn>Delete employee</button>
-          </div>
-          <div class="assign-sidebar__towers">
-            <label class="assign-sidebar__label">Assign to tower(s) — select multiple</label>
-            <div data-assign-towers></div>
-            <button type="button" class="submit-button ghost assign-unassign-all" data-unassign-all style="margin-top: 0.5rem;">Unassign from all towers</button>
-          </div>
-        </div>
-        <div class="assign-sidebar__footer">
-          <button type="button" class="submit-button full" data-save-assignment>Save Assignment</button>
-        </div>
-      </div>
-    </div>
-
-    <script src="./adminscript.js"></script>
     <script>
-      // Profile info from localStorage
       (function () {
         try {
           var emp = JSON.parse(localStorage.getItem("employee") || "{}");
@@ -387,8 +311,6 @@
         var logoutLink = document.querySelector("[data-logout-link]");
         if (logoutLink) logoutLink.addEventListener("click", function () { try { var tc = localStorage.getItem("theme_color"); localStorage.clear(); if (tc) localStorage.setItem("theme_color", tc); } catch (e) {} });
       })();
-
-      // Dropdown toggle logic
       (function () {
         var notifBtn = document.querySelector("[data-notif-btn]");
         var notifDropdown = document.querySelector("[data-notif-dropdown]");
@@ -403,39 +325,6 @@
         document.addEventListener("click", closeAll);
         document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAll(); });
       })();
-
-      // Populate notifications from bookings
-      (function () {
-        function getAuthHeaders() {
-          var h = {};
-          try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
-          return h;
-        }
-        fetch("/api/bookings", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (bookings) {
-          if (!Array.isArray(bookings)) return;
-          var today = new Date(); var todayKey = today.getFullYear() + "-" + String(today.getMonth()+1).padStart(2,"0") + "-" + String(today.getDate()).padStart(2,"0");
-          var movements = [];
-          bookings.filter(function (b) { return b.status === "confirmed"; }).forEach(function (b) {
-            var ci = b.check_in_date ? b.check_in_date.slice(0,10) : "";
-            var co = b.check_out_date ? b.check_out_date.slice(0,10) : "";
-            var alreadyIn = !!b.checked_in_at && !b.checked_out_at;
-            if (ci === todayKey) movements.push({ type: alreadyIn ? "checked-in" : "upcoming", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name });
-            if (co === todayKey) movements.push({ type: "departure", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name });
-          });
-          var notifList = document.querySelector("[data-notif-list]");
-          var notifBadge = document.querySelector("[data-notif-badge]");
-          if (notifList && movements.length) {
-            var iconMap = { upcoming: "↓", "checked-in": "✓", departure: "→" };
-            var labelMap = { upcoming: "Upcoming check-in", "checked-in": "Checked in", departure: "Departure" };
-            notifList.innerHTML = movements.slice(0, 8).map(function (m) {
-              return "<div class=\"notif-item notif-item--" + m.type + "\"><div class=\"notif-item__icon\">" + (iconMap[m.type] || "•") + "</div><div><div class=\"notif-item__name\">" + (m.name || "Guest") + "</div><div class=\"notif-item__detail\">" + (labelMap[m.type] || m.type) + " · Unit " + (m.unit || "—") + (m.tower ? " · " + m.tower : "") + "</div></div></div>";
-            }).join("");
-            if (notifBadge) notifBadge.textContent = movements.length;
-          }
-        }).catch(function () {});
-      })();
-
-      // Theme picker + settings modal logic
       (function () {
         var overlay = document.querySelector("[data-settings-overlay]");
         var closeBtn = document.querySelector("[data-settings-close]");
@@ -465,14 +354,13 @@
         function saveThemeToServer(name) {
           localStorage.setItem("theme_color", name);
           if (statusEl) { statusEl.textContent = "Saving..."; statusEl.className = "theme-status"; }
-          fetch("/api/employee/theme", {
-            method: "PUT", headers: getHeaders(), body: JSON.stringify({ theme_color: name })
-          }).then(function (r) { return r.json(); }).then(function () {
-            if (statusEl) { statusEl.textContent = "Theme saved!"; statusEl.className = "theme-status success"; }
-            setTimeout(function () { if (statusEl) statusEl.textContent = ""; }, 2000);
-          }).catch(function () {
-            if (statusEl) { statusEl.textContent = "Saved locally (server unavailable)"; statusEl.className = "theme-status"; }
-          });
+          fetch("/api/employee/theme", { method: "PUT", headers: getHeaders(), body: JSON.stringify({ theme_color: name }) })
+            .then(function (r) { return r.json(); }).then(function () {
+              if (statusEl) { statusEl.textContent = "Theme saved!"; statusEl.className = "theme-status success"; }
+              setTimeout(function () { if (statusEl) statusEl.textContent = ""; }, 2000);
+            }).catch(function () {
+              if (statusEl) { statusEl.textContent = "Saved locally (server unavailable)"; statusEl.className = "theme-status"; }
+            });
         }
         if (grid) grid.addEventListener("click", function (e) {
           var btn = e.target.closest("[data-theme]");
@@ -489,8 +377,6 @@
           }).catch(function () {});
         }
       })();
-
-      // Profile modal logic
       (function () {
         var pOverlay = document.querySelector("[data-profile-overlay]");
         var pClose = document.querySelector("[data-profile-close]");
@@ -520,23 +406,23 @@
           if (pMsg) { pMsg.textContent = ""; pMsg.className = "settings-msg"; }
           var payload = { full_name: (pOverlay.querySelector("[data-pf-name]")||{}).value||"", username: (pOverlay.querySelector("[data-pf-username]")||{}).value||"", email: (pOverlay.querySelector("[data-pf-email]")||{}).value||"", contact_number: (pOverlay.querySelector("[data-pf-contact]")||{}).value||"" };
           fetch("/api/employee/profile", { method: "PUT", headers: getHeaders(true), body: JSON.stringify(payload) })
-          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-          .then(function (res) {
-            if (!res.ok) { if (pMsg) pMsg.textContent = res.data.error || "Failed"; return; }
-            localStorage.setItem("employee", JSON.stringify(res.data.employee));
-            var initials = (payload.full_name || "OW").split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase();
-            var pb = document.querySelector("[data-profile-btn]"); if (pb) pb.textContent = initials;
-            var plg = document.querySelector("[data-profile-initials-lg]"); if (plg) plg.textContent = initials;
-            var pn = document.querySelector("[data-profile-name]"); if (pn) pn.textContent = payload.full_name || "Owner";
-            if (pMsg) { pMsg.textContent = "Profile saved!"; pMsg.className = "settings-msg success"; }
-          }).catch(function () {
-            try {
-              var emp = JSON.parse(localStorage.getItem("employee") || "{}");
-              emp.full_name = payload.full_name; emp.username = payload.username; emp.email = payload.email; emp.contact_number = payload.contact_number;
-              localStorage.setItem("employee", JSON.stringify(emp));
-              if (pMsg) { pMsg.textContent = "Saved locally"; pMsg.className = "settings-msg success"; }
-            } catch (err) { if (pMsg) pMsg.textContent = "Could not save"; }
-          });
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+              if (!res.ok) { if (pMsg) pMsg.textContent = res.data.error || "Failed"; return; }
+              localStorage.setItem("employee", JSON.stringify(res.data.employee));
+              var initials = (payload.full_name || "OW").split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase();
+              var pb = document.querySelector("[data-profile-btn]"); if (pb) pb.textContent = initials;
+              var plg = document.querySelector("[data-profile-initials-lg]"); if (plg) plg.textContent = initials;
+              var pn = document.querySelector("[data-profile-name]"); if (pn) pn.textContent = payload.full_name || "Owner";
+              if (pMsg) { pMsg.textContent = "Profile saved!"; pMsg.className = "settings-msg success"; }
+            }).catch(function () {
+              try {
+                var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+                emp.full_name = payload.full_name; emp.username = payload.username; emp.email = payload.email; emp.contact_number = payload.contact_number;
+                localStorage.setItem("employee", JSON.stringify(emp));
+                if (pMsg) { pMsg.textContent = "Saved locally"; pMsg.className = "settings-msg success"; }
+              } catch (err) { if (pMsg) pMsg.textContent = "Could not save"; }
+            });
         });
         var pwForm = pOverlay.querySelector("[data-pw-form]");
         var pwMsg = pOverlay.querySelector("[data-pw-msg]");
@@ -547,15 +433,14 @@
           if (np !== cp) { if (pwMsg) pwMsg.textContent = "Passwords do not match."; return; }
           if (np.length < 6) { if (pwMsg) pwMsg.textContent = "Must be at least 6 characters."; return; }
           fetch("/api/employee/password", { method: "PUT", headers: getHeaders(true), body: JSON.stringify({ current_password: cur, new_password: np }) })
-          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
-          .then(function (res) {
-            if (!res.ok) { if (pwMsg) pwMsg.textContent = res.data.error || "Failed"; return; }
-            if (pwMsg) { pwMsg.textContent = "Password updated!"; pwMsg.className = "settings-msg success"; }
-            pwForm.reset();
-          }).catch(function () { if (pwMsg) pwMsg.textContent = "Server unavailable"; });
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+              if (!res.ok) { if (pwMsg) pwMsg.textContent = res.data.error || "Failed"; return; }
+              if (pwMsg) { pwMsg.textContent = "Password updated!"; pwMsg.className = "settings-msg success"; }
+              pwForm.reset();
+            }).catch(function () { if (pwMsg) pwMsg.textContent = "Server unavailable"; });
         });
       })();
-
       (function deleteAccount() {
         var overlay = document.querySelector("[data-delete-overlay]");
         var btnOpen = document.querySelector("[data-delete-account-btn]");
@@ -573,9 +458,8 @@
           var emp = JSON.parse(localStorage.getItem("employee") || "{}");
           var token = localStorage.getItem("token");
           if (!emp.employee_id) { localStorage.clear(); window.location.href = "../index.html"; return; }
-          fetch("/api/employees/" + emp.employee_id, {
-            method: "DELETE", headers: { "Authorization": "Bearer " + token }
-          }).then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+          fetch("/api/employees/" + emp.employee_id, { method: "DELETE", headers: { "Authorization": "Bearer " + token } })
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
             .then(function () { localStorage.clear(); window.location.href = "../index.html"; })
             .catch(function () { localStorage.clear(); window.location.href = "../index.html"; });
         });
