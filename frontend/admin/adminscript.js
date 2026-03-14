@@ -313,6 +313,7 @@
         floor_number: (form.querySelector("[name=floor_number]") && form.querySelector("[name=floor_number]").value.trim()) || null,
         unit_type: (form.querySelector("[name=unit_type]") && form.querySelector("[name=unit_type]").value) || null,
         unit_size: (form.querySelector("[name=unit_size]") && form.querySelector("[name=unit_size]").value) || null,
+        price: (form.querySelector("[name=price]") && form.querySelector("[name=price]").value.trim()) || null,
         description: (form.querySelector("[name=description]") && form.querySelector("[name=description]").value.trim()) || null,
       };
       if (unitImageDataUrls[0] || unitImageDataUrls[1] || unitImageDataUrls[2] || unitImageDataUrls[3]) {

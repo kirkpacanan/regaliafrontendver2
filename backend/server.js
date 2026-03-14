@@ -407,10 +407,11 @@ app.get("/api/units/:id", async (req, res) => {
 
 app.post("/api/units", optionalAuth, async (req, res) => {
   try {
-    const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls } = req.body;
+    const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, price } = req.body;
     if (!tower_id || !unit_number)
       return res.status(400).json({ error: "tower_id and unit_number required" });
     const hasImages = image_urls != null && String(image_urls).trim() !== "";
+    const priceVal = price !== undefined && price !== "" && price != null ? Number(price) : null;
     await tryBackfillTowerOwners();
     const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
@@ -418,8 +419,8 @@ app.post("/api/units", optionalAuth, async (req, res) => {
     try {
       if (hasImages) {
         [result] = await db.promise().query(
-          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, owner_employee_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, owner_employee_id, price)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             Number(tower_id),
             String(unit_number).trim(),
@@ -429,12 +430,13 @@ app.post("/api/units", optionalAuth, async (req, res) => {
             description ? String(description).trim() : null,
             String(image_urls).trim(),
             ownerId,
+            priceVal,
           ]
         );
       } else {
         [result] = await db.promise().query(
-          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, owner_employee_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          `INSERT INTO UNIT (tower_id, unit_number, floor_number, unit_type, unit_size, description, owner_employee_id, price)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             Number(tower_id),
             String(unit_number).trim(),
@@ -443,6 +445,7 @@ app.post("/api/units", optionalAuth, async (req, res) => {
             unit_size != null ? Number(unit_size) : null,
             description ? String(description).trim() : null,
             ownerId,
+            priceVal,
           ]
         );
       }

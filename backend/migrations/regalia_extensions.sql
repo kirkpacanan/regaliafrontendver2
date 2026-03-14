@@ -54,6 +54,9 @@ CALL add_col_if_missing('UNIT', 'owner_employee_id', 'INT NULL');
 CALL add_col_if_missing('BOOKING', 'checked_in_at', 'DATETIME NULL');
 CALL add_col_if_missing('BOOKING', 'checked_out_at', 'DATETIME NULL');
 
+-- UNIT: price per night/rent (ERD: unit_price; stored as price for display)
+CALL add_col_if_missing('UNIT', 'price', 'DECIMAL(10,2) NULL COMMENT ''Unit price (e.g. per night)''');
+
 -- EMPLOYEE: theme color preference (persisted per user)
 CALL add_col_if_missing('EMPLOYEE', 'theme_color', 'VARCHAR(32) NULL DEFAULT ''default'' COMMENT ''UI color theme''');
 
