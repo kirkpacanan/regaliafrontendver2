@@ -106,6 +106,8 @@
     var propertiesList = document.querySelector("[data-properties]");
     var towerSelect = document.querySelector("[data-tower-select]");
     var newTowerFields = document.querySelector("[data-new-tower]");
+    var deleteTowerWrap = document.querySelector("[data-delete-tower-wrap]");
+    var deleteTowerBtn = document.querySelector("[data-delete-tower-btn]");
     var updateSidebar = document.querySelector("[data-update-sidebar]");
     var updateContent = document.getElementById("editUnitSidebarContent");
     var updateCloseBtns = document.querySelectorAll("[data-close-update]");
@@ -168,6 +170,7 @@
       }
       var sel = towerSelect ? towerSelect.value : "";
       if (newTowerFields) newTowerFields.style.display = sel === "__new__" ? "grid" : "none";
+      if (step === 1) updateDeleteTowerVisibility();
     }
 
     function validateStep1() {
@@ -201,8 +204,15 @@
             towerSelect.appendChild(opt);
           });
           if (newTowerFields) newTowerFields.style.display = towerSelect.value === "__new__" ? "grid" : "none";
+          if (deleteTowerWrap) deleteTowerWrap.style.display = (towerSelect.value && towerSelect.value !== "__new__") ? "block" : "none";
         })
         .catch(function () { towers = []; });
+    }
+
+    function updateDeleteTowerVisibility() {
+      if (!deleteTowerWrap || !towerSelect) return;
+      var v = towerSelect.value;
+      deleteTowerWrap.style.display = (v && v !== "__new__") ? "block" : "none";
     }
 
     function loadProperties() {
@@ -492,6 +502,37 @@
     if (towerSelect) {
       towerSelect.addEventListener("change", function () {
         if (newTowerFields) newTowerFields.style.display = towerSelect.value === "__new__" ? "grid" : "none";
+        updateDeleteTowerVisibility();
+      });
+    }
+    if (deleteTowerBtn && towerSelect) {
+      deleteTowerBtn.addEventListener("click", function () {
+        var towerId = towerSelect.value;
+        if (!towerId || towerId === "__new__") return;
+        if (!confirm("Delete this tower? All units and their bookings in this tower will be removed. This cannot be undone.")) return;
+        deleteTowerBtn.disabled = true;
+        deleteTowerBtn.textContent = "Deleting…";
+        fetch(API + "/towers/" + towerId, { method: "DELETE", headers: getAuthHeaders() })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+          .then(function (res) {
+            if (!res.ok) {
+              alert(res.data.error || "Failed to delete tower.");
+              deleteTowerBtn.disabled = false;
+              deleteTowerBtn.textContent = "Delete this tower";
+              return;
+            }
+            towerSelect.value = "";
+            if (newTowerFields) newTowerFields.style.display = "none";
+            updateDeleteTowerVisibility();
+            loadTowers().then(loadProperties);
+            deleteTowerBtn.disabled = false;
+            deleteTowerBtn.textContent = "Delete this tower";
+          })
+          .catch(function () {
+            alert("Failed to delete tower.");
+            deleteTowerBtn.disabled = false;
+            deleteTowerBtn.textContent = "Delete this tower";
+          });
       });
     }
 

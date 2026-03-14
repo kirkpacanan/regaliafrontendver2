@@ -224,6 +224,64 @@ app.post("/api/towers", optionalAuth, async (req, res) => {
   }
 });
 
+app.delete("/api/towers/:id", optionalAuth, async (req, res) => {
+  try {
+    const towerId = Number(req.params.id);
+    if (!towerId) return res.status(400).json({ error: "Invalid tower id" });
+    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+
+    const conn = await db.promise().getConnection();
+    try {
+      if (ownerId != null) {
+        const [[row]] = await conn.query(
+          "SELECT tower_id FROM TOWER WHERE tower_id = ? AND (owner_employee_id IS NULL OR owner_employee_id = ?)",
+          [towerId, ownerId]
+        );
+        if (!row) {
+          conn.release();
+          return res.status(404).json({ error: "Tower not found or you cannot delete it" });
+        }
+      } else {
+        const [[row]] = await conn.query("SELECT tower_id FROM TOWER WHERE tower_id = ?", [towerId]);
+        if (!row) {
+          conn.release();
+          return res.status(404).json({ error: "Tower not found" });
+        }
+      }
+
+      const [unitRows] = await conn.query("SELECT unit_id FROM UNIT WHERE tower_id = ?", [towerId]);
+      const unitIds = (unitRows || []).map((r) => r.unit_id);
+      if (unitIds.length > 0) {
+        const placeholdersUnit = unitIds.map(() => "?").join(",");
+        const [bookRows] = await conn.query(
+          "SELECT booking_id FROM BOOKING WHERE unit_id IN (" + placeholdersUnit + ")",
+          unitIds
+        );
+        const bookingIds = (bookRows || []).map((r) => r.booking_id);
+        if (bookingIds.length > 0) {
+          const placeholdersBook = bookingIds.map(() => "?").join(",");
+          await conn.query("DELETE FROM ADDITIONAL_CHARGE WHERE booking_id IN (" + placeholdersBook + ")", bookingIds);
+          await conn.query("DELETE FROM BOOKING_GUEST WHERE booking_id IN (" + placeholdersBook + ")", bookingIds);
+        }
+        await conn.query("DELETE FROM BOOKING WHERE unit_id IN (" + placeholdersUnit + ")", unitIds);
+      }
+      await conn.query("DELETE FROM EMPLOYEE_TOWER WHERE tower_id = ?", [towerId]);
+      await conn.query("DELETE FROM UNIT WHERE tower_id = ?", [towerId]);
+      const [result] = await conn.query("DELETE FROM TOWER WHERE tower_id = ?", [towerId]);
+      conn.release();
+      if (result.affectedRows === 0) return res.status(404).json({ error: "Tower not found" });
+      res.json({ message: "Tower deleted" });
+    } catch (innerErr) {
+      conn.release();
+      throw innerErr;
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to delete tower" });
+  }
+});
+
 // ---------------- Units (ERD: UNIT – linked to TOWER) ----------------
 app.get("/api/units", optionalAuth, async (req, res) => {
   try {
@@ -656,15 +714,47 @@ app.put("/api/employees/:id", optionalAuth, async (req, res) => {
   }
 });
 
-// Delete employee (removes EMPLOYEE_ROLE and EMPLOYEE_TOWER via FK, then EMPLOYEE)
+// Delete employee (removes EMPLOYEE_ROLE and EMPLOYEE_TOWER via FK, then EMPLOYEE).
+// If the employee is an OWNER (admin), cascade-delete all employees they created (created_by_employee_id).
 app.delete("/api/employees/:id", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
-    await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [employeeId]);
-    await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [employeeId]);
-    const [result] = await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [employeeId]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: "Employee not found" });
-    res.json({ message: "Employee deleted" });
+    const conn = await db.promise().getConnection();
+    try {
+      // Check if this employee is an OWNER (admin)
+      const [roleRows] = await conn.query(
+        "SELECT 1 FROM EMPLOYEE_ROLE WHERE employee_id = ? AND role_type = 'OWNER' AND status = 'active' LIMIT 1",
+        [employeeId]
+      );
+      const isOwner = Array.isArray(roleRows) && roleRows.length > 0;
+
+      if (isOwner) {
+        // Get all employees created by this admin and delete them first (cascade)
+        const [childRows] = await conn.query(
+          "SELECT employee_id FROM EMPLOYEE WHERE created_by_employee_id = ?",
+          [employeeId]
+        );
+        const childIds = Array.isArray(childRows) ? childRows.map((r) => r.employee_id) : [];
+        for (const childId of childIds) {
+          await conn.query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [childId]);
+          await conn.query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [childId]);
+          await conn.query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [childId]);
+        }
+        // Clear owner reference so we can delete the admin (TOWER/UNIT may reference this employee)
+        await conn.query("UPDATE TOWER SET owner_employee_id = NULL WHERE owner_employee_id = ?", [employeeId]);
+        await conn.query("UPDATE UNIT SET owner_employee_id = NULL WHERE owner_employee_id = ?", [employeeId]);
+      }
+
+      await conn.query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [employeeId]);
+      await conn.query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [employeeId]);
+      const [result] = await conn.query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [employeeId]);
+      conn.release();
+      if (result.affectedRows === 0) return res.status(404).json({ error: "Employee not found" });
+      res.json({ message: "Employee deleted" });
+    } catch (innerErr) {
+      conn.release();
+      throw innerErr;
+    }
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to delete employee" });

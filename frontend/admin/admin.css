@@ -463,6 +463,10 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
   display: none;
 }
 
+.tower-delete-wrap {
+  margin-top: 1rem;
+}
+
 .form-step.is-active {
   display: grid;
   gap: 0.9rem;
