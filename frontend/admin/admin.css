@@ -755,8 +755,169 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
   margin-top: 0;
 }
 
+.dues-due-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: rgba(255, 180, 80, 0.15);
+  border: 1px solid rgba(255, 200, 100, 0.35);
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+.dues-due-alert__icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23e6a23c' stroke-width='2'%3E%3Cpath d='M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z%22/%3E%3Cline x1='12' y1='9' x2='12' y2='13'/%3E%3Cline x1='12' y1='17' x2='12.01' y2='17'/%3E%3C/svg%3E") no-repeat center;
+  background-size: contain;
+}
+.notif-item--due {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  background: rgba(255, 180, 80, 0.12);
+  border: 1px solid rgba(255, 200, 100, 0.2);
+}
+.notif-item--due .notif-item__title {
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+.notif-item--due .notif-item__meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.dues-table .dues-col-actions {
+  width: 1%;
+  white-space: nowrap;
+  padding-left: 0.5rem;
+  vertical-align: middle;
+}
+.dues-btn-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: rgba(255, 82, 82, 0.15);
+  color: #ff6b6b;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+.dues-btn-remove:hover {
+  background: rgba(255, 82, 82, 0.3);
+  color: #ff5252;
+}
+.dues-btn-remove svg {
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.dues-btn-paid {
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.5rem 0.85rem;
+  white-space: nowrap;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+.dues-btn-paid:hover {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+.dues-btn-paid.is-paid {
+  background: #0d7d4a;
+  border-color: #0d7d4a;
+  color: #fff;
+}
+.dues-btn-paid.is-paid:hover {
+  background: #0a6340;
+  border-color: #0a6340;
+  color: #fff;
+}
+.dues-btn-paid .dues-paid-check {
+  margin-right: 0.35rem;
+  font-weight: 700;
+}
+.dues-row--paid td {
+  opacity: 0.85;
+}
+.dues-row--paid .dues-btn-paid {
+  cursor: pointer;
+}
+
 .dues-form-actions {
   flex-shrink: 0;
+}
+
+.dues-form-field--checkbox {
+  max-width: none;
+  min-width: 0;
+}
+.dues-checkbox-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.dues-checkbox-wrap input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: var(--accent, #0d7d4a);
+  cursor: pointer;
+}
+
+.dues-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.dues-list-header h3 {
+  margin: 0;
+}
+.dues-view-month-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.dues-view-month-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.dues-view-month {
+  min-width: 140px;
+  height: 2.25rem;
+  padding: 0 0.6rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  padding-right: 2rem;
 }
 
 .btn--sm {

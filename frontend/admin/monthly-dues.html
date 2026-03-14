@@ -172,7 +172,7 @@
         <!-- Add due form -->
         <section class="panel dues-form-panel">
           <h3>Add monthly due</h3>
-          <p class="panel-subtitle muted">Select a unit, enter the amount in Philippine Peso (₱), and due date. Data is stored locally until the backend is connected.</p>
+          <p class="panel-subtitle muted">Select a unit, enter the amount in Philippine Peso (₱), and the day of month it is due. Recurring dues repeat every month.</p>
           <form class="dues-form" data-dues-form>
             <div class="dues-form-row">
               <label class="dues-form-field">
@@ -187,8 +187,14 @@
                 <input type="number" name="amount" min="0" step="0.01" placeholder="0.00" data-dues-amount />
               </label>
               <label class="dues-form-field">
-                <span>Due date</span>
-                <input type="month" name="due_date" data-dues-date />
+                <span>Due date (day of month)</span>
+                <input type="date" name="due_date" data-dues-date />
+              </label>
+              <label class="dues-form-field dues-form-field--checkbox">
+                <span class="dues-checkbox-wrap">
+                  <input type="checkbox" name="recurring" data-dues-recurring checked />
+                  <span>Recurring every month</span>
+                </span>
               </label>
               <div class="dues-form-actions">
                 <button type="submit" class="btn-primary" data-dues-submit>
@@ -204,21 +210,32 @@
 
         <!-- List of dues -->
         <section class="panel dues-list-panel">
-          <h3>Your monthly dues</h3>
+          <div class="dues-list-header">
+            <h3>Your monthly dues</h3>
+            <label class="dues-view-month-wrap">
+              <span class="dues-view-month-label">View month</span>
+              <select class="dues-view-month" data-dues-view-month aria-label="Select month to view"></select>
+            </label>
+          </div>
+          <div class="dues-due-alert" data-dues-due-alert style="display: none;">
+            <span class="dues-due-alert__icon" aria-hidden="true"></span>
+            <span data-dues-due-message></span>
+          </div>
           <div class="payment-placeholder-table">
-            <table class="payment-table" aria-label="Monthly dues list">
+            <table class="payment-table dues-table" aria-label="Monthly dues list">
               <thead>
                 <tr>
                   <th>Unit</th>
                   <th>Amount</th>
                   <th>Due date</th>
-                  <th></th>
+                  <th>Paid</th>
+                  <th class="dues-col-actions"></th>
                 </tr>
               </thead>
               <tbody data-dues-list>
                 <tr data-dues-empty>
-                  <td colspan="4" class="payment-placeholder-cell">
-                    <span class="payment-placeholder-message">No dues added yet. Use the form above to add a monthly due.</span>
+                  <td colspan="5" class="payment-placeholder-cell">
+                    <span class="payment-placeholder-message" data-dues-empty-msg>No dues added yet. Use the form above to add a monthly due.</span>
                   </td>
                 </tr>
               </tbody>
@@ -474,26 +491,170 @@
           localStorage.setItem(STORAGE_KEY, JSON.stringify(dues));
         } catch (e) {}
       }
+      function getDueDay(d) {
+        var str = d.due_date || "";
+        if (str.length >= 10) return parseInt(str.slice(8, 10), 10) || 1;
+        if (str.length >= 7) return 1;
+        return 1;
+      }
+      function formatDueDate(d) {
+        if (!d || !d.due_date) return "—";
+        var val = d.due_date;
+        var parts = val.split("-");
+        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        if (d.recurring && parts.length >= 3) {
+          var day = parseInt(parts[2], 10) || 1;
+          return "Day " + day + " each month";
+        }
+        if (parts.length >= 2) {
+          var m = months[parseInt(parts[1], 10) - 1] || parts[1];
+          var y = parts[0];
+          if (parts.length >= 3 && parts[2]) return m + " " + parseInt(parts[2], 10) + ", " + y;
+          return m + " " + y;
+        }
+        return val;
+      }
+      function normalizePaidMonths(d) {
+        if (!d) return d;
+        if (Array.isArray(d.paid_months)) return d;
+        if (d.paid && d.due_date && d.due_date.length >= 7) {
+          d.paid_months = [d.due_date.slice(0, 7)];
+        } else {
+          d.paid_months = [];
+        }
+        return d;
+      }
+      function isPaidForMonth(d, yyyyMm) {
+        normalizePaidMonths(d);
+        return Array.isArray(d.paid_months) && d.paid_months.indexOf(yyyyMm) >= 0;
+      }
+      function dueAppliesToMonth(d, yyyyMm) {
+        if (d.recurring) return true;
+        if (!d.due_date || d.due_date.length < 7) return false;
+        return d.due_date.slice(0, 7) === yyyyMm;
+      }
+      function isDueTodayOrOverdue(d) {
+        var viewMonth = getViewMonth();
+        var today = new Date();
+        var thisMonth = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0");
+        if (isPaidForMonth(d, thisMonth)) return false;
+        if (d.recurring) {
+          var day = getDueDay(d);
+          return today.getDate() >= day;
+        }
+        if (!d.due_date || d.due_date.length < 7) return false;
+        var due = new Date(d.due_date + (d.due_date.length === 7 ? "-01" : ""));
+        due.setHours(0, 0, 0, 0);
+        today.setHours(0, 0, 0, 0);
+        return due.getTime() <= today.getTime();
+      }
+      function getViewMonth() {
+        var sel = document.querySelector("[data-dues-view-month]");
+        if (!sel || !sel.value) {
+          var t = new Date();
+          return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0");
+        }
+        return sel.value;
+      }
+      function buildViewMonthOptions() {
+        var sel = document.querySelector("[data-dues-view-month]");
+        if (!sel) return;
+        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        var now = new Date();
+        var current = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+        sel.innerHTML = "";
+        for (var y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
+          for (var m = 1; m <= 12; m++) {
+            var yyyyMm = y + "-" + String(m).padStart(2, "0");
+            var label = months[m - 1] + " " + y;
+            var opt = document.createElement("option");
+            opt.value = yyyyMm;
+            opt.textContent = label;
+            if (yyyyMm === current) opt.selected = true;
+            sel.appendChild(opt);
+          }
+        }
+        if (!sel.value) sel.value = current;
+      }
+      function updateDueAlert(dues) {
+        var alertEl = document.querySelector("[data-dues-due-alert]");
+        var msgEl = document.querySelector("[data-dues-due-message]");
+        if (!alertEl || !msgEl) return;
+        var dueList = dues.filter(function (d) { return isDueTodayOrOverdue(d); });
+        var count = dueList.length;
+        if (count === 0) {
+          alertEl.style.display = "none";
+          updateNotifDues([]);
+          return;
+        }
+        alertEl.style.display = "flex";
+        msgEl.textContent = count === 1
+          ? "1 monthly due is due today or overdue — please pay."
+          : count + " monthly dues are due today or overdue — please pay.";
+        updateNotifDues(dueList);
+      }
+      function updateNotifDues(dueList) {
+        var notifList = document.querySelector("[data-notif-list]");
+        var notifBadge = document.querySelector("[data-notif-badge]");
+        if (!notifList) return;
+        var empty = notifList.querySelector(".notif-empty");
+        notifList.querySelectorAll(".notif-item--due").forEach(function (n) { n.remove(); });
+        if (dueList.length === 0) {
+          if (empty) empty.style.display = "";
+          if (notifBadge) { notifBadge.style.display = "none"; notifBadge.textContent = ""; }
+          return;
+        }
+        if (empty) empty.style.display = dueList.length ? "none" : "";
+        dueList.forEach(function (d) {
+          var div = document.createElement("div");
+          div.className = "notif-item notif-item--due";
+          div.innerHTML = "<span class=\"notif-item__title\">Monthly due: " + escapeHtml((d.unit_label || "Unit").trim() || "—") + "</span><span class=\"notif-item__meta\">₱" + Number(d.amount).toFixed(2) + " · Pay now</span>";
+          notifList.appendChild(div);
+        });
+        if (notifBadge) { notifBadge.style.display = "block"; notifBadge.textContent = dueList.length > 9 ? "9+" : String(dueList.length); }
+      }
       function renderDues() {
         var list = document.querySelector("[data-dues-list]");
         var emptyRow = document.querySelector("[data-dues-empty]");
         if (!list) return;
-        var dues = loadDues();
+        var allDues = loadDues();
+        var viewMonth = getViewMonth();
+        var dues = allDues.filter(function (d) { return dueAppliesToMonth(d, viewMonth); });
+        updateDueAlert(allDues);
+        var emptyMsg = document.querySelector("[data-dues-empty-msg]");
+        if (emptyMsg) emptyMsg.textContent = allDues.length === 0 ? "No dues added yet. Use the form above to add a monthly due." : "No dues for this month. Change the view month or add a recurring due.";
         if (emptyRow) emptyRow.style.display = dues.length ? "none" : "";
         list.querySelectorAll("[data-due-id]").forEach(function (r) { r.remove(); });
+        var removeSvg = "<svg viewBox=\"0 0 24 24\" width=\"16\" height=\"16\" aria-hidden=\"true\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2\"></path><line x1=\"10\" y1=\"11\" x2=\"10\" y2=\"17\"></line><line x1=\"14\" y1=\"11\" x2=\"14\" y2=\"17\"></line></svg>";
         dues.forEach(function (d) {
           var tr = document.createElement("tr");
           tr.dataset.dueId = d.id;
+          var paid = isPaidForMonth(d, viewMonth);
+          if (paid) tr.classList.add("dues-row--paid");
           var unitLabel = (d.unit_label || d.description || "").trim() || "—";
           var amount = d.amount != null && d.amount !== "" ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
-          var date = d.due_date || "—";
-          if (date.length === 7) {
-            var parts = date.split("-");
-            var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-            if (parts.length === 2) date = months[parseInt(parts[1], 10) - 1] + " " + parts[0];
-          }
-          tr.innerHTML = "<td>" + escapeHtml(unitLabel) + "</td><td>" + amount + "</td><td>" + escapeHtml(date) + "</td><td><button type=\"button\" class=\"btn ghost btn--sm\" data-dues-remove data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"Remove\">Remove</button></td>";
+          var dateDisplay = formatDueDate(d);
+          var paidBtnLabel = paid ? "Mark unpaid for this month" : "Mark as paid for this month";
+          var paidBtnText = paid ? "Paid" : "Mark paid";
+          var paidBtnClass = "dues-btn-paid " + (paid ? "is-paid" : "");
+          tr.innerHTML = "<td>" + escapeHtml(unitLabel) + "</td><td>" + amount + "</td><td>" + escapeHtml(dateDisplay) + "</td><td><button type=\"button\" class=\"btn ghost " + paidBtnClass + "\" data-dues-toggle-paid data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"" + escapeHtml(paidBtnLabel) + "\" title=\"" + escapeHtml(paidBtnLabel) + "\">" + (paid ? "<span class=\"dues-paid-check\" aria-hidden=\"true\">✓</span> " : "") + paidBtnText + "</button></td><td class=\"dues-col-actions\"><button type=\"button\" class=\"dues-btn-remove\" data-dues-remove data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"Remove this due\">" + removeSvg + "</button></td>";
           list.appendChild(tr);
+        });
+        list.querySelectorAll("[data-dues-toggle-paid]").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            var id = btn.getAttribute("data-id");
+            var dues = loadDues();
+            var d = dues.find(function (x) { return x.id === id; });
+            if (!d) return;
+            normalizePaidMonths(d);
+            if (!Array.isArray(d.paid_months)) d.paid_months = [];
+            var idx = d.paid_months.indexOf(viewMonth);
+            if (idx >= 0) d.paid_months.splice(idx, 1);
+            else d.paid_months.push(viewMonth);
+            d.paid_months.sort();
+            saveDues(dues);
+            renderDues();
+          });
         });
         list.querySelectorAll("[data-dues-remove]").forEach(function (btn) {
           btn.addEventListener("click", function () {
@@ -545,24 +706,31 @@
             if (amountEl) amountEl.focus();
             return;
           }
+          var recurringEl = form.querySelector("[data-dues-recurring]");
+          var recurring = recurringEl ? !!recurringEl.checked : true;
           var unitLabel = unitEl && unitEl.options[unitEl.selectedIndex] ? unitEl.options[unitEl.selectedIndex].text : unitValue === "general" ? "General / Other" : "—";
           var dues = loadDues();
           var id = "due_" + Date.now();
-          dues.push({ id: id, unit_id: unitValue === "general" ? null : unitValue, unit_label: unitLabel, amount: amount, due_date: due_date || null });
+          dues.push({ id: id, unit_id: unitValue === "general" ? null : unitValue, unit_label: unitLabel, amount: amount, due_date: due_date || null, recurring: recurring, paid_months: [] });
           saveDues(dues);
           renderDues();
           form.reset();
           if (dateEl) {
             var now = new Date();
-            dateEl.value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+            var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+            dateEl.value = nextMonth.getFullYear() + "-" + String(nextMonth.getMonth() + 1).padStart(2, "0") + "-" + String(nextMonth.getDate()).padStart(2, "0");
           }
         });
       }
-      var now = new Date();
       var dateInput = document.querySelector("[data-dues-date]");
       if (dateInput && !dateInput.value) {
-        dateInput.value = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+        var now = new Date();
+        var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        dateInput.value = nextMonth.getFullYear() + "-" + String(nextMonth.getMonth() + 1).padStart(2, "0") + "-" + String(nextMonth.getDate()).padStart(2, "0");
       }
+      buildViewMonthOptions();
+      var viewMonthSel = document.querySelector("[data-dues-view-month]");
+      if (viewMonthSel) viewMonthSel.addEventListener("change", renderDues);
       renderDues();
     </script>
   </body>
