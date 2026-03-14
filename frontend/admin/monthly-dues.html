@@ -642,8 +642,22 @@
         });
         if (notifBadge) { notifBadge.style.display = "block"; notifBadge.textContent = dueList.length > 9 ? "9+" : String(dueList.length); }
       }
-      function renderDues() {
-        loadDues().then(function (allDues) {
+      function normalizeDueFromLocal(d) {
+        return {
+          id: String(d.id),
+          unit_id: d.unit_id != null ? String(d.unit_id) : null,
+          unit_label: d.unit_label || "",
+          amount: d.amount,
+          due_date: d.due_date ? String(d.due_date).slice(0, 10) : null,
+          recurring: d.recurring !== false,
+          paid_months: Array.isArray(d.paid_months) ? d.paid_months : []
+        };
+      }
+      function renderDues(optionalDues) {
+        var loadPromise = optionalDues != null
+          ? Promise.resolve(optionalDues.map(normalizeDueFromLocal))
+          : loadDues();
+        loadPromise.then(function (allDues) {
           var list = document.querySelector("[data-dues-list]");
           var emptyRow = document.querySelector("[data-dues-empty]");
           if (!list) return;
@@ -746,6 +760,7 @@
           var unitEl = form.querySelector("[data-dues-unit]");
           var amountEl = form.querySelector("[data-dues-amount]");
           var dateEl = form.querySelector("[data-dues-date]");
+          var submitBtn = form.querySelector("[data-dues-submit]");
           var unitValue = unitEl && unitEl.value ? unitEl.value.trim() : "";
           var amount = amountEl && amountEl.value != null ? amountEl.value.trim() : "";
           var due_date = dateEl && dateEl.value ? dateEl.value.trim() : "";
@@ -763,6 +778,7 @@
           var recurring = recurringEl ? !!recurringEl.checked : true;
           var unitLabel = unitEl && unitEl.options[unitEl.selectedIndex] ? unitEl.options[unitEl.selectedIndex].text : unitValue === "general" ? "General / Other" : "—";
           var payload = { unit_id: unitValue === "general" ? null : unitValue, amount: Number(amount), due_date: due_date || (new Date().getFullYear() + "-" + String(new Date().getMonth() + 1).padStart(2, "0") + "-01") };
+          if (submitBtn) { submitBtn.disabled = true; submitBtn.setAttribute("aria-busy", "true"); }
           fetch("/api/monthly-dues", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify(payload) })
             .then(function (r) {
               if (!r.ok) return r.json().then(function (d) { throw new Error(d.error || "Failed"); });
@@ -789,7 +805,10 @@
                 var nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
                 dateEl.value = nextMonth.getFullYear() + "-" + String(nextMonth.getMonth() + 1).padStart(2, "0") + "-" + String(nextMonth.getDate()).padStart(2, "0");
               }
-              renderDues();
+              renderDues(dues);
+            })
+            .finally(function () {
+              if (submitBtn) { submitBtn.disabled = false; submitBtn.removeAttribute("aria-busy"); }
             });
         });
       }

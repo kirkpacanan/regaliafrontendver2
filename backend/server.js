@@ -1931,9 +1931,10 @@ app.delete("/api/payments/:id", optionalAuth, async (req, res) => {
 // ---------------- Monthly Dues (owner-scoped) ----------------
 app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
   try {
-    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+    const ownerId = role === "OWNER" ? req.user.employee_id : null;
     let rows;
-    if (ownerId) {
+    if (ownerId != null) {
       const [r] = await db.promise().query(
         `SELECT d.id, d.unit_id, d.amount, d.due_date, d.status, d.created_at,
           u.unit_number, t.tower_name
@@ -1974,7 +1975,8 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
     const date = due_date && String(due_date).trim() ? String(due_date).trim().slice(0, 10) : null;
     if (!date) return res.status(400).json({ error: "due_date required (YYYY-MM-DD or YYYY-MM)" });
     const dueDate = date.length === 7 ? date + "-01" : date.slice(0, 10);
-    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+    const ownerId = role === "OWNER" ? req.user.employee_id : null;
     const [result] = await db.promise().query(
       "INSERT INTO MONTHLY_DUE (unit_id, amount, due_date, status, owner_employee_id) VALUES (?, ?, ?, 'pending', ?)",
       [unit_id != null && unit_id !== "" && unit_id !== "general" ? Number(unit_id) : null, amt, dueDate, ownerId]
@@ -1993,7 +1995,8 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
 app.delete("/api/monthly-dues/:id", optionalAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+    const ownerId = role === "OWNER" ? req.user.employee_id : null;
     if (ownerId) {
       const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ? AND owner_employee_id = ?", [id, ownerId]);
       if (result.affectedRows === 0) return res.status(404).json({ error: "Not found" });
