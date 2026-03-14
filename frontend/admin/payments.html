@@ -531,6 +531,7 @@
         });
       })();
       (function paymentsSection() {
+        var apiBase = (typeof window !== "undefined" && window.location && window.location.origin) ? (window.location.origin + "/api") : "/api";
         function getAuthHeaders(json) {
           var h = {};
           try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
@@ -562,6 +563,11 @@
         var emptyRow = document.querySelector("[data-payments-empty]");
         var fromInput = document.querySelector("[data-payments-from]");
         var toInput = document.querySelector("[data-payments-to]");
+        function setDefaultDateFilter() {
+          var today = new Date().toISOString().slice(0, 10);
+          if (fromInput) fromInput.value = today;
+          if (toInput) toInput.value = today;
+        }
 
         function getFilteredPayments() {
           if (!dateFrom && !dateTo) return allPayments;
@@ -612,7 +618,7 @@
           });
         }
         function loadPayments() {
-          return fetch("/api/payments", { headers: getAuthHeaders() })
+          return fetch(apiBase + "/payments", { headers: getAuthHeaders() })
             .then(function (r) { return r.ok ? r.json() : []; })
             .then(function (list) {
               allPayments = Array.isArray(list) ? list : [];
@@ -631,7 +637,7 @@
           var chargesTbody = document.querySelector("[data-charges-tbody]");
           var chargesEmpty = document.querySelector("[data-charges-empty]");
           if (!chargesTbody) return;
-          fetch("/api/charges/all", { headers: getAuthHeaders() })
+          fetch(apiBase + "/charges/all", { headers: getAuthHeaders() })
             .then(function (r) { return r.ok ? r.json() : []; })
             .then(function (rows) {
               var list = Array.isArray(rows) ? rows : [];
@@ -654,19 +660,6 @@
                 var chargesText = g.charges.slice(0, 3).join(", ") + (g.charges.length > 3 ? " (+" + (g.charges.length - 3) + ")" : "");
                 tr.innerHTML = "<td>" + escapeHtml(unitLabel) + "</td><td>" + escapeHtml(guest) + "</td><td>" + escapeHtml(chargesText) + "</td><td>" + formatPeso(g.total) + "</td><td><button type=\"button\" class=\"payments-btn payments-btn--charge\" data-charge-record-payment data-booking-id=\"" + (g.booking_id != null ? g.booking_id : "") + "\" data-unit-id=\"" + (g.unit_id != null ? g.unit_id : "") + "\" data-amount=\"" + g.total + "\">Record payment</button></td>";
                 chargesTbody.appendChild(tr);
-              });
-              chargesTbody.querySelectorAll("[data-charge-record-payment]").forEach(function (btn) {
-                btn.addEventListener("click", function () {
-                  var row = btn.closest("tr");
-                  var guestCell = row && row.cells[1];
-                  var payer = guestCell ? guestCell.textContent.trim() : "";
-                  openRecordModal({
-                    booking_id: btn.getAttribute("data-booking-id") || null,
-                    unit_id: btn.getAttribute("data-unit-id") || null,
-                    amount: btn.getAttribute("data-amount") || "",
-                    payer_description: payer ? payer + " (Additional charges)" : "Additional charges"
-                  });
-                });
               });
             })
             .catch(function () {
@@ -706,6 +699,24 @@
         if (cancelBtn) cancelBtn.addEventListener("click", closeRecordModal);
         if (overlay) overlay.addEventListener("click", function (e) { if (e.target === overlay) closeRecordModal(); });
         if (openBtn) openBtn.addEventListener("click", function () { openRecordModal({}); });
+        var chargesTbodyEl = document.querySelector("[data-charges-tbody]");
+        if (chargesTbodyEl) {
+          chargesTbodyEl.addEventListener("click", function (e) {
+            var btn = e.target.closest("[data-charge-record-payment]");
+            if (!btn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var row = btn.closest("tr");
+            var guestCell = row && row.cells[1];
+            var payer = guestCell ? guestCell.textContent.trim() : "";
+            openRecordModal({
+              booking_id: btn.getAttribute("data-booking-id") || null,
+              unit_id: btn.getAttribute("data-unit-id") || null,
+              amount: btn.getAttribute("data-amount") || "",
+              payer_description: payer ? payer + " (Additional charges)" : "Additional charges"
+            });
+          });
+        }
         if (form) form.addEventListener("submit", function (e) {
           e.preventDefault();
           if (msgEl) msgEl.textContent = "";
@@ -719,7 +730,7 @@
           };
           if (!payload.payer_description) { if (msgEl) { msgEl.textContent = "Enter payer or description."; msgEl.className = "form-msg error"; } return; }
           if (!payload.amount || payload.amount <= 0) { if (msgEl) { msgEl.textContent = "Enter a valid amount."; msgEl.className = "form-msg error"; } return; }
-          fetch("/api/payments", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify(payload) })
+          fetch(apiBase + "/payments", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify(payload) })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
             .then(function (res) {
               if (!res.ok) { if (msgEl) { msgEl.textContent = res.data.error || "Failed to save."; msgEl.className = "form-msg error"; } return; }
@@ -760,7 +771,11 @@
           URL.revokeObjectURL(a.href);
         });
 
-        fetch("/api/properties", { headers: getAuthHeaders() })
+        setDefaultDateFilter();
+        var todayStr = new Date().toISOString().slice(0, 10);
+        dateFrom = todayStr;
+        dateTo = todayStr;
+        fetch(apiBase + "/properties", { headers: getAuthHeaders() })
           .then(function (r) { return r.ok ? r.json() : []; })
           .then(function (units) {
             if (!unitSelect) return;

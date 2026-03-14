@@ -13,7 +13,7 @@
   } else if (page === "bookings") {
     initBookings();
   } else if (page === "payments") {
-    initPayments();
+    /* Payments page uses its own inline script (paymentsSection) for full UI, data, and modals */
   }
 
   function initDashboard() {
