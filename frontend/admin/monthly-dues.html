@@ -504,20 +504,42 @@
         return div.innerHTML;
       }
       var unitSelect = document.querySelector("[data-dues-unit]");
-      if (unitSelect) {
+      function loadUnitsIntoSelect() {
+        if (!unitSelect) return;
+        var firstOpt = unitSelect.querySelector("option[value='']");
+        var generalOpt = unitSelect.querySelector("option[value='general']");
+        var loadingOpt = document.createElement("option");
+        loadingOpt.value = "";
+        loadingOpt.disabled = true;
+        loadingOpt.textContent = "Loading units…";
+        while (unitSelect.options.length > 2) unitSelect.remove(2);
+        unitSelect.appendChild(loadingOpt);
         fetch("/api/properties", { headers: getAuthHeaders() })
           .then(function (r) { return r.ok ? r.json() : []; })
           .then(function (units) {
+            if (loadingOpt.parentNode) loadingOpt.remove();
             if (!Array.isArray(units)) return;
+            var fragment = document.createDocumentFragment();
             units.forEach(function (u) {
               var opt = document.createElement("option");
               opt.value = u.unit_id;
               opt.textContent = (u.tower_name || "—") + " – Unit " + (u.unit_number || u.unit_id || "—");
-              unitSelect.appendChild(opt);
+              fragment.appendChild(opt);
             });
+            if (generalOpt) unitSelect.insertBefore(fragment, generalOpt);
+            else unitSelect.appendChild(fragment);
           })
-          .catch(function () {});
+          .catch(function () {
+            if (loadingOpt.parentNode) loadingOpt.remove();
+            var opt = document.createElement("option");
+            opt.value = "";
+            opt.disabled = true;
+            opt.textContent = "Could not load units. Try again.";
+            if (generalOpt) unitSelect.insertBefore(opt, generalOpt);
+            else unitSelect.appendChild(opt);
+          });
       }
+      if (unitSelect) loadUnitsIntoSelect();
       var form = document.querySelector("[data-dues-form]");
       if (form) {
         form.addEventListener("submit", function (e) {

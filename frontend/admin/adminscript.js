@@ -1622,7 +1622,7 @@
         if (!list.length) {
           var tr = document.createElement("tr");
           tr.setAttribute("data-payments-empty", "");
-          tr.innerHTML = "<td colspan=\"5\" class=\"payment-placeholder-cell\"><span class=\"payment-placeholder-message\">No payment records yet. Record payments from checkout or add them here when the feature is available.</span></td>";
+          tr.innerHTML = "<td colspan=\"5\" class=\"payment-placeholder-cell\"><span class=\"payment-placeholder-message\">No payment records yet.</span></td>";
           tbody.appendChild(tr);
           return;
         }
@@ -1644,7 +1644,7 @@
         if (pendingEl) pendingEl.textContent = "—";
         if (monthEl) monthEl.textContent = "—";
         if (tbody && emptyRow) {
-          emptyRow.querySelector(".payment-placeholder-message").textContent = "Could not load payments. Check backend and try again.";
+          emptyRow.querySelector(".payment-placeholder-message").textContent = "Could not load payments. Try again.";
         }
       });
   }
