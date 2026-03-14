@@ -155,6 +155,54 @@
           </div>
         </header>
 
+        <!-- Record payment modal -->
+        <div class="modal-overlay" id="record-payment-overlay" data-record-payment-overlay style="display: none;">
+          <div class="modal record-payment-modal">
+            <div class="modal-header">
+              <h3>Record payment</h3>
+              <button type="button" class="modal-close" data-record-payment-close aria-label="Close">&times;</button>
+            </div>
+            <form data-record-payment-form>
+              <div class="modal-body">
+                <label class="form-field">
+                  <span>Payer / Description</span>
+                  <input type="text" name="payer_description" data-record-payer placeholder="Guest name or description" required />
+                </label>
+                <label class="form-field">
+                  <span>Unit (optional)</span>
+                  <select name="unit_id" data-record-unit>
+                    <option value="">— None —</option>
+                  </select>
+                </label>
+                <label class="form-field">
+                  <span>Amount (₱)</span>
+                  <input type="number" name="amount" data-record-amount min="0" step="0.01" placeholder="0.00" required />
+                </label>
+                <label class="form-field">
+                  <span>Payment date</span>
+                  <input type="date" name="payment_date" data-record-date required />
+                </label>
+                <label class="form-field">
+                  <span>Method</span>
+                  <select name="method" data-record-method>
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                    <option value="Bank transfer">Bank transfer</option>
+                    <option value="Online">Online</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </label>
+                <input type="hidden" name="booking_id" data-record-booking-id />
+                <div class="form-msg" data-record-payment-msg></div>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn ghost" data-record-payment-cancel>Cancel</button>
+                <button type="submit" class="btn-primary">Save payment</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
         <div class="delete-confirm-overlay" data-delete-overlay>
           <div class="delete-confirm-card">
             <div class="danger-icon">
@@ -208,9 +256,49 @@
           </div>
         </section>
 
+        <!-- Additional charges by unit -->
+        <section class="panel panel--charges">
+          <h3>Additional charges by unit</h3>
+          <p class="panel-subtitle muted">Charges added for guests. Record a payment to mark as settled.</p>
+          <div class="payment-placeholder-table">
+            <table class="payment-table" aria-label="Additional charges by unit">
+              <thead>
+                <tr>
+                  <th>Unit</th>
+                  <th>Guest</th>
+                  <th>Charges</th>
+                  <th>Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody data-charges-tbody>
+                <tr data-charges-empty>
+                  <td colspan="5" class="payment-placeholder-cell">
+                    <span class="payment-placeholder-message">Loading…</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
         <!-- Payment history -->
         <section class="panel">
-          <h3>Payment history</h3>
+          <div class="panel-toolbar payments-toolbar">
+            <h3>Payment history</h3>
+            <div class="panel-toolbar-actions payments-toolbar-actions">
+              <div class="payments-filter-group">
+                <label class="filter-label">From <input type="date" data-payments-from /></label>
+                <label class="filter-label">To <input type="date" data-payments-to /></label>
+              </div>
+              <div class="payments-buttons-group">
+                <button type="button" class="payments-btn payments-btn--secondary" data-payments-apply>Apply</button>
+                <button type="button" class="payments-btn payments-btn--tertiary" data-payments-clear-filter>Clear</button>
+                <button type="button" class="payments-btn payments-btn--primary" data-record-payment-btn>Record payment</button>
+                <button type="button" class="payments-btn payments-btn--secondary" data-payments-export>Export CSV</button>
+              </div>
+            </div>
+          </div>
           <p class="panel-subtitle muted">Recorded payments (system records transactions; it does not collect payments).</p>
           <div class="payment-placeholder-table">
             <table class="payment-table" aria-label="Payment history">
@@ -441,6 +529,253 @@
               pwForm.reset();
             }).catch(function () { if (pwMsg) pwMsg.textContent = "Server unavailable"; });
         });
+      })();
+      (function paymentsSection() {
+        function getAuthHeaders(json) {
+          var h = {};
+          try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+          if (json) h["Content-Type"] = "application/json";
+          return h;
+        }
+        function formatPeso(n) {
+          return "₱ " + (Number(n) || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        }
+        function formatDate(d) {
+          if (!d) return "—";
+          var x = new Date(d);
+          var mon = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][x.getMonth()];
+          return mon + " " + x.getDate() + ", " + x.getFullYear();
+        }
+        function escapeHtml(s) {
+          if (s == null) return "";
+          var div = document.createElement("div");
+          div.textContent = s;
+          return div.innerHTML;
+        }
+        var allPayments = [];
+        var dateFrom = null;
+        var dateTo = null;
+        var totalEl = document.querySelector("[data-payments-total]");
+        var pendingEl = document.querySelector("[data-payments-pending]");
+        var monthEl = document.querySelector("[data-payments-month]");
+        var tbody = document.querySelector("[data-payments-tbody]");
+        var emptyRow = document.querySelector("[data-payments-empty]");
+        var fromInput = document.querySelector("[data-payments-from]");
+        var toInput = document.querySelector("[data-payments-to]");
+
+        function getFilteredPayments() {
+          if (!dateFrom && !dateTo) return allPayments;
+          return allPayments.filter(function (p) {
+            var d = p.payment_date ? new Date(p.payment_date) : null;
+            if (!d) return false;
+            var t = d.getTime();
+            if (dateFrom && t < new Date(dateFrom + "T00:00:00").getTime()) return false;
+            if (dateTo && t > new Date(dateTo + "T23:59:59").getTime()) return false;
+            return true;
+          });
+        }
+        function updateStats(payments) {
+          var now = new Date();
+          var thisYear = now.getFullYear();
+          var thisMonth = now.getMonth();
+          var totalReceived = 0;
+          var thisMonthTotal = 0;
+          var pendingCount = 0;
+          (payments || allPayments).forEach(function (p) {
+            var amt = Number(p.amount) || 0;
+            if (String(p.status || "").toLowerCase() === "completed") {
+              totalReceived += amt;
+              var pd = p.payment_date ? new Date(p.payment_date) : null;
+              if (pd && pd.getFullYear() === thisYear && pd.getMonth() === thisMonth) thisMonthTotal += amt;
+            } else { pendingCount++; }
+          });
+          if (totalEl) totalEl.textContent = formatPeso(totalReceived);
+          if (pendingEl) pendingEl.textContent = pendingCount > 0 ? pendingCount + " pending" : "0";
+          if (monthEl) monthEl.textContent = formatPeso(thisMonthTotal);
+        }
+        function renderPaymentTable() {
+          var payments = getFilteredPayments();
+          if (!tbody) return;
+          var emptyMsg = emptyRow ? emptyRow.querySelector(".payment-placeholder-message") : null;
+          if (emptyRow) { emptyRow.style.display = payments.length ? "none" : ""; if (emptyMsg) emptyMsg.textContent = "No recorded payments yet."; }
+          tbody.querySelectorAll("tr[data-payment-id]").forEach(function (r) { r.remove(); });
+          payments.forEach(function (p) {
+            var tr = document.createElement("tr");
+            tr.dataset.paymentId = p.payment_id;
+            var guest = (p.guest_name || p.payer_description || "—").trim();
+            var unit = p.unit_number || p.tower_name ? (p.tower_name || "") + (p.unit_number ? " Unit " + p.unit_number : "") : "";
+            var guestCell = unit ? guest + " · " + unit : guest;
+            var status = String(p.status || "").toLowerCase();
+            var statusLabel = status === "completed" ? "Completed" : status === "pending" ? "Pending" : p.status || "—";
+            tr.innerHTML = "<td>" + escapeHtml(formatDate(p.payment_date)) + "</td><td>" + escapeHtml(guestCell) + "</td><td>" + formatPeso(p.amount) + "</td><td>" + escapeHtml(statusLabel) + "</td><td>" + escapeHtml(p.method || "—") + "</td>";
+            tbody.appendChild(tr);
+          });
+        }
+        function loadPayments() {
+          return fetch("/api/payments", { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (list) {
+              allPayments = Array.isArray(list) ? list : [];
+              updateStats(allPayments);
+              renderPaymentTable();
+            })
+            .catch(function () {
+              if (totalEl) totalEl.textContent = "—";
+              if (pendingEl) pendingEl.textContent = "—";
+              if (monthEl) monthEl.textContent = "—";
+              if (emptyRow) { emptyRow.style.display = ""; emptyRow.querySelector(".payment-placeholder-message").textContent = "Could not load payments."; }
+            });
+        }
+
+        function loadCharges() {
+          var chargesTbody = document.querySelector("[data-charges-tbody]");
+          var chargesEmpty = document.querySelector("[data-charges-empty]");
+          if (!chargesTbody) return;
+          fetch("/api/charges/all", { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (rows) {
+              var list = Array.isArray(rows) ? rows : [];
+              var byBooking = {};
+              list.forEach(function (c) {
+                var bid = c.booking_id != null ? c.booking_id : "u" + (c.unit_id != null ? c.unit_id : "x");
+                if (!byBooking[bid]) byBooking[bid] = { booking_id: c.booking_id, unit_id: c.unit_id, guest_name: c.guest_name, unit_number: c.unit_number, tower_name: c.tower_name, charges: [], total: 0 };
+                var tot = Number(c.quantity || 0) * Number(c.unit_price || 0);
+                byBooking[bid].charges.push(c.description || "Charge");
+                byBooking[bid].total += tot;
+              });
+              var groups = Object.keys(byBooking).map(function (k) { return byBooking[k]; }).filter(function (g) { return g.charges.length > 0; });
+              if (chargesEmpty) chargesEmpty.style.display = groups.length ? "none" : "";
+              chargesTbody.querySelectorAll("tr[data-charges-row]").forEach(function (r) { r.remove(); });
+              groups.forEach(function (g) {
+                var tr = document.createElement("tr");
+                tr.dataset.chargesRow = "1";
+                var unitLabel = (g.tower_name || "") + (g.unit_number ? " Unit " + g.unit_number : "") || "—";
+                var guest = (g.guest_name || "—").trim();
+                var chargesText = g.charges.slice(0, 3).join(", ") + (g.charges.length > 3 ? " (+" + (g.charges.length - 3) + ")" : "");
+                tr.innerHTML = "<td>" + escapeHtml(unitLabel) + "</td><td>" + escapeHtml(guest) + "</td><td>" + escapeHtml(chargesText) + "</td><td>" + formatPeso(g.total) + "</td><td><button type=\"button\" class=\"payments-btn payments-btn--charge\" data-charge-record-payment data-booking-id=\"" + (g.booking_id != null ? g.booking_id : "") + "\" data-unit-id=\"" + (g.unit_id != null ? g.unit_id : "") + "\" data-amount=\"" + g.total + "\">Record payment</button></td>";
+                chargesTbody.appendChild(tr);
+              });
+              chargesTbody.querySelectorAll("[data-charge-record-payment]").forEach(function (btn) {
+                btn.addEventListener("click", function () {
+                  var row = btn.closest("tr");
+                  var guestCell = row && row.cells[1];
+                  var payer = guestCell ? guestCell.textContent.trim() : "";
+                  openRecordModal({
+                    booking_id: btn.getAttribute("data-booking-id") || null,
+                    unit_id: btn.getAttribute("data-unit-id") || null,
+                    amount: btn.getAttribute("data-amount") || "",
+                    payer_description: payer ? payer + " (Additional charges)" : "Additional charges"
+                  });
+                });
+              });
+            })
+            .catch(function () {
+              if (chargesEmpty) { chargesEmpty.style.display = ""; chargesEmpty.querySelector(".payment-placeholder-message").textContent = "Could not load charges."; }
+            });
+        }
+
+        var overlay = document.getElementById("record-payment-overlay");
+        var form = document.querySelector("[data-record-payment-form]");
+        var payerInput = document.querySelector("[data-record-payer]");
+        var unitSelect = document.querySelector("[data-record-unit]");
+        var amountInput = document.querySelector("[data-record-amount]");
+        var dateInput = document.querySelector("[data-record-date]");
+        var methodSelect = document.querySelector("[data-record-method]");
+        var bookingIdInput = document.querySelector("[data-record-booking-id]");
+        var msgEl = document.querySelector("[data-record-payment-msg]");
+
+        function openRecordModal(prefill) {
+          prefill = prefill || {};
+          if (payerInput) payerInput.value = prefill.payer_description || "";
+          if (unitSelect) unitSelect.value = prefill.unit_id != null && prefill.unit_id !== "" ? prefill.unit_id : "";
+          if (amountInput) amountInput.value = prefill.amount != null ? prefill.amount : "";
+          var today = new Date().toISOString().slice(0, 10);
+          if (dateInput) dateInput.value = prefill.payment_date || today;
+          if (bookingIdInput) bookingIdInput.value = prefill.booking_id != null ? prefill.booking_id : "";
+          if (msgEl) msgEl.textContent = "";
+          if (overlay) overlay.style.display = "flex";
+        }
+        function closeRecordModal() {
+          if (overlay) overlay.style.display = "none";
+          if (form) form.reset();
+        }
+        var closeBtn = document.querySelector("[data-record-payment-close]");
+        var cancelBtn = document.querySelector("[data-record-payment-cancel]");
+        var openBtn = document.querySelector("[data-record-payment-btn]");
+        if (closeBtn) closeBtn.addEventListener("click", closeRecordModal);
+        if (cancelBtn) cancelBtn.addEventListener("click", closeRecordModal);
+        if (overlay) overlay.addEventListener("click", function (e) { if (e.target === overlay) closeRecordModal(); });
+        if (openBtn) openBtn.addEventListener("click", function () { openRecordModal({}); });
+        if (form) form.addEventListener("submit", function (e) {
+          e.preventDefault();
+          if (msgEl) msgEl.textContent = "";
+          var payload = {
+            payer_description: payerInput && payerInput.value ? payerInput.value.trim() : "",
+            unit_id: unitSelect && unitSelect.value ? unitSelect.value : null,
+            amount: amountInput && amountInput.value ? Number(amountInput.value) : 0,
+            payment_date: dateInput && dateInput.value ? dateInput.value : new Date().toISOString().slice(0, 10),
+            method: methodSelect && methodSelect.value ? methodSelect.value : "Cash",
+            booking_id: bookingIdInput && bookingIdInput.value ? bookingIdInput.value : null
+          };
+          if (!payload.payer_description) { if (msgEl) { msgEl.textContent = "Enter payer or description."; msgEl.className = "form-msg error"; } return; }
+          if (!payload.amount || payload.amount <= 0) { if (msgEl) { msgEl.textContent = "Enter a valid amount."; msgEl.className = "form-msg error"; } return; }
+          fetch("/api/payments", { method: "POST", headers: getAuthHeaders(true), body: JSON.stringify(payload) })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+              if (!res.ok) { if (msgEl) { msgEl.textContent = res.data.error || "Failed to save."; msgEl.className = "form-msg error"; } return; }
+              closeRecordModal();
+              loadPayments();
+            })
+            .catch(function () { if (msgEl) { msgEl.textContent = "Network error."; msgEl.className = "form-msg error"; } });
+        });
+
+        var applyBtn = document.querySelector("[data-payments-apply]");
+        var clearBtn = document.querySelector("[data-payments-clear-filter]");
+        var exportBtn = document.querySelector("[data-payments-export]");
+        if (applyBtn) applyBtn.addEventListener("click", function () {
+          dateFrom = fromInput && fromInput.value ? fromInput.value : null;
+          dateTo = toInput && toInput.value ? toInput.value : null;
+          renderPaymentTable();
+        });
+        if (clearBtn) clearBtn.addEventListener("click", function () {
+          dateFrom = null; dateTo = null;
+          if (fromInput) fromInput.value = "";
+          if (toInput) toInput.value = "";
+          renderPaymentTable();
+        });
+        if (exportBtn) exportBtn.addEventListener("click", function () {
+          var list = getFilteredPayments();
+          var headers = ["Date", "Guest / Booking", "Amount", "Status", "Method"];
+          var rows = list.map(function (p) {
+            var guest = (p.guest_name || p.payer_description || "—").trim();
+            var unit = p.unit_number || p.tower_name ? (p.tower_name || "") + (p.unit_number ? " Unit " + p.unit_number : "") : "";
+            return [formatDate(p.payment_date), unit ? guest + " · " + unit : guest, Number(p.amount).toFixed(2), p.status || "", p.method || ""];
+          });
+          var csv = [headers.join(",")].concat(rows.map(function (r) { return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(","); })).join("\n");
+          var blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" });
+          var a = document.createElement("a");
+          a.href = URL.createObjectURL(blob);
+          a.download = "payments-" + new Date().toISOString().slice(0, 10) + ".csv";
+          a.click();
+          URL.revokeObjectURL(a.href);
+        });
+
+        fetch("/api/properties", { headers: getAuthHeaders() })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (units) {
+            if (!unitSelect) return;
+            while (unitSelect.options.length > 1) unitSelect.remove(1);
+            (units || []).forEach(function (u) {
+              var opt = document.createElement("option");
+              opt.value = u.unit_id;
+              opt.textContent = (u.tower_name || "—") + " – Unit " + (u.unit_number || u.unit_id || "—");
+              unitSelect.appendChild(opt);
+            });
+          })
+          .catch(function () {});
+
+        loadPayments();
+        loadCharges();
       })();
       (function deleteAccount() {
         var overlay = document.querySelector("[data-delete-overlay]");
