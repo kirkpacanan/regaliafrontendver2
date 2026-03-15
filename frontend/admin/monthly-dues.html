@@ -487,12 +487,13 @@
           .then(function (apiDues) {
             if (Array.isArray(apiDues)) {
               return apiDues.map(function (d) {
+                var rawDue = d.due_date ? String(d.due_date).replace(/T.*/, "").trim() : null;
                 return {
                   id: String(d.id),
                   unit_id: d.unit_id != null ? String(d.unit_id) : null,
                   unit_label: d.unit_label || "",
                   amount: d.amount,
-                  due_date: d.due_date ? String(d.due_date).slice(0, 10) : null,
+                  due_date: normalizeDueDateToYyyyMmDd(rawDue) || (rawDue && rawDue.length >= 10 ? rawDue.slice(0, 10) : rawDue),
                   recurring: d.recurring !== false,
                   paid_months: Array.isArray(d.paid_months) ? d.paid_months : [],
                   created_at: d.created_at ? String(d.created_at).replace(/T.*/, "").slice(0, 10) : null
@@ -550,9 +551,19 @@
         normalizePaidMonths(d);
         return Array.isArray(d.paid_months) && d.paid_months.indexOf(yyyyMm) >= 0;
       }
+      function normalizeDueDateToYyyyMmDd(s) {
+        if (!s) return null;
+        s = String(s).replace(/T.*/, "").trim();
+        var ymd = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        var dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (ymd) return ymd[1] + "-" + String(parseInt(ymd[2], 10)).padStart(2, "0") + "-" + String(parseInt(ymd[3], 10)).padStart(2, "0");
+        if (dmy) return dmy[3] + "-" + String(parseInt(dmy[2], 10)).padStart(2, "0") + "-" + String(parseInt(dmy[1], 10)).padStart(2, "0");
+        if (s.length >= 7 && s.match(/^\d{4}-\d{1,2}/)) return s.slice(0, 10);
+        return null;
+      }
       function getFirstMonthOfDue(d) {
-        if (!d.due_date) return null;
-        var s = String(d.due_date).replace(/T.*/, "").trim();
+        var s = normalizeDueDateToYyyyMmDd(d.due_date);
+        if (!s || s.length < 7) return null;
         var match = s.match(/^(\d{4})-(\d{1,2})/);
         if (!match) return null;
         var m = parseInt(match[2], 10);

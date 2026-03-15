@@ -1981,9 +1981,22 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
     const { unit_id, amount, due_date } = req.body || {};
     const amt = Number(amount);
     if (amt === undefined || isNaN(amt) || amt < 0) return res.status(400).json({ error: "amount required and must be >= 0" });
-    const date = due_date && String(due_date).trim() ? String(due_date).trim().slice(0, 10) : null;
-    if (!date) return res.status(400).json({ error: "due_date required (YYYY-MM-DD or YYYY-MM)" });
-    const dueDate = date.length === 7 ? date + "-01" : date.slice(0, 10);
+    const raw = due_date && String(due_date).trim() ? String(due_date).trim() : null;
+    if (!raw) return res.status(400).json({ error: "due_date required (YYYY-MM-DD or YYYY-MM)" });
+    let dueDate;
+    const ymdMatch = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    const dmyMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (ymdMatch) {
+      const [, y, m, d] = ymdMatch;
+      dueDate = y + "-" + m.padStart(2, "0") + "-" + d.padStart(2, "0");
+    } else if (dmyMatch) {
+      const [, d, m, y] = dmyMatch;
+      dueDate = y + "-" + m.padStart(2, "0") + "-" + d.padStart(2, "0");
+    } else if (raw.length === 7 && /^\d{4}-\d{1,2}$/.test(raw)) {
+      dueDate = raw + "-01";
+    } else {
+      return res.status(400).json({ error: "due_date must be YYYY-MM-DD or DD/MM/YYYY" });
+    }
     let ownerId = null;
     if (req.user && req.user.employee_id) {
       const role = req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
