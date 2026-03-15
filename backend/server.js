@@ -1744,6 +1744,7 @@ app.post("/api/bookings/:id/check-out", async (req, res) => {
         unit_id INT NULL,
         amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
         due_date DATE NOT NULL,
+        effective_from_month VARCHAR(7) NULL,
         status VARCHAR(32) NOT NULL DEFAULT 'pending',
         owner_employee_id INT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -1752,6 +1753,9 @@ app.post("/api/bookings/:id/check-out", async (req, res) => {
       )
     `);
   } catch (e) { /* table may already exist */ }
+  try {
+    await db.promise().query("ALTER TABLE MONTHLY_DUE ADD COLUMN effective_from_month VARCHAR(7) NULL COMMENT 'YYYY-MM'");
+  } catch (e) { /* column may already exist */ }
 })();
 
 app.get("/api/bookings/:id/charges", optionalAuth, async (req, res) => {
@@ -1945,7 +1949,7 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
     if (ownerId != null) {
       // Only show dues for this owner (no other accounts)
       const [r] = await db.promise().query(
-        `SELECT d.id, d.unit_id, d.amount, d.due_date, d.status, d.created_at,
+        `SELECT d.id, d.unit_id, d.amount, d.due_date, d.effective_from_month, d.status, d.created_at,
           u.unit_number, t.tower_name
          FROM MONTHLY_DUE d
          LEFT JOIN UNIT u ON u.unit_id = d.unit_id
@@ -1957,7 +1961,7 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
       rows = r;
     } else {
       const [r] = await db.promise().query(
-        `SELECT d.id, d.unit_id, d.amount, d.due_date, d.status, d.created_at,
+        `SELECT d.id, d.unit_id, d.amount, d.due_date, d.effective_from_month, d.status, d.created_at,
           u.unit_number, t.tower_name
          FROM MONTHLY_DUE d
          LEFT JOIN UNIT u ON u.unit_id = d.unit_id
@@ -1966,10 +1970,16 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
       );
       rows = r;
     }
-    res.json((rows || []).map(row => ({
-      ...row,
-      unit_label: row.unit_id ? (row.tower_name ? row.tower_name + " – Unit " + (row.unit_number || row.unit_id) : "Unit " + (row.unit_number || row.unit_id)) : "General / Other",
-    })));
+    res.json((rows || []).map(row => {
+      const dueDateStr = row.due_date ? String(row.due_date).replace(/T.*/, "").slice(0, 10) : null;
+      const effectiveFrom = row.effective_from_month || (dueDateStr && dueDateStr.length >= 7 ? dueDateStr.slice(0, 7) : null);
+      return {
+        ...row,
+        due_date: dueDateStr,
+        effective_from_month: effectiveFrom,
+        unit_label: row.unit_id ? (row.tower_name ? row.tower_name + " – Unit " + (row.unit_number || row.unit_id) : "Unit " + (row.unit_number || row.unit_id)) : "General / Other",
+      };
+    }));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to fetch monthly dues" });
@@ -2009,15 +2019,21 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
         if (row) ownerId = req.user.employee_id;
       }
     }
+    const effectiveFromMonth = dueDate.length >= 7 ? dueDate.slice(0, 7) : null;
     const [result] = await db.promise().query(
-      "INSERT INTO MONTHLY_DUE (unit_id, amount, due_date, status, owner_employee_id) VALUES (?, ?, ?, 'pending', ?)",
-      [unit_id != null && unit_id !== "" && unit_id !== "general" ? Number(unit_id) : null, amt, dueDate, ownerId]
+      "INSERT INTO MONTHLY_DUE (unit_id, amount, due_date, effective_from_month, status, owner_employee_id) VALUES (?, ?, ?, ?, 'pending', ?)",
+      [unit_id != null && unit_id !== "" && unit_id !== "general" ? Number(unit_id) : null, amt, dueDate, effectiveFromMonth, ownerId]
     );
     const [rows] = await db.promise().query(
-      "SELECT id, unit_id, amount, due_date, status, created_at FROM MONTHLY_DUE WHERE id = ?",
+      "SELECT id, unit_id, amount, due_date, effective_from_month, status, created_at FROM MONTHLY_DUE WHERE id = ?",
       [result.insertId]
     );
-    res.status(201).json(rows[0] || {});
+    const row = rows[0];
+    if (row) {
+      row.due_date = row.due_date ? String(row.due_date).replace(/T.*/, "").slice(0, 10) : null;
+      row.effective_from_month = row.effective_from_month || (row.due_date && row.due_date.length >= 7 ? row.due_date.slice(0, 7) : null);
+    }
+    res.status(201).json(row || {});
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to add monthly due" });

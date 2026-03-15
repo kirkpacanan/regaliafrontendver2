@@ -97,12 +97,18 @@ CREATE TABLE IF NOT EXISTS MONTHLY_DUE (
   unit_id INT NULL COMMENT 'NULL = general/other',
   amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
   due_date DATE NOT NULL COMMENT 'e.g. first day of month',
+  effective_from_month VARCHAR(7) NULL COMMENT 'YYYY-MM: first month this due applies (stops April due showing in Feb)',
   status VARCHAR(32) NOT NULL DEFAULT 'pending',
   owner_employee_id INT NULL,
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_monthly_due_owner (owner_employee_id),
   INDEX idx_monthly_due_date (due_date)
 );
+
+-- Add effective_from_month if table existed without it (safe to run)
+CALL add_col_if_missing('MONTHLY_DUE', 'effective_from_month', 'VARCHAR(7) NULL COMMENT ''YYYY-MM: first month this due applies''');
+-- Backfill existing rows so filtering works
+UPDATE MONTHLY_DUE SET effective_from_month = DATE_FORMAT(due_date, '%Y-%m') WHERE effective_from_month IS NULL;
 
 DROP PROCEDURE IF EXISTS add_col_if_missing;
 

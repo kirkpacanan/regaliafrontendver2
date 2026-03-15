@@ -494,6 +494,7 @@
                   unit_label: d.unit_label || "",
                   amount: d.amount,
                   due_date: normalizeDueDateToYyyyMmDd(rawDue) || (rawDue && rawDue.length >= 10 ? rawDue.slice(0, 10) : rawDue),
+                  effective_from_month: d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month).trim()) ? String(d.effective_from_month).trim() : null,
                   recurring: d.recurring !== false,
                   paid_months: Array.isArray(d.paid_months) ? d.paid_months : [],
                   created_at: d.created_at ? String(d.created_at).replace(/T.*/, "").slice(0, 10) : null
@@ -594,7 +595,10 @@
           if (!d.due_date || d.due_date.length < 7) return false;
           return d.due_date.slice(0, 7) === yyyyMm;
         }
-        // Recurring: never show before the due's start month (e.g. start 01/04/2026 => never show for Dec 2025)
+        // Recurring: use effective_from_month from API first (stored when due was added, so April start never shows in Feb)
+        var startMonth = d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month)) ? d.effective_from_month : null;
+        if (startMonth && yyyyMm < startMonth) return false;
+        if (startMonth) return yyyyMm >= startMonth;
         var dueMonth = getFirstMonthOfDue(d);
         if (dueMonth && yyyyMm < dueMonth) return false;
         var effectiveFrom = getEffectiveFromMonth(d);
@@ -701,6 +705,7 @@
           unit_label: d.unit_label || "",
           amount: d.amount,
           due_date: d.due_date ? String(d.due_date).slice(0, 10) : null,
+          effective_from_month: d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month)) ? String(d.effective_from_month).trim() : null,
           recurring: d.recurring !== false,
           paid_months: Array.isArray(d.paid_months) ? d.paid_months : [],
           created_at: d.created_at ? String(d.created_at).replace(/T.*/, "").slice(0, 10) : null
