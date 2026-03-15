@@ -657,9 +657,10 @@
           return d.due_date.slice(0, 7) === yyyyMm;
         }
         var startMonth = (d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month).trim())) ? String(d.effective_from_month).trim() : getFirstMonthOfDue(d);
-        if (startMonth && yyyyMm < startMonth) return false;
-        if (startMonth) return yyyyMm >= startMonth;
-        return false;
+        if (!startMonth) return false;
+        var startNorm = startMonth.length === 7 ? startMonth : (startMonth.slice(0, 5) + String(parseInt(startMonth.slice(5), 10)).padStart(2, "0"));
+        if (yyyyMm < startNorm) return false;
+        return yyyyMm >= startNorm;
       }
       function isDueTodayOrOverdue(d) {
         var today = new Date();
@@ -680,10 +681,11 @@
       function getViewMonth() {
         var sel = document.querySelector("[data-dues-view-month]");
         if (!sel || !sel.value) return "all";
-        if (sel.value === "all") return "all";
-        if (sel.value.length >= 7) return String(sel.value).slice(0, 7);
-        var t = new Date();
-        return t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0");
+        var v = String(sel.value).trim();
+        if (v === "all") return "all";
+        var match = v.match(/^(\d{4})-(\d{1,2})$/);
+        if (match) return match[1] + "-" + String(parseInt(match[2], 10)).padStart(2, "0");
+        return "all";
       }
       function setViewMonth(yyyyMm) {
         var sel = document.querySelector("[data-dues-view-month]");
