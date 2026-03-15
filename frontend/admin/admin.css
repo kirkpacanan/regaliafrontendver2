@@ -933,16 +933,19 @@ label .required {
   margin-top: 0;
 }
 
-.dues-paid-section {
+.dues-paid-section,
+.dues-paid-panel {
   margin-top: 1.5rem;
-  padding-top: 1.25rem;
-  border-top: 1px solid var(--border-subtle, rgba(0,0,0,0.08));
+}
+.dues-paid-panel {
+  padding-top: 0;
 }
 .dues-paid-section__title {
   margin: 0 0 0.25rem;
   font-size: 1rem;
 }
-.dues-paid-section .panel-subtitle {
+.dues-paid-section .panel-subtitle,
+.dues-paid-panel .panel-subtitle {
   margin-bottom: 0.75rem;
 }
 

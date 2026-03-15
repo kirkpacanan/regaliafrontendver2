@@ -242,31 +242,33 @@
               </tbody>
             </table>
           </div>
-          <section class="panel dues-paid-section" data-dues-paid-section aria-label="Paid for this month">
-            <h3 class="dues-paid-section__title">Paid for this month</h3>
-            <p class="panel-subtitle muted" data-dues-paid-subtitle>Dues you marked as paid for the selected view month.</p>
-            <div class="payment-placeholder-table">
-              <table class="payment-table dues-table dues-table--paid" aria-label="Paid dues for this month">
-                <thead>
-                  <tr>
-                    <th>Unit</th>
-                    <th>Amount</th>
-                    <th>Due date</th>
-                    <th>Added</th>
-                    <th>Paid</th>
-                    <th class="dues-col-actions"></th>
-                  </tr>
-                </thead>
-                <tbody data-dues-paid-list>
-                  <tr data-dues-paid-empty>
-                    <td colspan="6" class="payment-placeholder-cell">
-                      <span class="payment-placeholder-message" data-dues-paid-empty-msg>None paid for this month.</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </section>
+        </section>
+
+        <!-- Paid for this month: separate panel, always visible when a month is selected -->
+        <section class="panel dues-paid-panel" data-dues-paid-section aria-label="Paid for this month">
+          <h3 class="dues-paid-section__title">Paid for this month</h3>
+          <p class="panel-subtitle muted" data-dues-paid-subtitle>Dues you marked as paid for the selected view month.</p>
+          <div class="payment-placeholder-table">
+            <table class="payment-table dues-table dues-table--paid" aria-label="Paid dues for this month">
+              <thead>
+                <tr>
+                  <th>Unit</th>
+                  <th>Amount</th>
+                  <th>Due date</th>
+                  <th>Added</th>
+                  <th>Paid</th>
+                  <th class="dues-col-actions"></th>
+                </tr>
+              </thead>
+              <tbody data-dues-paid-list>
+                <tr data-dues-paid-empty>
+                  <td colspan="6" class="payment-placeholder-cell">
+                    <span class="payment-placeholder-message" data-dues-paid-empty-msg>None paid for this month.</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </section>
       </main>
 
@@ -501,6 +503,16 @@
       })();
 
       var STORAGE_KEY = "regalia_monthly_dues";
+      var PAID_MONTHS_KEY = "regalia_monthly_dues_paid";
+      function getPaidMonthsStorage() {
+        try {
+          var raw = localStorage.getItem(PAID_MONTHS_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch (e) { return {}; }
+      }
+      function setPaidMonthsStorage(obj) {
+        try { localStorage.setItem(PAID_MONTHS_KEY, JSON.stringify(obj)); } catch (e) {}
+      }
       function getAuthHeaders(json) {
         var h = {};
         try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
@@ -512,17 +524,20 @@
           .then(function (r) { return r.ok ? r.json() : []; })
           .then(function (apiDues) {
             if (Array.isArray(apiDues)) {
+              var savedPaid = getPaidMonthsStorage();
               return apiDues.map(function (d) {
                 var rawDue = d.due_date ? String(d.due_date).replace(/T.*/, "").trim() : null;
+                var id = String(d.id);
+                var paidMonths = Array.isArray(savedPaid[id]) ? savedPaid[id] : (Array.isArray(d.paid_months) ? d.paid_months : []);
                 return {
-                  id: String(d.id),
+                  id: id,
                   unit_id: d.unit_id != null ? String(d.unit_id) : null,
                   unit_label: d.unit_label || "",
                   amount: d.amount,
                   due_date: normalizeDueDateToYyyyMmDd(rawDue) || (rawDue && rawDue.length >= 10 ? rawDue.slice(0, 10) : rawDue),
                   effective_from_month: d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month).trim()) ? String(d.effective_from_month).trim() : null,
                   recurring: d.recurring !== false,
-                  paid_months: Array.isArray(d.paid_months) ? d.paid_months : [],
+                  paid_months: paidMonths,
                   created_at: d.created_at ? String(d.created_at).replace(/T.*/, "").slice(0, 10) : null
                 };
               });
@@ -803,9 +818,9 @@
           }
         });
       }
-      var duesPanelEl = document.querySelector(".dues-list-panel");
-      if (duesPanelEl) {
-        duesPanelEl.addEventListener("click", function (e) {
+      var duesAreaEl = document.querySelector(".main");
+      if (duesAreaEl) {
+        duesAreaEl.addEventListener("click", function (e) {
           var toggleBtn = e.target.closest("[data-dues-toggle-paid]");
           if (toggleBtn) {
             e.preventDefault();
@@ -821,8 +836,10 @@
               if (idx >= 0) d.paid_months.splice(idx, 1);
               else d.paid_months.push(viewMonth);
               d.paid_months.sort();
-              saveDues(dues);
-              renderDues();
+              var saved = getPaidMonthsStorage();
+              saved[id] = d.paid_months;
+              setPaidMonthsStorage(saved);
+              renderDues(dues);
             });
             return;
           }

@@ -1801,6 +1801,11 @@ app.delete("/api/charges/:chargeId", optionalAuth, async (req, res) => {
 
 app.get("/api/charges/all", optionalAuth, async (req, res) => {
   try {
+    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
+    const ownerId = role === "OWNER" ? req.user.employee_id : null;
+    if (ownerId == null) {
+      return res.json([]);
+    }
     const [rows] = await db.promise().query(
       `SELECT ac.charge_id, ac.booking_id, ac.description, ac.quantity, ac.unit_price,
         (ac.quantity * ac.unit_price) AS total, ac.created_at,
@@ -1809,9 +1814,11 @@ app.get("/api/charges/all", optionalAuth, async (req, res) => {
        LEFT JOIN BOOKING b ON b.booking_id = ac.booking_id
        LEFT JOIN UNIT u ON u.unit_id = b.unit_id
        LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-       ORDER BY ac.created_at DESC`
+       WHERE COALESCE(u.owner_employee_id, t.owner_employee_id) = ?
+       ORDER BY ac.created_at DESC`,
+      [ownerId]
     );
-    res.json(rows);
+    res.json(rows || []);
   } catch (err) {
     res.status(500).json({ error: err.message || "Failed to fetch all charges" });
   }
@@ -1838,16 +1845,7 @@ app.get("/api/payments", optionalAuth, async (req, res) => {
       );
       rows = r || [];
     } else {
-      const [r] = await db.promise().query(
-        `SELECT p.payment_id, p.booking_id, p.unit_id, p.amount, p.payment_date, p.payer_description, p.status, p.method, p.recorded_at,
-          b.guest_name, u.unit_number, t.tower_name
-         FROM PAYMENT p
-         LEFT JOIN BOOKING b ON b.booking_id = p.booking_id
-         LEFT JOIN UNIT u ON u.unit_id = COALESCE(p.unit_id, b.unit_id)
-         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-         ORDER BY p.payment_date DESC, p.recorded_at DESC`
-      );
-      rows = r || [];
+      rows = [];
     }
     res.json(rows);
   } catch (err) {
