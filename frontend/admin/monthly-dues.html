@@ -775,18 +775,22 @@
             e.preventDefault();
             e.stopPropagation();
             var id = removeBtn.getAttribute("data-id");
+            function refreshDuesList() {
+              loadDues().then(function (dues) {
+                var viewMonth = getViewMonth();
+                var visible = dues.filter(function (d) { return dueAppliesToMonth(d, viewMonth); });
+                if (dues.length > 0 && visible.length === 0) setViewMonth("all");
+                renderDues(dues);
+              });
+            }
             fetch("/api/monthly-dues/" + encodeURIComponent(id), { method: "DELETE", headers: getAuthHeaders() })
               .then(function (r) {
-                if (r.ok) return loadDues().then(renderDues);
+                if (r.ok) return refreshDuesList();
                 return r.json().then(function (body) { throw new Error(body && body.error ? body.error : "Failed"); });
               })
               .catch(function (err) {
-                var dues = [];
-                try { var raw = localStorage.getItem(STORAGE_KEY); dues = raw ? JSON.parse(raw) : []; } catch (e) {}
-                var before = dues.length;
-                dues = dues.filter(function (d) { return String(d.id) !== String(id); });
-                if (dues.length < before) { saveDues(dues); renderDues(dues); }
-                else { alert("Could not remove. " + (err && err.message ? err.message : "")); }
+                alert("Could not remove. " + (err && err.message ? err.message : ""));
+                refreshDuesList();
               });
           }
         });

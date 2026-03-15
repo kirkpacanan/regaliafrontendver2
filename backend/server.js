@@ -1970,8 +1970,16 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
       );
       rows = r;
     }
+    const pad = (n) => String(n).padStart(2, "0");
+    const formatDateOnly = (d) => {
+      if (!d) return null;
+      if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
+      if (d instanceof Date && !isNaN(d.getTime()))
+        return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate());
+      return null;
+    };
     res.json((rows || []).map(row => {
-      const dueDateStr = row.due_date ? String(row.due_date).replace(/T.*/, "").slice(0, 10) : null;
+      const dueDateStr = formatDateOnly(row.due_date);
       const effectiveFrom = row.effective_from_month || (dueDateStr && dueDateStr.length >= 7 ? dueDateStr.slice(0, 7) : null);
       return {
         ...row,
@@ -2030,7 +2038,9 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
     );
     const row = rows[0];
     if (row) {
-      row.due_date = row.due_date ? String(row.due_date).replace(/T.*/, "").slice(0, 10) : null;
+      const pad = (n) => String(n).padStart(2, "0");
+      const d = row.due_date;
+      row.due_date = !d ? null : typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(0, 10) : d instanceof Date && !isNaN(d.getTime()) ? d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate()) : String(d).replace(/T.*/, "").slice(0, 10);
       row.effective_from_month = row.effective_from_month || (row.due_date && row.due_date.length >= 7 ? row.due_date.slice(0, 7) : null);
     }
     res.status(201).json(row || {});
