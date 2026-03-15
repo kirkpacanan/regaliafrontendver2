@@ -1949,7 +1949,11 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
     if (ownerId != null) {
       // Only show dues for this owner (no other accounts)
       const [r] = await db.promise().query(
-        `SELECT d.id, d.unit_id, d.amount, d.due_date, d.effective_from_month, d.status, d.created_at,
+        `SELECT d.id, d.unit_id, d.amount,
+          DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
+          d.effective_from_month,
+          d.status,
+          DATE_FORMAT(d.created_at, '%Y-%m-%d') AS created_at,
           u.unit_number, t.tower_name
          FROM MONTHLY_DUE d
          LEFT JOIN UNIT u ON u.unit_id = d.unit_id
@@ -1961,7 +1965,11 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
       rows = r;
     } else {
       const [r] = await db.promise().query(
-        `SELECT d.id, d.unit_id, d.amount, d.due_date, d.effective_from_month, d.status, d.created_at,
+        `SELECT d.id, d.unit_id, d.amount,
+          DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
+          d.effective_from_month,
+          d.status,
+          DATE_FORMAT(d.created_at, '%Y-%m-%d') AS created_at,
           u.unit_number, t.tower_name
          FROM MONTHLY_DUE d
          LEFT JOIN UNIT u ON u.unit_id = d.unit_id
@@ -1970,21 +1978,14 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
       );
       rows = r;
     }
-    const pad = (n) => String(n).padStart(2, "0");
-    const formatDateOnly = (d) => {
-      if (!d) return null;
-      if (typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d)) return d.slice(0, 10);
-      if (d instanceof Date && !isNaN(d.getTime()))
-        return d.getUTCFullYear() + "-" + pad(d.getUTCMonth() + 1) + "-" + pad(d.getUTCDate());
-      return null;
-    };
     res.json((rows || []).map(row => {
-      const dueDateStr = formatDateOnly(row.due_date);
+      const dueDateStr = row.due_date && String(row.due_date).trim().slice(0, 10);
       const effectiveFrom = row.effective_from_month || (dueDateStr && dueDateStr.length >= 7 ? dueDateStr.slice(0, 7) : null);
       return {
         ...row,
-        due_date: dueDateStr,
+        due_date: dueDateStr || null,
         effective_from_month: effectiveFrom,
+        created_at: row.created_at && String(row.created_at).trim().slice(0, 10),
         unit_label: row.unit_id ? (row.tower_name ? row.tower_name + " – Unit " + (row.unit_number || row.unit_id) : "Unit " + (row.unit_number || row.unit_id)) : "General / Other",
       };
     }));
