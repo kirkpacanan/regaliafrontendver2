@@ -933,9 +933,11 @@ label .required {
   margin-top: 0;
 }
 
+/* Same gap as between Add monthly due and Your monthly dues (1.75rem). Override .main section.panel + section.panel */
+.main section.dues-list-panel + section.dues-paid-panel,
 .dues-paid-section,
 .dues-paid-panel {
-  margin-top: 1.75rem;
+  margin-top: 1.75rem !important;
 }
 .dues-paid-panel {
   padding-top: 0;
