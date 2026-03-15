@@ -838,7 +838,7 @@
               var saved = getPaidMonthsStorage();
               saved[id] = d.paid_months;
               setPaidMonthsStorage(saved);
-              if (getViewMonth() === "all") setViewMonth(viewMonth);
+              if (getViewMonth() === "all" && dueAppliesToMonth(d, viewMonth)) setViewMonth(viewMonth);
               renderDues(dues);
             });
             return;

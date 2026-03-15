@@ -110,6 +110,20 @@ CALL add_col_if_missing('MONTHLY_DUE', 'effective_from_month', 'VARCHAR(7) NULL 
 -- Backfill existing rows so filtering works
 UPDATE MONTHLY_DUE SET effective_from_month = DATE_FORMAT(due_date, '%Y-%m') WHERE effective_from_month IS NULL;
 
+-- MONTHLY_DUE_PAYMENT: records when a recurring monthly due was marked paid for a given month (ERD addition for "Paid for this month")
+-- Links MONTHLY_DUE to a specific month (YYYY-MM) and optional PAYMENT if a payment record was created
+CREATE TABLE IF NOT EXISTS MONTHLY_DUE_PAYMENT (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  monthly_due_id INT NOT NULL,
+  for_month VARCHAR(7) NOT NULL COMMENT 'YYYY-MM',
+  paid_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  recorded_by INT NULL COMMENT 'employee_id who marked it paid',
+  payment_id INT NULL COMMENT 'optional: link to PAYMENT if a payment was recorded',
+  UNIQUE KEY uk_due_month (monthly_due_id, for_month),
+  INDEX idx_monthly_due_payment_due (monthly_due_id),
+  INDEX idx_monthly_due_payment_month (for_month)
+);
+
 DROP PROCEDURE IF EXISTS add_col_if_missing;
 
 -- Optional indexes (ignore error 1061 "Duplicate key name" if index already exists)
