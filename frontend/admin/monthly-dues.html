@@ -208,7 +208,7 @@
           </form>
         </section>
 
-        <!-- List of dues -->
+        <!-- List of dues: dropdown is the single source of truth — when you pick a month, only that month's data shows -->
         <section class="panel dues-list-panel">
           <div class="dues-list-header">
             <h3>Your monthly dues</h3>
@@ -217,6 +217,7 @@
               <select class="dues-view-month" data-dues-view-month aria-label="Select month to view"></select>
             </label>
           </div>
+          <p class="panel-subtitle muted dues-view-scope" data-dues-view-scope style="margin-top: 0.25rem; margin-bottom: 0.5rem;"></p>
           <div class="dues-due-alert" data-dues-due-alert style="display: none;">
             <span class="dues-due-alert__icon" aria-hidden="true"></span>
             <span data-dues-due-message></span>
@@ -777,6 +778,11 @@
           if (!list) return;
           var viewMonth = getViewMonth();
           if (!/^\d{4}-\d{2}$/.test(viewMonth)) viewMonth = "all";
+          var scopeEl = document.querySelector("[data-dues-view-scope]");
+          if (scopeEl) {
+            scopeEl.textContent = viewMonth === "all" ? "Showing all dues. Pick a month above to see data for that month only." : "Showing data for " + formatMonthLabel(viewMonth) + " only — what applies here, what was added, marked paid, or deleted for this month.";
+            scopeEl.style.display = "block";
+          }
           var dues = allDues.filter(function (d) { return dueAppliesToMonth(d, viewMonth); });
           var unpaid = [];
           var paid = [];
