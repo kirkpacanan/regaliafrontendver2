@@ -1978,11 +1978,12 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
     }
     res.json((rows || []).map(row => {
       const dueDateStr = row.due_date && String(row.due_date).trim().slice(0, 10);
-      const effectiveFrom = row.effective_from_month || (dueDateStr && dueDateStr.length >= 7 ? dueDateStr.slice(0, 7) : null);
+      let effectiveFrom = row.effective_from_month && String(row.effective_from_month).trim();
+      if (!effectiveFrom && dueDateStr && dueDateStr.length >= 7) effectiveFrom = dueDateStr.slice(0, 7);
       return {
         ...row,
         due_date: dueDateStr || null,
-        effective_from_month: effectiveFrom,
+        effective_from_month: effectiveFrom || null,
         created_at: row.created_at && String(row.created_at).trim().slice(0, 10),
         unit_label: row.unit_id ? (row.tower_name ? row.tower_name + " – Unit " + (row.unit_number || row.unit_id) : "Unit " + (row.unit_number || row.unit_id)) : "General / Other",
       };

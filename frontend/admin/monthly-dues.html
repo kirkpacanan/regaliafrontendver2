@@ -645,16 +645,10 @@
           if (!d.due_date || d.due_date.length < 7) return false;
           return d.due_date.slice(0, 7) === yyyyMm;
         }
-        var startMonth = d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month).trim()) ? String(d.effective_from_month).trim() : null;
-        if (!startMonth) startMonth = getFirstMonthOfDue(d);
+        var startMonth = (d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month).trim())) ? String(d.effective_from_month).trim() : getFirstMonthOfDue(d);
         if (startMonth && yyyyMm < startMonth) return false;
         if (startMonth) return yyyyMm >= startMonth;
-        var effectiveFrom = getEffectiveFromMonth(d);
-        if (effectiveFrom && yyyyMm < effectiveFrom) return false;
-        if (effectiveFrom) return yyyyMm >= effectiveFrom;
-        var dueMonth = getFirstMonthOfDue(d);
-        if (dueMonth && yyyyMm < dueMonth) return false;
-        return !!dueMonth && yyyyMm >= dueMonth;
+        return false;
       }
       function isDueTodayOrOverdue(d) {
         var today = new Date();
@@ -788,21 +782,22 @@
           unpaid.forEach(function (d) {
             var tr = document.createElement("tr");
             tr.dataset.dueId = d.id;
-            var isAllView = viewMonth === "all";
             var unitLabel = (d.unit_label || d.description || "").trim() || "—";
             var amount = d.amount != null && d.amount !== "" ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
             var dateDisplay = formatDueDate(d);
             var addedDisplay = formatAddedDate(d);
-            var paidCell = isAllView ? "—" : "<button type=\"button\" class=\"btn ghost dues-btn-paid\" data-dues-toggle-paid data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"Mark as paid for this month\" title=\"Mark as paid for this month\">Mark paid</button>";
+            var paidCell = "<button type=\"button\" class=\"btn ghost dues-btn-paid\" data-dues-toggle-paid data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"Mark as paid\" title=\"Mark as paid (for current month if viewing All months)\">Mark paid</button>";
             tr.innerHTML = "<td>" + escapeHtml(unitLabel) + "</td><td>" + amount + "</td><td>" + escapeHtml(dateDisplay) + "</td><td>" + escapeHtml(addedDisplay) + "</td><td>" + paidCell + "</td><td class=\"dues-col-actions\"><button type=\"button\" class=\"dues-btn-remove\" data-dues-remove data-id=\"" + escapeHtml(d.id) + "\" aria-label=\"Remove this due\">" + removeSvg + "</button></td>";
             list.appendChild(tr);
           });
-          if (paidSection) paidSection.style.display = viewMonth === "all" ? "none" : "";
+          if (paidSection) paidSection.style.display = "";
+          var paidSubtitle = document.querySelector("[data-dues-paid-subtitle]");
+          if (paidSubtitle) paidSubtitle.textContent = viewMonth === "all" ? "Select a month above to see dues marked paid for that month." : "Dues you marked as paid for the selected view month.";
           if (paidList) {
             paidList.querySelectorAll("[data-due-id]").forEach(function (r) { r.remove(); });
             if (paidEmptyRow) paidEmptyRow.style.display = paid.length ? "none" : "";
             var paidEmptyMsg = document.querySelector("[data-dues-paid-empty-msg]");
-            if (paidEmptyMsg) paidEmptyMsg.textContent = paid.length === 0 ? "None paid for this month." : "";
+            if (paidEmptyMsg) paidEmptyMsg.textContent = viewMonth === "all" ? "Select a month above to see dues marked paid for that month." : (paid.length === 0 ? "None paid for this month." : "");
             paid.forEach(function (d) {
               var tr = document.createElement("tr");
               tr.dataset.dueId = d.id;
@@ -827,6 +822,10 @@
             e.stopPropagation();
             var id = toggleBtn.getAttribute("data-id");
             var viewMonth = getViewMonth();
+            if (viewMonth === "all") {
+              var now = new Date();
+              viewMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
+            }
             loadDues().then(function (dues) {
               var d = dues.find(function (x) { return String(x.id) === id; });
               if (!d) return;
@@ -839,6 +838,7 @@
               var saved = getPaidMonthsStorage();
               saved[id] = d.paid_months;
               setPaidMonthsStorage(saved);
+              if (getViewMonth() === "all") setViewMonth(viewMonth);
               renderDues(dues);
             });
             return;
