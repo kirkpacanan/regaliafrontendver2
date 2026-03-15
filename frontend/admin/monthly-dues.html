@@ -599,8 +599,10 @@
         return d;
       }
       function isPaidForMonth(d, yyyyMm) {
+        if (!yyyyMm || yyyyMm === "all") return false;
         normalizePaidMonths(d);
-        return Array.isArray(d.paid_months) && d.paid_months.indexOf(yyyyMm) >= 0;
+        var key = String(yyyyMm).trim().slice(0, 7);
+        return Array.isArray(d.paid_months) && d.paid_months.some(function (m) { return String(m).trim().slice(0, 7) === key; });
       }
       function normalizeDueDateToYyyyMmDd(s) {
         if (!s) return null;
@@ -766,12 +768,17 @@
           var paidSection = document.querySelector("[data-dues-paid-section]");
           if (!list) return;
           var viewMonth = getViewMonth();
+          if (!/^\d{4}-\d{2}$/.test(viewMonth)) viewMonth = "all";
           var dues = allDues.filter(function (d) { return dueAppliesToMonth(d, viewMonth); });
           var unpaid = [];
           var paid = [];
           dues.forEach(function (d) {
-            if (viewMonth !== "all" && isPaidForMonth(d, viewMonth)) paid.push(d);
-            else unpaid.push(d);
+            if (viewMonth === "all") {
+              unpaid.push(d);
+            } else {
+              if (isPaidForMonth(d, viewMonth)) paid.push(d);
+              else unpaid.push(d);
+            }
           });
           updateDueAlert(allDues);
           var emptyMsg = document.querySelector("[data-dues-empty-msg]");
