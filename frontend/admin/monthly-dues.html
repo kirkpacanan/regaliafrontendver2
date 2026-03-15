@@ -767,7 +767,7 @@
           created_at: d.created_at ? String(d.created_at).replace(/T.*/, "").slice(0, 10) : null
         };
       }
-      function renderDues(optionalDues) {
+      function renderDues(optionalDues, optionalViewMonth) {
         var loadPromise = optionalDues != null
           ? Promise.resolve(optionalDues.map(normalizeDueFromLocal))
           : loadDues();
@@ -778,7 +778,7 @@
           var paidEmptyRow = document.querySelector("[data-dues-paid-empty]");
           var paidSection = document.querySelector("[data-dues-paid-section]");
           if (!list) return;
-          var viewMonth = getViewMonth();
+          var viewMonth = (optionalViewMonth != null && optionalViewMonth !== "") ? optionalViewMonth : getViewMonth();
           if (!/^\d{4}-\d{2}$/.test(viewMonth)) viewMonth = "all";
           var scopeEl = document.querySelector("[data-dues-view-scope]");
           if (scopeEl) {
@@ -995,7 +995,10 @@
       }
       buildViewMonthOptions();
       var viewMonthSel = document.querySelector("[data-dues-view-month]");
-      if (viewMonthSel) viewMonthSel.addEventListener("change", renderDues);
+      if (viewMonthSel) viewMonthSel.addEventListener("change", function () {
+        var captured = getViewMonth();
+        loadDues().then(function (dues) { renderDues(dues, captured); });
+      });
       renderDues();
     </script>
   </body>
