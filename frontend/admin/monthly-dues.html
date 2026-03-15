@@ -494,7 +494,8 @@
                   amount: d.amount,
                   due_date: d.due_date ? String(d.due_date).slice(0, 10) : null,
                   recurring: d.recurring !== false,
-                  paid_months: Array.isArray(d.paid_months) ? d.paid_months : []
+                  paid_months: Array.isArray(d.paid_months) ? d.paid_months : [],
+                  created_at: d.created_at ? String(d.created_at).replace(/T.*/, "").slice(0, 10) : null
                 };
               });
             }
@@ -553,11 +554,24 @@
         if (!d.due_date || d.due_date.length < 7) return null;
         return d.due_date.slice(0, 7);
       }
+      // For recurring dues: only apply from the month AFTER creation (succeeding months only).
+      function getEffectiveFromMonth(d) {
+        if (!d.recurring) return null;
+        var created = d.created_at;
+        if (!created || created.length < 7) return getFirstMonthOfDue(d);
+        var y = parseInt(created.slice(0, 4), 10);
+        var m = parseInt(created.slice(5, 7), 10);
+        m += 1;
+        if (m > 12) { m = 1; y += 1; }
+        return y + "-" + String(m).padStart(2, "0");
+      }
       function dueAppliesToMonth(d, yyyyMm) {
         if (!d.recurring) {
           if (!d.due_date || d.due_date.length < 7) return false;
           return d.due_date.slice(0, 7) === yyyyMm;
         }
+        var effectiveFrom = getEffectiveFromMonth(d);
+        if (effectiveFrom) return yyyyMm >= effectiveFrom;
         var first = getFirstMonthOfDue(d);
         if (first) return yyyyMm >= first;
         return true;
@@ -655,7 +669,8 @@
           amount: d.amount,
           due_date: d.due_date ? String(d.due_date).slice(0, 10) : null,
           recurring: d.recurring !== false,
-          paid_months: Array.isArray(d.paid_months) ? d.paid_months : []
+          paid_months: Array.isArray(d.paid_months) ? d.paid_months : [],
+          created_at: d.created_at ? String(d.created_at).replace(/T.*/, "").slice(0, 10) : null
         };
       }
       function renderDues(optionalDues) {
