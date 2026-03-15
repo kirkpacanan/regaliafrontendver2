@@ -1829,12 +1829,8 @@ app.get("/api/payments", optionalAuth, async (req, res) => {
          LEFT JOIN UNIT u ON u.unit_id = COALESCE(p.unit_id, b.unit_id)
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
          WHERE p.owner_employee_id = ?
-            OR (p.owner_employee_id IS NULL AND (
-              (p.booking_id IS NOT NULL AND EXISTS (SELECT 1 FROM BOOKING b2 JOIN UNIT u2 ON u2.unit_id = b2.unit_id JOIN TOWER t2 ON t2.tower_id = u2.tower_id WHERE b2.booking_id = p.booking_id AND COALESCE(u2.owner_employee_id, t2.owner_employee_id) = ?))
-              OR (p.unit_id IS NOT NULL AND EXISTS (SELECT 1 FROM UNIT u2 JOIN TOWER t2 ON t2.tower_id = u2.tower_id WHERE u2.unit_id = p.unit_id AND COALESCE(u2.owner_employee_id, t2.owner_employee_id) = ?))
-            ))
          ORDER BY p.payment_date DESC, p.recorded_at DESC`,
-        [ownerId, ownerId, ownerId]
+        [ownerId]
       );
       rows = r || [];
     } else {
@@ -1947,14 +1943,14 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
     const ownerId = role === "OWNER" ? req.user.employee_id : null;
     let rows;
     if (ownerId != null) {
-      // Show dues for this owner OR unassigned (NULL) so previously added dues without owner still show
+      // Only show dues for this owner (no other accounts)
       const [r] = await db.promise().query(
         `SELECT d.id, d.unit_id, d.amount, d.due_date, d.status, d.created_at,
           u.unit_number, t.tower_name
          FROM MONTHLY_DUE d
          LEFT JOIN UNIT u ON u.unit_id = d.unit_id
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-         WHERE (d.owner_employee_id = ? OR d.owner_employee_id IS NULL)
+         WHERE d.owner_employee_id = ?
          ORDER BY d.due_date DESC, d.id DESC`,
         [ownerId]
       );
@@ -2022,7 +2018,7 @@ app.delete("/api/monthly-dues/:id", optionalAuth, async (req, res) => {
     const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
     const ownerId = role === "OWNER" ? req.user.employee_id : null;
     if (ownerId != null) {
-      const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ? AND (owner_employee_id = ? OR owner_employee_id IS NULL)", [id, ownerId]);
+      const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ? AND owner_employee_id = ?", [id, ownerId]);
       if (result.affectedRows === 0) return res.status(404).json({ error: "Not found" });
     } else {
       const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ?", [id]);
