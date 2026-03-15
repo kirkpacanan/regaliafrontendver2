@@ -551,8 +551,13 @@
         return Array.isArray(d.paid_months) && d.paid_months.indexOf(yyyyMm) >= 0;
       }
       function getFirstMonthOfDue(d) {
-        if (!d.due_date || d.due_date.length < 7) return null;
-        return d.due_date.slice(0, 7);
+        if (!d.due_date) return null;
+        var s = String(d.due_date).replace(/T.*/, "").trim();
+        var match = s.match(/^(\d{4})-(\d{1,2})/);
+        if (!match) return null;
+        var m = parseInt(match[2], 10);
+        if (m < 1 || m > 12) return null;
+        return match[1] + "-" + String(m).padStart(2, "0");
       }
       // For recurring: apply only from the LATER of (month after creation, due_date month). Never show before that.
       function getMonthAfterCreation(d) {
@@ -578,11 +583,14 @@
           if (!d.due_date || d.due_date.length < 7) return false;
           return d.due_date.slice(0, 7) === yyyyMm;
         }
+        // Recurring: never show before the due's start month (e.g. start 01/04/2026 => never show for Dec 2025)
+        var dueMonth = getFirstMonthOfDue(d);
+        if (dueMonth && yyyyMm < dueMonth) return false;
         var effectiveFrom = getEffectiveFromMonth(d);
-        if (effectiveFrom) return yyyyMm >= effectiveFrom;
-        var first = getFirstMonthOfDue(d);
-        if (first) return yyyyMm >= first;
-        return true;
+        if (effectiveFrom && yyyyMm < effectiveFrom) return false;
+        if (effectiveFrom) return true;
+        if (dueMonth) return yyyyMm >= dueMonth;
+        return false;
       }
       function isDueTodayOrOverdue(d) {
         var today = new Date();
