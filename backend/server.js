@@ -1601,7 +1601,7 @@ app.post("/api/bookings/:id/check-in", async (req, res) => {
     const recordedBy = req.user ? req.user.employee_id : null;
     const rawMethod = row && row.payment_method ? String(row.payment_method).trim().toLowerCase() : "";
     const paymentMethod = rawMethod === "upload" ? "Online" : rawMethod === "cash" ? "Cash" : rawMethod || "Cash";
-    const expectedDate = row && row.check_out_date ? String(row.check_out_date).slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const expectedDate = toYmd(row && row.check_out_date) || new Date().toISOString().slice(0, 10);
 
     if (amount > 0 && row && row.unit_id) {
       const [[existing]] = await db.promise().query(
@@ -1613,11 +1613,16 @@ app.post("/api/bookings/:id/check-in", async (req, res) => {
         const payerDesc = nights > 0
           ? `${guestName} – Accommodation (${nights} night${nights !== 1 ? "s" : ""})`
           : `${guestName} – Accommodation`;
-        await db.promise().query(
-          `INSERT INTO PAYMENT (booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_by, owner_employee_id)
-           VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
-          [id, row.unit_id, amount, expectedDate, payerDesc, paymentMethod, recordedBy, ownerId]
-        );
+        try {
+          await db.promise().query(
+            `INSERT INTO PAYMENT (booking_id, unit_id, amount, payment_date, payer_description, status, method, recorded_by, owner_employee_id)
+             VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
+            [id, row.unit_id, amount, expectedDate, payerDesc, paymentMethod, recordedBy, ownerId]
+          );
+        } catch (payErr) {
+          // Don't fail check-in if payment record fails; log for troubleshooting.
+          console.warn("Check-in payment create failed:", payErr && payErr.message ? payErr.message : payErr);
+        }
       }
     }
 
@@ -1859,7 +1864,7 @@ app.post("/api/payments", optionalAuth, async (req, res) => {
     const { booking_id, unit_id, amount, payment_date, payer_description, method } = req.body || {};
     const amt = Number(amount);
     if (!amt || amt <= 0) return res.status(400).json({ error: "amount required and must be positive" });
-    const date = payment_date && String(payment_date).trim() ? String(payment_date).trim().slice(0, 10) : new Date().toISOString().slice(0, 10);
+    const date = toYmd(payment_date) || new Date().toISOString().slice(0, 10);
     let ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
     let unitId = unit_id != null ? Number(unit_id) : null;
     const bid = booking_id != null ? Number(booking_id) : null;
