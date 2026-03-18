@@ -1533,22 +1533,74 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     const [existing] = await db.promise().query("SELECT 1 FROM EMPLOYEE WHERE username = ? OR email = ?", [username, email]);
     if (existing.length > 0) return res.status(400).json({ error: "Username or email already exists" });
     const hashedPassword = await bcrypt.hash(password, 10);
+    const empVals = [
+      full_name,
+      address || null,
+      username,
+      hashedPassword,
+      contact_number || null,
+      email,
+      adminId,
+      uniqueUnitIds[0] || null,
+    ];
+    const empSql =
+      "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email, created_by_employee_id, resident_unit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
     let result;
     try {
-      [result] = await db.promise().query(
-        "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email, created_by_employee_id, resident_unit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [full_name, address || null, username, hashedPassword, contact_number || null, email, adminId, uniqueUnitIds[0] || null]
-      );
-    } catch (colErr) {
-      if (colErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(colErr.message)) {
-        return res.status(503).json({
-          error: "Database needs column EMPLOYEE.resident_unit_id. Run: ALTER TABLE EMPLOYEE ADD COLUMN resident_unit_id INT NULL;",
-        });
+      [result] = await db.promise().query(empSql, empVals);
+    } catch (insErr) {
+      const insMsg = String(insErr.sqlMessage || insErr.message || "");
+      const nullUnit =
+        insErr.code === "ER_BAD_NULL_ERROR" ||
+        insErr.errno === 1048 ||
+        /cannot be null/i.test(insMsg);
+      const missingCol = insErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/i.test(insMsg);
+      if (nullUnit && /resident_unit_id/i.test(insMsg)) {
+        try {
+          await db.promise().query("ALTER TABLE EMPLOYEE MODIFY COLUMN resident_unit_id INT NULL");
+          [result] = await db.promise().query(empSql, empVals);
+        } catch (e2) {
+          console.error("owner create after ALTER resident_unit_id:", e2);
+          return res.status(503).json({
+            error:
+              "Database blocks owners with no unit yet: EMPLOYEE.resident_unit_id must allow NULL. Run: ALTER TABLE EMPLOYEE MODIFY COLUMN resident_unit_id INT NULL;",
+            detail: String(e2.sqlMessage || e2.message || ""),
+          });
+        }
+      } else if (missingCol) {
+        try {
+          await db.promise().query("ALTER TABLE EMPLOYEE ADD COLUMN resident_unit_id INT NULL");
+          [result] = await db.promise().query(empSql, empVals);
+        } catch (e3) {
+          return res.status(503).json({
+            error: "Add column: ALTER TABLE EMPLOYEE ADD COLUMN resident_unit_id INT NULL;",
+            detail: String(e3.sqlMessage || e3.message || ""),
+          });
+        }
+      } else {
+        throw insErr;
       }
-      throw colErr;
     }
     const employeeId = result.insertId;
-    await db.promise().query("INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'OWNER', 'active')", [employeeId]);
+    if (!employeeId) {
+      return res.status(500).json({ error: "Could not create employee record (no insert id)." });
+    }
+    try {
+      await db.promise().query("INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'OWNER', 'active')", [
+        employeeId,
+      ]);
+    } catch (roleErr) {
+      try {
+        await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [employeeId]);
+      } catch (delE) {
+        /* */
+      }
+      console.error("EMPLOYEE_ROLE OWNER insert failed:", roleErr);
+      return res.status(503).json({
+        error: String(roleErr.sqlMessage || roleErr.message || "Could not assign OWNER role"),
+        hint: "Check EMPLOYEE_ROLE allows role_type OWNER and status active.",
+      });
+    }
     if (uniqueUnitIds.length) {
       try {
         for (const uid of uniqueUnitIds) {

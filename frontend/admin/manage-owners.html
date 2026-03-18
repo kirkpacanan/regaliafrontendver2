@@ -713,7 +713,11 @@
             .then(function (res) {
               if (!res.ok) {
                 msg.style.color = "#c0392b";
-                msg.textContent = (res.d && res.d.error) ? res.d.error : "Failed (" + res.status + ")";
+                var parts = [];
+                if (res.d && res.d.error) parts.push(res.d.error);
+                if (res.d && res.d.detail) parts.push(res.d.detail);
+                if (res.d && res.d.hint) parts.push(res.d.hint);
+                msg.textContent = parts.length ? parts.join(" — ") : "Failed (" + res.status + ")";
                 return null;
               }
               var newId = res.d && (res.d.employeeId != null ? res.d.employeeId : res.d.employee_id);
