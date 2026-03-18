@@ -86,6 +86,22 @@ db.connect(err => {
     db.query("ALTER TABLE EMPLOYEE ADD COLUMN resident_unit_id INT NULL", (e) => {
       if (e && e.code !== "ER_DUP_FIELDNAME") { /* ignore if exists */ }
     });
+    db.promise()
+      .query(
+        `CREATE TABLE IF NOT EXISTS OWNER (
+          owner_id INT AUTO_INCREMENT PRIMARY KEY,
+          employee_id INT NOT NULL UNIQUE,
+          unit_id INT NULL,
+          full_name VARCHAR(255) NOT NULL,
+          contact_number VARCHAR(128) NULL,
+          email VARCHAR(255) NOT NULL,
+          valid_id LONGBLOB NULL,
+          is_verified TINYINT(1) NOT NULL DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_owner_unit (unit_id)
+        )`
+      )
+      .catch((e) => console.error("OWNER table:", e.message));
   }
 });
 
@@ -774,8 +790,11 @@ app.get("/api/owners", optionalAuth, async (req, res) => {
     try {
       const [r] = await db.promise().query(
         `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
-          e.resident_unit_id AS unit_id, u.unit_number, t.tower_name
+          e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
+          o.owner_id, COALESCE(o.is_verified, 0) AS is_verified,
+          CASE WHEN o.valid_id IS NOT NULL THEN 1 ELSE 0 END AS has_valid_id
          FROM EMPLOYEE e
+         LEFT JOIN OWNER o ON o.employee_id = e.employee_id
          LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
          WHERE e.created_by_employee_id = ?
@@ -785,10 +804,25 @@ app.get("/api/owners", optionalAuth, async (req, res) => {
       );
       rows = r;
     } catch (colErr) {
-      if (colErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(colErr.message)) {
+      if (colErr.code === "ER_NO_SUCH_TABLE") {
         const [r] = await db.promise().query(
           `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
-            NULL AS unit_id, NULL AS unit_number, NULL AS tower_name
+            e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
+            NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id
+           FROM EMPLOYEE e
+           LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE e.created_by_employee_id = ?
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
+           ORDER BY e.full_name`,
+          [adminId]
+        );
+        rows = r;
+      } else if (colErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(colErr.message)) {
+        const [r] = await db.promise().query(
+          `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+            NULL AS unit_id, NULL AS unit_number, NULL AS tower_name,
+            NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id
            FROM EMPLOYEE e
            WHERE e.created_by_employee_id = ?
              AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
@@ -809,9 +843,21 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
   try {
     if (!req.user || !isCondoAdminRole(req.user.role))
       return res.status(403).json({ error: "Admins only" });
-    const { full_name, address, username, password, contact_number, email, unit_id } = req.body || {};
+    const {
+      full_name,
+      address,
+      username,
+      password,
+      contact_number,
+      email,
+      unit_id,
+      is_verified,
+      valid_id_data_url,
+    } = req.body || {};
     if (!full_name || !username || !password || !email)
       return res.status(400).json({ error: "full_name, username, password, and email required" });
+    if (!contact_number || !String(contact_number).trim())
+      return res.status(400).json({ error: "contact_number required (OWNER ERD)" });
     const uid = unit_id != null && unit_id !== "" ? Number(unit_id) : 0;
     if (!uid || uid < 1) return res.status(400).json({ error: "unit_id required to assign this owner to a unit" });
     const adminId = req.user.employee_id;
@@ -841,6 +887,36 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     }
     const employeeId = result.insertId;
     await db.promise().query("INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'OWNER', 'active')", [employeeId]);
+    let validBlob = null;
+    if (valid_id_data_url && typeof valid_id_data_url === "string") {
+      const m = valid_id_data_url.match(/^data:([^;]+);base64,(.+)$/);
+      if (m && m[2]) {
+        try {
+          validBlob = Buffer.from(m[2], "base64");
+          if (validBlob.length > 15 * 1024 * 1024) validBlob = null;
+        } catch (e) {
+          validBlob = null;
+        }
+      }
+    }
+    const verified =
+      is_verified === true ||
+      is_verified === 1 ||
+      is_verified === "1" ||
+      String(is_verified).toLowerCase() === "true";
+    try {
+      await db.promise().query(
+        `INSERT INTO OWNER (employee_id, unit_id, full_name, contact_number, email, valid_id, is_verified)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [employeeId, uid, String(full_name).trim(), contact_number ? String(contact_number).trim() : null, String(email).trim(), validBlob, verified ? 1 : 0]
+      );
+    } catch (ownErr) {
+      if (ownErr.code === "ER_NO_SUCH_TABLE") {
+        console.warn("OWNER table missing; run migrations/owner_table.sql");
+      } else {
+        console.error(ownErr);
+      }
+    }
     res.status(201).json({ message: "Owner account created", employeeId, unit_id: uid });
   } catch (err) {
     console.error(err);
@@ -861,6 +937,9 @@ app.delete("/api/owners/:id", optionalAuth, async (req, res) => {
       [id, adminId]
     );
     if (!row) return res.status(404).json({ error: "Owner not found" });
+    try {
+      await db.promise().query("DELETE FROM OWNER WHERE employee_id = ?", [id]);
+    } catch (e) { /* table may not exist */ }
     await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [id]);
     await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [id]);
     await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [id]);
