@@ -199,7 +199,7 @@ async function getOwnerIdForEmployee(ownerEmployeeId) {
   if (!email) return null;
 
   const [[row2]] = await db.promise().query(
-    "SELECT owner_id FROM OWNER WHERE email = ? LIMIT 1",
+    "SELECT owner_id FROM OWNER WHERE LOWER(TRIM(email)) = LOWER(TRIM(?)) LIMIT 1",
     [email]
   );
   return row2 ? row2.owner_id : null;
@@ -1907,27 +1907,40 @@ app.patch("/api/owners/:id", optionalAuth, async (req, res) => {
       String(body.is_verified).toLowerCase() === "true";
     const bit = v ? 1 : 0;
     try {
-      const [ur] = await db.promise().query("UPDATE OWNER SET is_verified = ? WHERE employee_id = ?", [bit, id]);
+      // Update by employee_id when available, otherwise match by email.
+      const [[emp]] = await db.promise().query(
+        "SELECT full_name, contact_number, email, resident_unit_id FROM EMPLOYEE WHERE employee_id = ?",
+        [id]
+      );
+      const empEmail = emp && emp.email ? String(emp.email).trim() : null;
+
+      let updateSql = "UPDATE OWNER SET is_verified = ? WHERE employee_id = ?";
+      let updateParams = [bit, id];
+      if (!empEmail) {
+        // If we can't match by email, just do the employee_id update and let the insert fallback handle the rest.
+      } else {
+        updateSql =
+          "UPDATE OWNER SET is_verified = ? WHERE employee_id = ? OR LOWER(TRIM(email)) = LOWER(TRIM(?))";
+        updateParams = [bit, id, empEmail];
+      }
+
+      const [ur] = await db.promise().query(updateSql, updateParams);
       const n = ur && typeof ur.affectedRows === "number" ? ur.affectedRows : 0;
-      if (n === 0) {
-        const [[emp]] = await db.promise().query(
-          "SELECT full_name, contact_number, email, resident_unit_id FROM EMPLOYEE WHERE employee_id = ?",
-          [id]
+
+      // If no OWNER row matched, create one.
+      if (n === 0 && emp) {
+        await db.promise().query(
+          `INSERT INTO OWNER (employee_id, unit_id, full_name, contact_number, email, valid_id, is_verified)
+           VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+          [
+            id,
+            emp.resident_unit_id != null ? emp.resident_unit_id : null,
+            String(emp.full_name || "").trim() || "Owner",
+            emp.contact_number ? String(emp.contact_number).trim() : null,
+            String(emp.email || "").trim(),
+            bit,
+          ]
         );
-        if (emp) {
-          await db.promise().query(
-            `INSERT INTO OWNER (employee_id, unit_id, full_name, contact_number, email, valid_id, is_verified)
-             VALUES (?, ?, ?, ?, ?, NULL, ?)`,
-            [
-              id,
-              emp.resident_unit_id != null ? emp.resident_unit_id : null,
-              String(emp.full_name || "").trim() || "Owner",
-              emp.contact_number ? String(emp.contact_number).trim() : null,
-              String(emp.email || "").trim(),
-              bit,
-            ]
-          );
-        }
       }
     } catch (e) {
       if (e.code === "ER_NO_SUCH_TABLE") return res.json({ ok: true, is_verified: bit });
