@@ -177,10 +177,10 @@ app.post("/api/gate/verify", async (req, res) => {
     const raw = String(req.body && req.body.condominium_passcode || "").trim();
     if (!raw) return res.status(400).json({ error: "Passcode required" });
     if (raw === "SUPERSECRETKEY") return res.json({ ok: true, bypass: true, condominium_id: null });
-    const [rows] = await db.promise().query("SELECT condominium_id, passcode_hash FROM CONDOMINIUM");
+    const [rows] = await db.promise().query("SELECT condominium_id, name, passcode_hash FROM CONDOMINIUM");
     for (const r of (rows || [])) {
       const ok = await bcrypt.compare(raw, String(r.passcode_hash || ""));
-      if (ok) return res.json({ ok: true, condominium_id: r.condominium_id });
+      if (ok) return res.json({ ok: true, condominium_id: r.condominium_id, condominium_name: r.name || null });
     }
     return res.status(403).json({ error: "Incorrect passcode. Try again." });
   } catch (err) {

@@ -10,12 +10,28 @@
 const REGALIA_GATE_STORAGE_KEY = "regalia_site_unlocked";
 const REGALIA_GATE_CONDO_ID_KEY = "regalia_gate_condo_id";
 const REGALIA_GATE_CONDO_PASSCODE_KEY = "regalia_gate_condo_passcode";
+const REGALIA_GATE_CONDO_NAME_KEY = "regalia_gate_condo_name";
 
 const panels = Array.from(document.querySelectorAll(".panel"));
 const views = new Map(panels.map((panel) => [panel.dataset.view, panel]));
 const appRoot = document.querySelector(".app");
 
 let activePanel;
+
+(function hydrateGateGreeting() {
+  try {
+    const condoName = String(sessionStorage.getItem(REGALIA_GATE_CONDO_NAME_KEY) || "").trim();
+    const welcomeTitle = document.querySelector("[data-welcome-title]");
+    const loginTitle = document.querySelector("[data-login-title]");
+    if (condoName) {
+      if (welcomeTitle) welcomeTitle.textContent = `Welcome ${condoName} Admin`;
+      if (loginTitle) loginTitle.textContent = `Welcome ${condoName} Admin`;
+    } else {
+      if (welcomeTitle) welcomeTitle.textContent = "Welcome!";
+      if (loginTitle) loginTitle.textContent = "Enter Account Details";
+    }
+  } catch (e) {}
+})();
 
 (function initSiteGate() {
   const gate = views.get("gate");
@@ -99,8 +115,10 @@ if (gateForm) {
         sessionStorage.setItem(REGALIA_GATE_STORAGE_KEY, "1");
         sessionStorage.removeItem(REGALIA_GATE_CONDO_ID_KEY);
         sessionStorage.removeItem(REGALIA_GATE_CONDO_PASSCODE_KEY);
+        sessionStorage.removeItem(REGALIA_GATE_CONDO_NAME_KEY);
       } catch (e) {}
       if (input) input.value = "";
+      try { hydrateGateGreeting(); } catch (e) {}
       setActivePanel("welcome");
       return;
     }
@@ -119,9 +137,11 @@ if (gateForm) {
       try {
         sessionStorage.setItem(REGALIA_GATE_STORAGE_KEY, "1");
         if (data && data.condominium_id) sessionStorage.setItem(REGALIA_GATE_CONDO_ID_KEY, String(data.condominium_id));
+        if (data && data.condominium_name) sessionStorage.setItem(REGALIA_GATE_CONDO_NAME_KEY, String(data.condominium_name));
         sessionStorage.setItem(REGALIA_GATE_CONDO_PASSCODE_KEY, raw);
       } catch (e) {}
       if (input) input.value = "";
+      try { hydrateGateGreeting(); } catch (e) {}
       setActivePanel("welcome");
     } catch (e) {
       if (gateError) gateError.textContent = "Server error. Try again.";
