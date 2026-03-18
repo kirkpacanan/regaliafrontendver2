@@ -64,9 +64,9 @@
         <form class="modal-form" data-edit-form>
           <div class="update-form-fields" style="padding: 4px 0 0;">
             <label>Unit number (locked) <input type="text" data-edit-unit-number disabled /></label>
-            <label>Floor number <input type="text" name="floor_number" data-edit-floor placeholder="e.g. 12" /></label>
+            <label>Floor number <input type="text" name="floor_number" data-edit-floor placeholder="e.g. 12" disabled /></label>
             <label>Unit type
-              <select name="unit_type" data-edit-unit-type>
+              <select name="unit_type" data-edit-unit-type disabled>
                 <option value="">— Select —</option>
                 <option value="Studio Type">Studio Type</option>
                 <option value="1 Bedroom">1 Bedroom</option>
@@ -76,12 +76,44 @@
                 <option value="Duplex">Duplex</option>
               </select>
             </label>
-            <label>Unit size (sqm) <input type="number" step="0.01" name="unit_size" data-edit-unit-size placeholder="e.g. 45" /></label>
+            <label>Unit size (sqm) <input type="number" step="0.01" name="unit_size" data-edit-unit-size placeholder="e.g. 45" disabled /></label>
             <label>Price <input type="number" step="0.01" name="price" data-edit-price placeholder="e.g. 50000" /></label>
             <label>Description <textarea name="description" data-edit-description placeholder="Description"></textarea></label>
-            <label>Image URLs (comma-separated)
-              <textarea name="image_urls" data-edit-images placeholder="https://... , https://..."></textarea>
+            <div style="margin-top: 0.75rem;">
+              <div style="font-weight: 600; color: rgba(79,127,132,0.95); font-size: 0.9rem; margin-bottom: 0.35rem">
+                Unit images (4 slots, cover = slot 1)
+              </div>
+              <div class="photo-grid update-form-images" data-edit-photo-grid>
+                <label class="photo-slot" data-edit-photo-slot="0" title="Cover image">
+                  <span class="photo-slot-text">Cover</span>
+                  <img class="photo-slot-preview" data-edit-photo-preview="0" alt="" hidden />
+                  <input type="file" accept="image/*" class="photo-input-hidden" data-edit-photo-input="0" />
+                </label>
+                <label class="photo-slot" data-edit-photo-slot="1">
+                  <span class="photo-slot-text">Image 2</span>
+                  <img class="photo-slot-preview" data-edit-photo-preview="1" alt="" hidden />
+                  <input type="file" accept="image/*" class="photo-input-hidden" data-edit-photo-input="1" />
+                </label>
+                <label class="photo-slot" data-edit-photo-slot="2">
+                  <span class="photo-slot-text">Image 3</span>
+                  <img class="photo-slot-preview" data-edit-photo-preview="2" alt="" hidden />
+                  <input type="file" accept="image/*" class="photo-input-hidden" data-edit-photo-input="2" />
+                </label>
+                <label class="photo-slot" data-edit-photo-slot="3">
+                  <span class="photo-slot-text">Image 4</span>
+                  <img class="photo-slot-preview" data-edit-photo-preview="3" alt="" hidden />
+                  <input type="file" accept="image/*" class="photo-input-hidden" data-edit-photo-input="3" />
+                </label>
+              </div>
+            </div>
+            <label style="margin-top: 0.9rem;">
+              Guest registration link
+              <input type="text" data-edit-guest-link disabled />
             </label>
+            <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-top:0.4rem;">
+              <button type="button" class="submit-button ghost btn--sm" data-open-guest-link>Open</button>
+              <button type="button" class="submit-button ghost btn--sm" data-copy-guest-link>Copy</button>
+            </div>
           </div>
           <div class="settings-msg" data-edit-msg></div>
           <div class="step-actions">
@@ -124,6 +156,10 @@
       var form = document.querySelector("[data-edit-form]");
       var editMsg = document.querySelector("[data-edit-msg]");
       var editingUnitId = null;
+      var editImageDataUrls = [null, null, null, null];
+      var guestLinkInput = document.querySelector("[data-edit-guest-link]");
+      var openGuestBtn = document.querySelector("[data-open-guest-link]");
+      var copyGuestBtn = document.querySelector("[data-copy-guest-link]");
 
       function firstImg(unit) {
         var raw = unit && unit.image_urls;
@@ -143,16 +179,42 @@
         form.querySelector("[data-edit-unit-size]").value = unit.unit_size == null ? "" : unit.unit_size;
         form.querySelector("[data-edit-price]").value = unit.price == null ? "" : unit.price;
         form.querySelector("[data-edit-description]").value = unit.description || "";
-        var imgs = "";
+
+        // Prefill 4 image slots (cover = slot 1).
+        editImageDataUrls = [null, null, null, null];
+        if (form) {
+          var previews = form.querySelectorAll("[data-edit-photo-preview]");
+          if (previews && previews.length) {
+            for (var p = 0; p < previews.length; p++) {
+              var el = previews[p];
+              if (!el) continue;
+              el.removeAttribute("src");
+              el.hidden = true;
+            }
+          }
+        }
         try {
           var raw = unit.image_urls;
           var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
-          if (Array.isArray(arr)) imgs = arr.map(function (x) { return typeof x === "string" ? x : (x.url || x.src || ""); }).filter(Boolean).join(", ");
+          if (Array.isArray(arr)) {
+            for (var i = 0; i < 4 && i < arr.length; i++) {
+              if (!arr[i]) continue;
+              var url = typeof arr[i] === "string" ? arr[i] : (arr[i].url || arr[i].src || "");
+              if (!url) continue;
+              editImageDataUrls[i] = url;
+              var prev = form.querySelector("[data-edit-photo-preview=\"" + i + "\"]");
+              if (prev) {
+                prev.src = url;
+                prev.hidden = false;
+              }
+            }
+          }
         } catch (e) {}
-        form.querySelector("[data-edit-images]").value = imgs;
+
         if (editMsg) editMsg.textContent = "";
         overlay.classList.add("is-open");
         overlay.setAttribute("aria-hidden", "false");
+        if (guestLinkInput) guestLinkInput.value = buildBookingLink(unit);
       }
       function closeEdit() {
         overlay.classList.remove("is-open");
@@ -183,7 +245,7 @@
               "<p class=\"property-card__role\">" + esc(u.tower_name || "—") + "</p>" +
               "<div class=\"property-card__meta\"><span>" + esc(meta) + "</span></div>" +
               "<div style=\"margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;\">" +
-                "<button class=\"btn ghost\" type=\"button\" data-edit-btn>Edit details</button>" +
+                "<button class=\"submit-button ghost btn--sm\" type=\"button\" data-edit-btn>Edit details</button>" +
               "</div>" +
             "</div>";
           card.querySelector("[data-edit-btn]").addEventListener("click", function () { openEdit(u); });
@@ -205,12 +267,9 @@
         if (editMsg) editMsg.textContent = "Saving…";
         var fd = new FormData(form);
         var payload = {
-          floor_number: fd.get("floor_number"),
-          unit_type: fd.get("unit_type"),
-          unit_size: fd.get("unit_size"),
           price: fd.get("price"),
           description: fd.get("description"),
-          image_urls: parseImages(fd.get("image_urls"))
+          image_urls: JSON.stringify(editImageDataUrls.map(function (x) { return x || ""; }))
         };
         fetch("/api/owner/units/" + editingUnitId, { method: "PUT", headers: getH(true), body: JSON.stringify(payload) })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -230,6 +289,51 @@
         document.querySelector("[data-profile-initials-lg]").textContent = ini;
         document.querySelector("[data-profile-name]").textContent = name;
       } catch (e) {}
+
+      function buildBookingLink(unit) {
+        var base = window.location.origin + "/guest/booking.html";
+        var uid = unit && (unit.unit_id || unit.unit_number);
+        return base + "?unit_id=" + (uid != null ? uid : "");
+      }
+
+      // Photo slot handlers (4 images, cover is slot 1)
+      if (form) {
+        var photoInputs = form.querySelectorAll("[data-edit-photo-input]");
+        photoInputs.forEach(function (inp) {
+          inp.addEventListener("change", function () {
+            var idx = Number(inp.getAttribute("data-edit-photo-input"));
+            var file = inp.files && inp.files[0];
+            if (!file || !file.type || file.type.indexOf("image/") !== 0) return;
+            var fr = new FileReader();
+            fr.onload = function () {
+              editImageDataUrls[idx] = fr.result;
+              var prev = form.querySelector("[data-edit-photo-preview=\"" + idx + "\"]");
+              if (prev) {
+                prev.src = fr.result;
+                prev.hidden = false;
+              }
+            };
+            fr.readAsDataURL(file);
+          });
+        });
+      }
+
+      if (openGuestBtn) {
+        openGuestBtn.addEventListener("click", function () {
+          if (!guestLinkInput || !guestLinkInput.value) return;
+          window.open(guestLinkInput.value, "_blank");
+        });
+      }
+
+      if (copyGuestBtn) {
+        copyGuestBtn.addEventListener("click", function () {
+          if (!guestLinkInput || !guestLinkInput.value) return;
+          navigator.clipboard.writeText(guestLinkInput.value).catch(function () {
+            guestLinkInput.select();
+            document.execCommand("copy");
+          });
+        });
+      }
       document.querySelector("[data-profile-btn]").addEventListener("click", function (e) { e.stopPropagation(); document.querySelector("[data-profile-dropdown]").classList.toggle("is-open"); });
       document.addEventListener("click", function () { document.querySelector("[data-profile-dropdown]").classList.remove("is-open"); });
       document.querySelector("[data-logout-link]").addEventListener("click", function () { localStorage.clear(); });
