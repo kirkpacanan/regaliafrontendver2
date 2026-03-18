@@ -1380,15 +1380,10 @@ app.post("/api/employees", optionalAuth, async (req, res) => {
 });
 
 // ---------------- Unit owners (residents) — created by condo admin ----------------
-app.get("/api/owners", optionalAuth, async (req, res) => {
-  try {
-    if (!req.user || !isCondoAdminRole(req.user.role))
-      return res.status(403).json({ error: "Admins only" });
-    const adminId = req.user.employee_id;
-    let rows;
-    try {
-      const [r] = await db.promise().query(
-        `SELECT
+async function fetchOwnersListRows(adminId) {
+  const ownerRoleExists = `EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND (r.role_type = 'OWNER' OR UPPER(TRIM(r.role_type)) = 'OWNER'))`;
+
+  const fullSql = `SELECT
            e.employee_id, e.full_name, e.username, e.email, e.contact_number,
            e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
            o.owner_id, COALESCE(o.is_verified, 0) AS is_verified,
@@ -1405,16 +1400,10 @@ app.get("/api/owners", optionalAuth, async (req, res) => {
          LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
          LEFT JOIN TOWER t ON t.tower_id = u.tower_id
          WHERE e.created_by_employee_id = ?
-           AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
-         ORDER BY e.full_name`,
-        [adminId]
-      );
-      rows = r || [];
-    } catch (ouErr) {
-      if (ouErr.code === "ER_NO_SUCH_TABLE") {
-        try {
-          const [r] = await db.promise().query(
-            `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+           AND ${ownerRoleExists}
+         ORDER BY e.full_name`;
+
+  const noOwnerUnitSql = `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
               e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
               o.owner_id, COALESCE(o.is_verified, 0) AS is_verified,
               CASE WHEN o.valid_id IS NOT NULL THEN 1 ELSE 0 END AS has_valid_id,
@@ -1424,40 +1413,76 @@ app.get("/api/owners", optionalAuth, async (req, res) => {
              LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
              LEFT JOIN TOWER t ON t.tower_id = u.tower_id
              WHERE e.created_by_employee_id = ?
-               AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
-             ORDER BY e.full_name`,
-            [adminId]
-          );
-          rows = r || [];
-        } catch (e2) {
-          const [r] = await db.promise().query(
-            `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+               AND ${ownerRoleExists}
+             ORDER BY e.full_name`;
+
+  const noOwnerSql = `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
               e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
               NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id, NULL AS units_label
              FROM EMPLOYEE e
              LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
              LEFT JOIN TOWER t ON t.tower_id = u.tower_id
              WHERE e.created_by_employee_id = ?
-               AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
-             ORDER BY e.full_name`,
-            [adminId]
-          );
-          rows = r || [];
-        }
-      } else if (ouErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(ouErr.message)) {
-        const [r] = await db.promise().query(
-          `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+               AND ${ownerRoleExists}
+             ORDER BY e.full_name`;
+
+  const noResidentSql = `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
             NULL AS unit_id, NULL AS unit_number, NULL AS tower_name,
             NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id, NULL AS units_label
            FROM EMPLOYEE e
            WHERE e.created_by_employee_id = ?
-             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
-           ORDER BY e.full_name`,
-          [adminId]
-        );
-        rows = r || [];
-      } else throw ouErr;
+             AND ${ownerRoleExists}
+           ORDER BY e.full_name`;
+
+  const minimalSql = `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number
+           FROM EMPLOYEE e
+           WHERE e.created_by_employee_id = ?
+             AND ${ownerRoleExists}
+           ORDER BY e.full_name`;
+
+  const tries = [
+    () => db.promise().query(fullSql, [adminId]),
+    () => db.promise().query(noOwnerUnitSql, [adminId]),
+    () => db.promise().query(noOwnerSql, [adminId]),
+    () => db.promise().query(noResidentSql, [adminId]),
+    () => db.promise().query(minimalSql, [adminId]),
+  ];
+
+  let lastErr;
+  for (let i = 0; i < tries.length; i++) {
+    try {
+      const [r] = await tries[i]();
+      const rows = r || [];
+      if (rows.length && !Object.prototype.hasOwnProperty.call(rows[0], "units_label")) {
+        return rows.map((row) => ({
+          ...row,
+          unit_id: row.unit_id ?? null,
+          unit_number: row.unit_number ?? null,
+          tower_name: row.tower_name ?? null,
+          owner_id: null,
+          is_verified: 0,
+          has_valid_id: 0,
+          units_label: null,
+        }));
+      }
+      return rows;
+    } catch (e) {
+      lastErr = e;
+      if (i < tries.length - 1) console.warn("GET /api/owners trying simpler query:", e.code || e.message);
     }
+  }
+  console.error("GET /api/owners all fallbacks failed:", lastErr);
+  throw lastErr || new Error("Failed to list owners");
+}
+
+app.get("/api/owners", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
+    const adminId = req.user.employee_id;
+    if (adminId == null || adminId === "")
+      return res.status(403).json({ error: "Invalid session" });
+    const rows = await fetchOwnersListRows(adminId);
     res.json(rows || []);
   } catch (err) {
     console.error(err);
