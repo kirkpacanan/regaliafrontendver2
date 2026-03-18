@@ -205,6 +205,39 @@ async function getOwnerIdForEmployee(ownerEmployeeId) {
   return row2 ? row2.owner_id : null;
 }
 
+// Ensures there's an OWNER row for the given OWNER "employee_id" login.
+// Your ERD has OWNER.employee_id/email as mapping fields, but your DB sometimes has missing OWNER rows.
+async function ensureOwnerRowForEmployee(ownerEmployeeId) {
+  // Try to resolve first.
+  const ownerId = await getOwnerIdForEmployee(ownerEmployeeId);
+  if (ownerId != null) return ownerId;
+
+  // Create from EMPLOYEE data.
+  const [[emp]] = await db.promise().query(
+    "SELECT full_name, contact_number, email, resident_unit_id FROM EMPLOYEE WHERE employee_id = ? LIMIT 1",
+    [ownerEmployeeId]
+  );
+  if (!emp) return null;
+
+  // Insert the missing OWNER row (valid_id defaults to NULL; is_verified defaults to 0).
+  const [result] = await db.promise().query(
+    `INSERT INTO OWNER (employee_id, unit_id, full_name, contact_number, email, valid_id, is_verified)
+     VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+    [
+      ownerEmployeeId,
+      emp.resident_unit_id != null ? emp.resident_unit_id : null,
+      String(emp.full_name || "").trim() || "Owner",
+      emp.contact_number != null ? String(emp.contact_number).trim() : null,
+      String(emp.email || "").trim(),
+      0,
+    ]
+  );
+  // If insertId is missing (some SQL modes), fall back to resolving again.
+  const newOwnerId = result && result.insertId ? Number(result.insertId) : null;
+  if (newOwnerId) return newOwnerId;
+  return getOwnerIdForEmployee(ownerEmployeeId);
+}
+
 function requireAuth(req, res, next) {
   return optionalAuth(req, res, () => {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
@@ -2022,8 +2055,11 @@ app.post("/api/owners/:id/units", optionalAuth, async (req, res) => {
     const raw = req.body && req.body.unit_ids;
     const ids = Array.isArray(raw) ? raw.map((x) => Number(x)).filter((x) => x > 0) : [];
     if (!ids.length) return res.status(400).json({ error: "unit_ids array required" });
-    const ownerIdForInsert = await getOwnerIdForEmployee(id);
-    if (!ownerIdForInsert) return res.status(400).json({ error: "Owner row missing in OWNER; cannot map OWNER_UNIT.owner_id." });
+    // Some DBs have OWNER row missing for an existing EMPLOYEE login.
+    // Create it on-demand so OWNER_UNIT inserts can succeed (OWNER_UNIT.owner_id is NOT NULL).
+    let ownerIdForInsert = await getOwnerIdForEmployee(id);
+    if (!ownerIdForInsert) ownerIdForInsert = await ensureOwnerRowForEmployee(id);
+    if (!ownerIdForInsert) return res.status(400).json({ error: "Could not resolve or create OWNER row for employee." });
 
     const added = [];
     for (const unitId of [...new Set(ids)]) {
