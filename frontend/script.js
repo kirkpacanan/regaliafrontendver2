@@ -18,7 +18,7 @@ const appRoot = document.querySelector(".app");
 
 let activePanel;
 
-(function hydrateGateGreeting() {
+function hydrateGateGreeting() {
   try {
     const condoName = String(sessionStorage.getItem(REGALIA_GATE_CONDO_NAME_KEY) || "").trim();
     const welcomeTitle = document.querySelector("[data-welcome-title]");
@@ -31,7 +31,10 @@ let activePanel;
       if (loginTitle) loginTitle.textContent = "Enter Account Details";
     }
   } catch (e) {}
-})();
+}
+
+// Hydrate immediately on page load (works on refresh).
+hydrateGateGreeting();
 
 (function initSiteGate() {
   const gate = views.get("gate");
@@ -85,6 +88,9 @@ const setActivePanel = (viewName) => {
     appRoot.classList.toggle("is-form-open", compactHeader);
   }
   document.body.classList.toggle("is-form-open", compactHeader);
+
+  // Ensure greeting is up-to-date whenever panels change.
+  hydrateGateGreeting();
 };
 
 document.addEventListener("click", (event) => {
