@@ -115,7 +115,9 @@ async function getOwnerUnitOwnerColumnName() {
   );
   const found = (rows || []).map((r) => String(r.COLUMN_NAME || r.column_name || "").trim()).filter(Boolean);
 
-  const priority = ["owner_employee_id", "employee_id", "owner_id"];
+  // Prefer `owner_id` because in your ERD it's NOT NULL.
+  // If we pick `owner_employee_id` first (nullable), INSERTs into OWNER_UNIT will fail.
+  const priority = ["owner_id", "owner_employee_id", "employee_id"];
   for (const col of priority) {
     if (found.includes(col)) {
       ownerUnitOwnerColumnCache = col;
