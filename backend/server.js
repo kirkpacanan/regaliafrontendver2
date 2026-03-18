@@ -206,6 +206,10 @@ app.post("/login", async (req, res) => {
 });
 
 // ---------------- Developer Auth + Provisioning ----------------
+// Temporary bootstrap credentials (no DB setup needed). Remove when you have real developer accounts.
+const TEMP_DEV_USERNAME = "Dev";
+const TEMP_DEV_PASSWORD = "123";
+
 app.post("/api/developer/login", async (req, res) => {
   try {
     const master = String(req.body && req.body.master_passcode || "").trim();
@@ -221,6 +225,22 @@ app.post("/api/developer/login", async (req, res) => {
     const username = String(req.body && req.body.username || "").trim();
     const password = String(req.body && req.body.password || "").trim();
     if (!username || !password) return res.status(400).json({ error: "username and password required" });
+
+    // Temporary fallback developer login (does not require a DB user).
+    if (username === TEMP_DEV_USERNAME && password === TEMP_DEV_PASSWORD) {
+      const roleType = "DEVELOPER";
+      const token = jwt.sign(
+        { employee_id: 0, role: roleType },
+        process.env.JWT_SECRET,
+        { expiresIn: "2h" }
+      );
+      return res.json({
+        message: "Developer login successful (temporary)",
+        token,
+        employee: { employee_id: 0, full_name: "Temporary Developer", username: TEMP_DEV_USERNAME },
+        role: roleType,
+      });
+    }
 
     const [rows] = await db.promise().query("SELECT * FROM EMPLOYEE WHERE username = ?", [username]);
     if (rows.length === 0) return res.status(400).json({ error: "User not found" });
