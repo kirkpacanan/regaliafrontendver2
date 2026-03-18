@@ -171,10 +171,28 @@ app.post("/signup", async (req, res) => {
   });
 });
 
+// ---------------- Site gate verification (condominium passcode) ----------------
+app.post("/api/gate/verify", async (req, res) => {
+  try {
+    const raw = String(req.body && req.body.condominium_passcode || "").trim();
+    if (!raw) return res.status(400).json({ error: "Passcode required" });
+    if (raw === "SUPERSECRETKEY") return res.json({ ok: true, bypass: true, condominium_id: null });
+    const [rows] = await db.promise().query("SELECT condominium_id, passcode_hash FROM CONDOMINIUM");
+    for (const r of (rows || [])) {
+      const ok = await bcrypt.compare(raw, String(r.passcode_hash || ""));
+      if (ok) return res.json({ ok: true, condominium_id: r.condominium_id });
+    }
+    return res.status(403).json({ error: "Incorrect passcode. Try again." });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ---------------- LOGIN ----------------
 app.post("/login", async (req, res) => {
   try {
-    const { username, password, condominium_passcode } = req.body;
+    const { username, password, condominium_passcode, condominium_id } = req.body;
 
     const [rows] = await db.promise().query(
       "SELECT * FROM EMPLOYEE WHERE username = ?",
@@ -199,6 +217,8 @@ app.post("/login", async (req, res) => {
       if (!condoId) return res.status(403).json({ error: "Admin account is not linked to a condominium" });
       const passRaw = String(condominium_passcode || "").trim();
       if (!passRaw) return res.status(403).json({ error: "Condominium passcode required for admin login" });
+      if (condominium_id != null && Number(condominium_id) && Number(condominium_id) !== condoId)
+        return res.status(403).json({ error: "Incorrect condominium passcode" });
       const [[condo]] = await db.promise().query(
         "SELECT passcode_hash FROM CONDOMINIUM WHERE condominium_id = ?",
         [condoId]

@@ -6,9 +6,10 @@
   }
 })();
 
-/** TEMPORARY: hardcoded site gate for deployment & pitching — replace with real auth */
-const REGALIA_SITE_PASSCODE = "SUPERSECRETKEY";
+/** TEMPORARY: site condo gate (replace with real auth later) */
 const REGALIA_GATE_STORAGE_KEY = "regalia_site_unlocked";
+const REGALIA_GATE_CONDO_ID_KEY = "regalia_gate_condo_id";
+const REGALIA_GATE_CONDO_PASSCODE_KEY = "regalia_gate_condo_passcode";
 
 const panels = Array.from(document.querySelectorAll(".panel"));
 const views = new Map(panels.map((panel) => [panel.dataset.view, panel]));
@@ -82,20 +83,48 @@ document.addEventListener("click", (event) => {
 const gateForm = document.querySelector("[data-gate-form]");
 const gateError = document.querySelector("[data-gate-error]");
 if (gateForm) {
-  gateForm.addEventListener("submit", (event) => {
+  gateForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (gateError) gateError.textContent = "";
     const input = gateForm.querySelector("[data-gate-input]");
     const raw = input ? String(input.value || "").trim() : "";
-    if (raw === REGALIA_SITE_PASSCODE) {
+    if (!raw) {
+      if (gateError) gateError.textContent = "Passcode is required.";
+      if (input) input.focus();
+      return;
+    }
+    // Temporary bypass (no condo selected). Admin login will still require condo gate.
+    if (raw === "SUPERSECRETKEY") {
       try {
         sessionStorage.setItem(REGALIA_GATE_STORAGE_KEY, "1");
+        sessionStorage.removeItem(REGALIA_GATE_CONDO_ID_KEY);
+        sessionStorage.removeItem(REGALIA_GATE_CONDO_PASSCODE_KEY);
       } catch (e) {}
       if (input) input.value = "";
       setActivePanel("welcome");
-    } else {
-      if (gateError) gateError.textContent = "Incorrect passcode. Try again.";
-      if (input) input.focus();
+      return;
+    }
+    try {
+      const response = await fetch("/api/gate/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ condominium_passcode: raw })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (gateError) gateError.textContent = (data && data.error) ? data.error : "Incorrect passcode. Try again.";
+        if (input) input.focus();
+        return;
+      }
+      try {
+        sessionStorage.setItem(REGALIA_GATE_STORAGE_KEY, "1");
+        if (data && data.condominium_id) sessionStorage.setItem(REGALIA_GATE_CONDO_ID_KEY, String(data.condominium_id));
+        sessionStorage.setItem(REGALIA_GATE_CONDO_PASSCODE_KEY, raw);
+      } catch (e) {}
+      if (input) input.value = "";
+      setActivePanel("welcome");
+    } catch (e) {
+      if (gateError) gateError.textContent = "Server error. Try again.";
     }
   });
 }
@@ -123,7 +152,13 @@ if (loginForm) {
     const formData = new FormData(loginForm);
     const username = String(formData.get("login") || "").trim();
     const password = String(formData.get("password") || "").trim();
-    const condominium_passcode = String(formData.get("condominium_passcode") || "").trim();
+    let condominium_passcode = "";
+    let condominium_id = null;
+    try {
+      condominium_passcode = String(sessionStorage.getItem(REGALIA_GATE_CONDO_PASSCODE_KEY) || "").trim();
+      const rawId = String(sessionStorage.getItem(REGALIA_GATE_CONDO_ID_KEY) || "").trim();
+      condominium_id = rawId ? Number(rawId) : null;
+    } catch (e) {}
 
     // Offline accounts for local development
     const offlineAccounts = {
@@ -147,7 +182,7 @@ if (loginForm) {
       const response = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, condominium_passcode })
+        body: JSON.stringify({ username, password, condominium_passcode, condominium_id })
       });
 
       const data = await response.json();

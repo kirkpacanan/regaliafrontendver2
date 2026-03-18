@@ -163,8 +163,10 @@ function renderAdmins(rows) {
       <td>${Number(r.ownersCreatedCount || 0)}</td>
       <td>${Number(r.staffCreatedCount || 0)}</td>
       <td>
-        <button class="btn ghost" type="button" data-action="reset-admin" data-admin-id="${adminId}">Reset passcode</button>
-        <button class="btn ghost" type="button" data-action="delete-admin" data-admin-id="${adminId}">Delete</button>
+        <div class="table-actions">
+          <button class="btn ghost btn-small" type="button" data-action="reset-admin" data-admin-id="${adminId}">Reset passcode</button>
+          <button class="btn ghost btn-small" type="button" data-action="delete-admin" data-admin-id="${adminId}">Delete</button>
+        </div>
       </td>
     `;
     tbody.appendChild(tr);

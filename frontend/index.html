@@ -34,15 +34,15 @@
           <section class="panel is-active" data-view="gate">
             <div class="card card--gate">
               <h2 class="card__title">Regalia</h2>
-              <p class="card__subtitle">Enter passcode to continue</p>
+              <p class="card__subtitle">Enter condominium passcode to continue</p>
               <form class="form" data-gate-form autocomplete="off">
                 <label class="field">
-                  <span>Passcode</span>
+                  <span>Condominium passcode</span>
                   <input
                     type="password"
                     name="passcode"
                     data-gate-input
-                    placeholder="Passcode"
+                    placeholder="Condo passcode"
                     autocomplete="off"
                     autocapitalize="off"
                     spellcheck="false"
@@ -80,11 +80,6 @@
                     <button class="icon-toggle" type="button" data-toggle="password" data-target="login-password" aria-label="Show password">Show</button>
                   </div>
                 </label>
-                <label class="field">
-                  <span>Condominium passcode (Admins only)</span>
-                  <input type="password" name="condominium_passcode" placeholder="Condo passcode" autocomplete="off" />
-                </label>
-
                 <div class="login-error" data-login-error></div>
                 <button class="btn primary" type="submit">Log in</button>
               </form>
