@@ -1942,46 +1942,21 @@ app.patch("/api/owners/:id", optionalAuth, async (req, res) => {
 
 async function syncOwnerPrimaryUnit(dbConn, ownerEmployeeId) {
   try {
-    const ownerUnitOwnerCol = await getOwnerUnitOwnerColumnName();
-    const ownerUnitOwnerVal = await getOwnerUnitOwnerValue(ownerEmployeeId);
-    const ownerUnitCols = await getOwnerUnitColumnSet();
-    let whereSql = `ou.${ownerUnitOwnerCol} = ?`;
-    let params = [ownerUnitOwnerVal];
-    if (ownerUnitCols.has("owner_id") && ownerUnitOwnerCol !== "owner_id") {
-      const ownerId = await getOwnerIdForEmployee(ownerEmployeeId);
-      if (ownerId != null) {
-        whereSql = `(ou.${ownerUnitOwnerCol} = ? OR ou.owner_id = ?)`;
-        params = [ownerUnitOwnerVal, ownerId];
-      }
-    }
+    // Your ERD: OWNER_UNIT connects to OWNER via `owner_id` and to UNIT via `unit_id`.
+    const ownerId = await getOwnerIdForEmployee(ownerEmployeeId);
+    if (!ownerId) return;
+
     const [rows] = await dbConn.promise().query(
-      `SELECT ou.unit_id FROM OWNER_UNIT ou WHERE ${whereSql} ORDER BY ou.unit_id LIMIT 1`,
-      params
+      "SELECT ou.unit_id FROM OWNER_UNIT ou WHERE ou.owner_id = ? ORDER BY ou.unit_id LIMIT 1",
+      [ownerId]
     );
     const uid = rows && rows[0] ? rows[0].unit_id : null;
+
+    // Keep both sources in sync for legacy UI queries.
     await dbConn.promise().query("UPDATE EMPLOYEE SET resident_unit_id = ? WHERE employee_id = ?", [uid, ownerEmployeeId]);
-    await dbConn.promise().query("UPDATE OWNER SET unit_id = ? WHERE employee_id = ?", [uid, ownerEmployeeId]);
+    await dbConn.promise().query("UPDATE OWNER SET unit_id = ? WHERE owner_id = ?", [uid, ownerId]);
   } catch (e) {
-    try {
-      const ownerUnitOwnerCol = await getOwnerUnitOwnerColumnName();
-      const ownerUnitOwnerVal = await getOwnerUnitOwnerValue(ownerEmployeeId);
-      const ownerUnitCols = await getOwnerUnitColumnSet();
-      let whereSql = `ou.${ownerUnitOwnerCol} = ?`;
-      let params = [ownerUnitOwnerVal];
-      if (ownerUnitCols.has("owner_id") && ownerUnitOwnerCol !== "owner_id") {
-        const ownerId = await getOwnerIdForEmployee(ownerEmployeeId);
-        if (ownerId != null) {
-          whereSql = `(ou.${ownerUnitOwnerCol} = ? OR ou.owner_id = ?)`;
-          params = [ownerUnitOwnerVal, ownerId];
-        }
-      }
-      const [rows] = await dbConn.promise().query(
-        `SELECT ou.unit_id FROM OWNER_UNIT ou WHERE ${whereSql} ORDER BY ou.unit_id LIMIT 1`,
-        params
-      );
-      const uid = rows && rows[0] ? rows[0].unit_id : null;
-      await dbConn.promise().query("UPDATE EMPLOYEE SET resident_unit_id = ? WHERE employee_id = ?", [uid, ownerEmployeeId]);
-    } catch (e2) { /* */ }
+    /* best-effort sync */
   }
 }
 
@@ -1998,46 +1973,19 @@ app.get("/api/owners/:id/units", optionalAuth, async (req, res) => {
       [id, adminId]
     );
     if (!own) return res.status(404).json({ error: "Owner not found" });
-    let units = [];
-    try {
-      const ownerUnitOwnerCol = await getOwnerUnitOwnerColumnName();
-      const ownerUnitOwnerVal = await getOwnerUnitOwnerValue(id);
-      const ownerUnitCols = await getOwnerUnitColumnSet();
-      let whereSql = `ou.${ownerUnitOwnerCol} = ?`;
-      let params = [ownerUnitOwnerVal];
-      if (ownerUnitCols.has("owner_id") && ownerUnitOwnerCol !== "owner_id") {
-        const ownerId = await getOwnerIdForEmployee(id);
-        if (ownerId != null) {
-          whereSql = `(ou.${ownerUnitOwnerCol} = ? OR ou.owner_id = ?)`;
-          params = [ownerUnitOwnerVal, ownerId];
-        }
-      }
-      const [r] = await db.promise().query(
-        `SELECT u.unit_id, u.unit_number, t.tower_id, t.tower_name
-         FROM OWNER_UNIT ou
-         JOIN UNIT u ON u.unit_id = ou.unit_id
-         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-         WHERE ${whereSql}
-         ORDER BY t.tower_name, u.unit_number`,
-        params
-      );
-      units = r || [];
-    } catch (e) {
-      if (e.code === "ER_NO_SUCH_TABLE") {
-        const [[emp]] = await db.promise().query(
-          "SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?",
-          [id]
-        );
-        if (emp && emp.resident_unit_id) {
-          const [r2] = await db.promise().query(
-            `SELECT u.unit_id, u.unit_number, t.tower_id, t.tower_name
-             FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE u.unit_id = ?`,
-            [emp.resident_unit_id]
-          );
-          units = r2 || [];
-        }
-      } else throw e;
-    }
+    const ownerId = await getOwnerIdForEmployee(id);
+    if (!ownerId) return res.json({ units: [] });
+
+    const [r] = await db.promise().query(
+      `SELECT u.unit_id, u.unit_number, t.tower_id, t.tower_name
+       FROM OWNER_UNIT ou
+       JOIN UNIT u ON u.unit_id = ou.unit_id
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE ou.owner_id = ?
+       ORDER BY t.tower_name, u.unit_number`,
+      [ownerId]
+    );
+    const units = r || [];
     res.json({ units });
   } catch (err) {
     console.error(err);
@@ -2061,17 +2009,10 @@ app.post("/api/owners/:id/units", optionalAuth, async (req, res) => {
     const raw = req.body && req.body.unit_ids;
     const ids = Array.isArray(raw) ? raw.map((x) => Number(x)).filter((x) => x > 0) : [];
     if (!ids.length) return res.status(400).json({ error: "unit_ids array required" });
+    const ownerIdForInsert = await getOwnerIdForEmployee(id);
+    if (!ownerIdForInsert) return res.status(400).json({ error: "Owner row missing in OWNER; cannot map OWNER_UNIT.owner_id." });
+
     const added = [];
-    const ownerUnitOwnerCol = await getOwnerUnitOwnerColumnName();
-    const ownerUnitOwnerVal = await getOwnerUnitOwnerValue(id);
-    const ownerUnitCols = await getOwnerUnitColumnSet();
-    const ownerIdForInsert = ownerUnitCols.has("owner_id") ? await getOwnerIdForEmployee(id) : null;
-    if (ownerUnitCols.has("owner_id") && ownerIdForInsert == null && ownerUnitOwnerCol !== "owner_id") {
-      return res.status(400).json({ error: "Could not resolve OWNER_UNIT.owner_id for this owner" });
-    }
-    if (ownerUnitOwnerCol === "owner_id" && ownerUnitOwnerVal == null) {
-      return res.status(400).json({ error: "Owner row missing in OWNER; cannot map OWNER_UNIT.owner_id." });
-    }
     for (const unitId of [...new Set(ids)]) {
       const [[row]] = await db.promise().query(
         "SELECT u.unit_id FROM UNIT u WHERE u.unit_id = ?",
@@ -2079,24 +2020,15 @@ app.post("/api/owners/:id/units", optionalAuth, async (req, res) => {
       );
       if (!row) continue;
       try {
-        let existsSql = `SELECT 1 AS x FROM OWNER_UNIT WHERE ${ownerUnitOwnerCol} = ? AND unit_id = ? LIMIT 1`;
-        let existsParams = [ownerUnitOwnerVal, unitId];
-        if (ownerUnitCols.has("owner_id") && ownerIdForInsert != null && ownerUnitOwnerCol !== "owner_id") {
-          existsSql = "SELECT 1 AS x FROM OWNER_UNIT WHERE owner_id = ? AND unit_id = ? LIMIT 1";
-          existsParams = [ownerIdForInsert, unitId];
-        }
-
-        const [[exists]] = await db.promise().query(existsSql, existsParams);
+        const [[exists]] = await db.promise().query(
+          "SELECT 1 AS x FROM OWNER_UNIT WHERE owner_id = ? AND unit_id = ? LIMIT 1",
+          [ownerIdForInsert, unitId]
+        );
         if (!exists) {
-          const insertCols = [ownerUnitOwnerCol, "unit_id"];
-          const insertVals = [ownerUnitOwnerVal, unitId];
-          if (ownerUnitCols.has("owner_id") && ownerIdForInsert != null && ownerUnitOwnerCol !== "owner_id") {
-            insertCols.push("owner_id");
-            insertVals.push(ownerIdForInsert);
-          }
           await db.promise().query(
-            `INSERT INTO OWNER_UNIT (${insertCols.join(", ")}) VALUES (${insertCols.map(() => "?").join(", ")})`,
-            insertVals
+            `INSERT INTO OWNER_UNIT (owner_id, unit_id, ownership_start_date, relationship)
+             VALUES (?, ?, CURDATE(), 'Primary Owner')`,
+            [ownerIdForInsert, unitId]
           );
           added.push(unitId);
         }
@@ -2127,19 +2059,13 @@ app.delete("/api/owners/:id/units/:unitId", optionalAuth, async (req, res) => {
     );
     if (!own) return res.status(404).json({ error: "Owner not found" });
     try {
-      const ownerUnitOwnerCol = await getOwnerUnitOwnerColumnName();
-      const ownerUnitOwnerVal = await getOwnerUnitOwnerValue(id);
-      const ownerUnitCols = await getOwnerUnitColumnSet();
-      let sql = `DELETE FROM OWNER_UNIT WHERE ${ownerUnitOwnerCol} = ? AND unit_id = ?`;
-      let params = [ownerUnitOwnerVal, unitId];
-      if (ownerUnitCols.has("owner_id") && ownerUnitOwnerCol !== "owner_id") {
-        const ownerId = await getOwnerIdForEmployee(id);
-        if (ownerId != null) {
-          sql = "DELETE FROM OWNER_UNIT WHERE owner_id = ? AND unit_id = ?";
-          params = [ownerId, unitId];
-        }
+      const ownerId = await getOwnerIdForEmployee(id);
+      if (ownerId != null) {
+        await db.promise().query(
+          "DELETE FROM OWNER_UNIT WHERE owner_id = ? AND unit_id = ?",
+          [ownerId, unitId]
+        );
       }
-      await db.promise().query(sql, params);
     } catch (e) {
       if (e.code !== "ER_NO_SUCH_TABLE") throw e;
     }
