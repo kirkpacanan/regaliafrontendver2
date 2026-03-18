@@ -1882,6 +1882,10 @@ label .required {
   flex-direction: column;
   width: min(440px, 94vw);
 }
+/* Remove default modal “pill” handle + avoid white strip from sticky footer */
+.modal-card--owner-add::before {
+  display: none;
+}
 .modal-card--owner-add .modal-header {
   flex-shrink: 0;
 }
@@ -1893,9 +1897,8 @@ label .required {
   padding-right: 0.35rem;
 }
 .modal-card--owner-add .modal-form--scroll .step-actions {
-  position: sticky;
-  bottom: 0;
-  background: linear-gradient(to top, #fff 85%, transparent);
+  position: static;
+  background: transparent;
   padding-top: 0.75rem;
   margin-top: 0.5rem;
 }

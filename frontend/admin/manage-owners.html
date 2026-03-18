@@ -231,7 +231,7 @@
     </div>
 
     <!-- Add Owner — same flow as Add Employee + OWNER ERD -->
-    <div class="modal-overlay" data-owner-modal>
+    <div class="modal-overlay" data-owner-modal tabindex="-1">
       <div class="modal-card modal-card--owner-add">
         <div class="modal-header">
           <h2>Add Owner</h2>
@@ -495,7 +495,7 @@
       }
 
       function loadOwners() {
-        fetch("/api/owners", { headers: getH() })
+        return fetch("/api/owners", { headers: getH(), cache: "no-store" })
           .then(function (r) { return r.json(); })
           .then(function (rows) {
             ownersCache = Array.isArray(rows) ? rows : [];
@@ -676,33 +676,76 @@
       document.querySelectorAll("[data-close-owner-modal],[data-close-owner-modal2]").forEach(function (b) {
         b.addEventListener("click", function () { ownerModal.classList.remove("is-open"); });
       });
-      ownerModal.addEventListener("click", function (e) { if (e.target === ownerModal) ownerModal.classList.remove("is-open"); });
+      /* Only close when both mousedown + click land on backdrop (not after drag-select from inputs) */
+      ownerModal.addEventListener("mousedown", function (e) {
+        ownerModal._backdropDown = e.target === ownerModal;
+      });
+      ownerModal.addEventListener("click", function (e) {
+        if (e.target === ownerModal && ownerModal._backdropDown) ownerModal.classList.remove("is-open");
+        ownerModal._backdropDown = false;
+      });
 
       ownerForm.addEventListener("submit", function (e) {
         e.preventDefault();
         var msg = document.querySelector("[data-owner-form-msg]");
         var fd = new FormData(ownerForm);
+        function parseRes(r) {
+          return r.text().then(function (t) {
+            var d = {};
+            try { d = t ? JSON.parse(t) : {}; } catch (x) { d = { error: t ? t.slice(0, 200) : "Bad response" }; }
+            return { ok: r.ok, status: r.status, d: d };
+          });
+        }
         function send(dataUrl) {
           var body = {
-            full_name: fd.get("full_name"),
-            contact_number: fd.get("contact_number"),
-            username: fd.get("username"),
-            email: fd.get("email"),
+            full_name: (fd.get("full_name") || "").trim(),
+            contact_number: (fd.get("contact_number") || "").trim(),
+            username: (fd.get("username") || "").trim(),
+            email: (fd.get("email") || "").trim(),
             password: fd.get("password"),
-            is_verified: ownerForm.querySelector("[name=is_verified]").checked,
+            is_verified: !!(ownerForm.querySelector("[name=is_verified]") && ownerForm.querySelector("[name=is_verified]").checked),
             valid_id_data_url: dataUrl || null
           };
           msg.textContent = "Saving…";
+          msg.style.color = "";
           fetch("/api/owners", { method: "POST", headers: getH(true), body: JSON.stringify(body) })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(parseRes)
             .then(function (res) {
-              if (!res.ok) { msg.textContent = res.d.error || "Failed"; return; }
+              if (!res.ok) {
+                msg.style.color = "#c0392b";
+                msg.textContent = (res.d && res.d.error) ? res.d.error : "Failed (" + res.status + ")";
+                return null;
+              }
+              var newId = res.d && (res.d.employeeId != null ? res.d.employeeId : res.d.employee_id);
+              if (newId) {
+                ownersCache.unshift({
+                  employee_id: newId,
+                  full_name: body.full_name,
+                  username: body.username,
+                  email: body.email,
+                  contact_number: body.contact_number,
+                  is_verified: body.is_verified ? 1 : 0,
+                  has_valid_id: dataUrl ? 1 : 0,
+                  units_label: null,
+                  unit_id: null,
+                  tower_name: null,
+                  unit_number: null
+                });
+                renderOwners(ownersCache);
+              }
               msg.textContent = "";
+              msg.style.color = "";
               ownerForm.reset();
               resetValidIdUi();
-              ownerModal.classList.remove("is-open");
-              loadOwners();
-            }).catch(function () { msg.textContent = "Network error"; });
+              return loadOwners();
+            })
+            .then(function (didLoad) {
+              if (didLoad !== null) ownerModal.classList.remove("is-open");
+            })
+            .catch(function () {
+              msg.style.color = "#c0392b";
+              msg.textContent = "Network error — check connection and try again.";
+            });
         }
         var fileIn = validInput && validInput.files && validInput.files[0];
         if (fileIn) {
