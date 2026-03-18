@@ -104,6 +104,21 @@
             <p>Add towers and units that you own. Assigned owners can edit their unit details later.</p>
           </div>
           <div class="top-actions">
+            <div class="notif-wrap">
+              <button class="notif-btn" data-notif-btn aria-label="Notifications">
+                <svg viewBox="0 0 24 24">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notif-badge" data-notif-badge></span>
+              </button>
+              <div class="topbar-dropdown notif-dropdown" data-notif-dropdown>
+                <div class="topbar-dropdown__title">Today's Activity</div>
+                <div class="notif-list" data-notif-list>
+                  <div class="notif-empty">No activity today</div>
+                </div>
+              </div>
+            </div>
             <div class="profile-wrap">
               <button class="avatar avatar-btn" data-profile-btn aria-label="Account">AD</button>
               <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
@@ -114,7 +129,20 @@
                     <div class="profile-role" data-profile-role>ADMIN</div>
                   </div>
                 </div>
-                <a href="../index.html" class="profile-action" data-logout-link>Logout</a>
+                <div class="topbar-dropdown__divider"></div>
+                <button class="profile-action" data-open-profile>
+                  <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  Profile
+                </button>
+                <a href="../index.html" class="profile-action" data-logout-link>
+                  <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                  Logout
+                </a>
+                <div class="topbar-dropdown__divider"></div>
+                <button class="profile-action danger" data-delete-account-btn>
+                  <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
+                  Delete Account
+                </button>
               </div>
             </div>
           </div>
@@ -181,6 +209,16 @@
               <div class="settings-msg" data-template-msg></div>
               <button type="submit" class="btn ghost settings-save">Save template</button>
             </form>
+            <div class="settings-divider"></div>
+            <div class="settings-field" style="margin-top: 0.15rem;">
+              <span style="font-size: 0.78rem; color: var(--muted); font-weight: 500;">Delete saved template</span>
+              <select name="template_delete" data-template-delete-select>
+                <option value="">— Select template —</option>
+              </select>
+            </div>
+            <button type="button" class="submit-button danger" data-template-delete-btn style="margin-top: 0.65rem;">
+              Delete template
+            </button>
           </div>
         </section>
 
@@ -194,29 +232,13 @@
               </select>
             </label>
             <label class="settings-field"><span>Unit template</span>
-              <select name="unit_template_key" data-unit-template-select>
+              <select name="unit_template_key" data-unit-template-select required>
                 <option value="">— Select template —</option>
               </select>
             </label>
-            <label class="settings-field"><span>Unit type</span>
-              <select name="unit_type" data-unit-form-unit-type required>
-                <option value="">— Select —</option>
-                <option value="Studio Type">Studio Type</option>
-                <option value="1 Bedroom">1 Bedroom</option>
-                <option value="2 Bedroom">2 Bedroom</option>
-                <option value="3 Bedroom">3 Bedroom</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Duplex">Duplex</option>
-                <option value="__custom__">Other (type your own)</option>
-              </select>
-            </label>
-            <label class="settings-field" data-unit-form-custom-type-wrap hidden>
-              <span>Custom unit type</span>
-              <input type="text" name="unit_type_custom" data-unit-form-unit-type-custom placeholder="e.g. Loft" />
-            </label>
+            <p class="panel-subtitle muted" style="margin: -0.35rem 0 0.5rem; font-size: 0.78rem;">Unit type and size come from the template. Save a template above (or add units first to infer combos).</p>
             <label class="settings-field"><span>Unit number</span><input type="text" name="unit_number" placeholder="e.g. 1201" required /></label>
             <label class="settings-field"><span>Floor level</span><input type="text" name="floor_number" placeholder="e.g. 12" /></label>
-            <label class="settings-field"><span>Unit size (sqm)</span><input type="number" step="0.01" name="unit_size" placeholder="e.g. 45" required /></label>
             <div class="settings-msg" data-unit-msg></div>
             <button type="submit" class="btn ghost settings-save">Add unit</button>
           </form>
@@ -298,45 +320,12 @@
       }
       function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
       var UNIT_TEMPLATES_KEY = "admin_unit_templates_v1";
-      var PRESET_UNIT_TYPES = ["Studio Type", "1 Bedroom", "2 Bedroom", "3 Bedroom", "Penthouse", "Duplex"];
       var adminUnitsCache = null;
       var unitTemplateOptionsByKey = {};
-      function applyUnitTypeToAddUnitForm(typeStr) {
-        var sel = document.querySelector("[data-unit-form-unit-type]");
-        var wrap = document.querySelector("[data-unit-form-custom-type-wrap]");
-        var customIn = document.querySelector("[data-unit-form-unit-type-custom]");
-        if (!sel) return;
-        typeStr = String(typeStr || "").trim();
-        if (PRESET_UNIT_TYPES.indexOf(typeStr) >= 0) {
-          sel.value = typeStr;
-          if (wrap) wrap.hidden = true;
-          if (customIn) { customIn.value = ""; customIn.removeAttribute("required"); }
-        } else if (typeStr) {
-          sel.value = "__custom__";
-          if (wrap) wrap.hidden = false;
-          if (customIn) customIn.value = typeStr;
-        } else {
-          sel.value = "";
-          if (wrap) wrap.hidden = true;
-          if (customIn) customIn.value = "";
-        }
-      }
       function syncTemplateCustomTypeVisibility() {
         var sel = document.querySelector("[data-template-unit-type-select]");
         var wrap = document.querySelector("[data-template-custom-type-wrap]");
         var inp = document.querySelector("[data-template-unit-type-custom]");
-        if (!sel || !wrap) return;
-        var isCustom = sel.value === "__custom__";
-        wrap.hidden = !isCustom;
-        if (inp) {
-          if (isCustom) inp.setAttribute("required", "required");
-          else { inp.removeAttribute("required"); inp.value = ""; }
-        }
-      }
-      function syncAddUnitCustomTypeVisibility() {
-        var sel = document.querySelector("[data-unit-form-unit-type]");
-        var wrap = document.querySelector("[data-unit-form-custom-type-wrap]");
-        var inp = document.querySelector("[data-unit-form-unit-type-custom]");
         if (!sel || !wrap) return;
         var isCustom = sel.value === "__custom__";
         wrap.hidden = !isCustom;
@@ -381,6 +370,7 @@
         if (!sel) return;
         unitTemplateOptionsByKey = {};
         if (!towerId) {
+          unitTemplateOptionsByKey = {};
           sel.innerHTML = "<option value=\"\">— Select template —</option>";
           return;
         }
@@ -394,13 +384,16 @@
             optsByKey[key] = { key: key, tower_id: t.tower_id, unit_type: t.unit_type, unit_size: t.unit_size };
           });
 
-          (units || []).filter(function (u) { return String(u.tower_id) === String(towerId); }).forEach(function (u) {
-            if (!u.unit_type || u.unit_size == null || u.unit_size === "") return;
-            var key = templateKey(u.tower_id, u.unit_type, u.unit_size);
-            if (!optsByKey[key]) {
-              optsByKey[key] = { key: key, tower_id: u.tower_id, unit_type: u.unit_type, unit_size: u.unit_size };
-            }
-          });
+          // Only infer from already-created units if there are no saved templates yet
+          if (Object.keys(optsByKey).length === 0) {
+            (units || []).filter(function (u) { return String(u.tower_id) === String(towerId); }).forEach(function (u) {
+              if (!u.unit_type || u.unit_size == null || u.unit_size === "") return;
+              var key = templateKey(u.tower_id, u.unit_type, u.unit_size);
+              if (!optsByKey[key]) {
+                optsByKey[key] = { key: key, tower_id: u.tower_id, unit_type: u.unit_type, unit_size: u.unit_size };
+              }
+            });
+          }
 
           var list = Object.keys(optsByKey).map(function (k) { return optsByKey[k]; });
           list.sort(function (a, b) {
@@ -439,12 +432,15 @@
         e.preventDefault();
         var msg = document.querySelector("[data-unit-msg]");
         var fd = new FormData(e.target);
-        var unitType = fd.get("unit_type");
-        if (unitType === "__custom__") unitType = (fd.get("unit_type_custom") || "").trim();
-        if (!unitType) { msg.textContent = "Please choose or enter a unit type."; return; }
+        var tKey = fd.get("unit_template_key");
+        var tpl = unitTemplateOptionsByKey[tKey];
+        if (!tpl || !String(tpl.unit_type || "").trim() || tpl.unit_size == null || tpl.unit_size === "") {
+          msg.textContent = "Please select a unit template (save one under “Add unit template” if the list is empty).";
+          return;
+        }
         var floorVal = fd.get("floor_number");
         if (floorVal === "" || floorVal == null) floorVal = null;
-        var body = { tower_id: fd.get("tower_id"), unit_type: unitType, unit_number: fd.get("unit_number"), floor_number: floorVal, unit_size: fd.get("unit_size"), price: 0 };
+        var body = { tower_id: fd.get("tower_id"), unit_type: String(tpl.unit_type).trim(), unit_number: fd.get("unit_number"), floor_number: floorVal, unit_size: tpl.unit_size, price: 0 };
         msg.textContent = "Saving…";
         fetch("/api/units", { method: "POST", headers: getH(), body: JSON.stringify(body) })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -452,8 +448,6 @@
             if (!res.ok) { msg.textContent = res.d.error || "Failed"; return; }
             msg.textContent = "Unit added.";
             e.target.reset();
-            applyUnitTypeToAddUnitForm("");
-            syncAddUnitCustomTypeVisibility();
             adminUnitsCache = null;
             var tid = document.querySelector("[data-tower-select]");
             loadTowers().then(function () { if (tid && tid.value) refreshUnitTemplateOptionsForTower(tid.value); });
@@ -462,10 +456,7 @@
       });
       var tplTypeSel = document.querySelector("[data-template-unit-type-select]");
       if (tplTypeSel) tplTypeSel.addEventListener("change", syncTemplateCustomTypeVisibility);
-      var addUnitTypeSel = document.querySelector("[data-unit-form-unit-type]");
-      if (addUnitTypeSel) addUnitTypeSel.addEventListener("change", syncAddUnitCustomTypeVisibility);
       syncTemplateCustomTypeVisibility();
-      syncAddUnitCustomTypeVisibility();
 
       (function collapsibleTemplateCard() {
         var card = document.querySelector("[data-template-card]");
@@ -489,7 +480,52 @@
         var templateMsg = document.querySelector("[data-template-msg]");
         var unitTemplateSel = document.querySelector("[data-unit-template-select]");
         var unitTowerSel = document.querySelector("[data-tower-select]");
-        var unitSizeInput = document.querySelector("[data-unit-form] [name=\"unit_size\"]");
+        var templateTowerSel = document.querySelector("[data-template-tower-select]");
+        var templateDeleteSel = document.querySelector("[data-template-delete-select]");
+        var templateDeleteBtn = document.querySelector("[data-template-delete-btn]");
+
+        function refreshTemplateDeleteSelect() {
+          if (!templateDeleteSel) return;
+          var towerId = templateTowerSel ? templateTowerSel.value : "";
+          templateDeleteSel.innerHTML = "<option value=\"\">— Select template —</option>";
+          if (!towerId) {
+            templateDeleteSel.disabled = true;
+            return;
+          }
+          templateDeleteSel.disabled = false;
+          var saved = getSavedTemplates().filter(function (t) { return String(t.tower_id) === String(towerId); });
+          saved.forEach(function (t) {
+            var key = templateKey(t.tower_id, t.unit_type, t.unit_size);
+            var opt = document.createElement("option");
+            opt.value = key;
+            opt.textContent = String(t.unit_type || "Unit") + " · " + (t.unit_size != null && t.unit_size !== "" ? t.unit_size + " sqm" : "");
+            templateDeleteSel.appendChild(opt);
+          });
+        }
+
+        if (templateTowerSel) templateTowerSel.addEventListener("change", refreshTemplateDeleteSelect);
+        refreshTemplateDeleteSelect();
+
+        if (templateDeleteBtn && templateDeleteSel) {
+          templateDeleteBtn.addEventListener("click", function () {
+            if (templateDeleteSel.disabled) return;
+            var key = templateDeleteSel.value;
+            if (!key) return;
+            var ok = window.confirm("Delete this unit template preset?");
+            if (!ok) return;
+            var templates = getSavedTemplates();
+            templates = templates.filter(function (t) { return templateKey(t.tower_id, t.unit_type, t.unit_size) !== key; });
+            setSavedTemplates(templates);
+            if (templateMsg) templateMsg.textContent = "Template deleted.";
+            setTimeout(function () { if (templateMsg) templateMsg.textContent = ""; }, 1200);
+            templateDeleteSel.value = "";
+            refreshTemplateDeleteSelect();
+            if (unitTowerSel && templateTowerSel && String(unitTowerSel.value) === String(templateTowerSel.value)) {
+              if (unitTemplateSel) unitTemplateSel.value = "";
+              refreshUnitTemplateOptionsForTower(templateTowerSel.value);
+            }
+          });
+        }
 
         if (unitTowerSel) {
           unitTowerSel.addEventListener("change", function () {
@@ -499,15 +535,6 @@
           });
         }
 
-        if (unitTemplateSel) {
-          unitTemplateSel.addEventListener("change", function () {
-            var t = unitTemplateOptionsByKey[unitTemplateSel.value];
-            if (!t) return;
-            applyUnitTypeToAddUnitForm(t.unit_type || "");
-            syncAddUnitCustomTypeVisibility();
-            if (unitSizeInput) unitSizeInput.value = t.unit_size == null ? "" : t.unit_size;
-          });
-        }
 
         if (templateForm) {
           templateForm.addEventListener("submit", function (e) {
@@ -540,28 +567,13 @@
             setTimeout(function () { if (templateMsg) templateMsg.textContent = ""; }, 1200);
             templateForm.reset();
             syncTemplateCustomTypeVisibility();
+            refreshTemplateDeleteSelect();
 
             if (unitTowerSel && String(unitTowerSel.value) === String(towerId)) {
               refreshUnitTemplateOptionsForTower(towerId);
             }
           });
         }
-      })();
-      // Profile dropdown minimal
-      (function () {
-        var profileBtn = document.querySelector("[data-profile-btn]");
-        var profileDd = document.querySelector("[data-profile-dropdown]");
-        if (profileBtn) profileBtn.addEventListener("click", function (ev) { ev.stopPropagation(); profileDd.classList.toggle("is-open"); });
-        document.addEventListener("click", function () { if (profileDd) profileDd.classList.remove("is-open"); });
-        try {
-          var emp = JSON.parse(localStorage.getItem("employee") || "{}");
-          var name = emp.full_name || emp.username || "Admin";
-          var ini = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "AD";
-          if (profileBtn) profileBtn.textContent = ini;
-          var plg = document.querySelector("[data-profile-initials-lg]"); if (plg) plg.textContent = ini;
-          var pn = document.querySelector("[data-profile-name]"); if (pn) pn.textContent = name;
-        } catch (x) {}
-        document.querySelector("[data-logout-link]").addEventListener("click", function () { try { localStorage.clear(); } catch (e) {} });
       })();
 
       // Settings (theme picker) modal
@@ -668,13 +680,17 @@
           });
           var notifList = document.querySelector("[data-notif-list]");
           var notifBadge = document.querySelector("[data-notif-badge]");
-          if (notifList && movements.length) {
+          if (!notifList) return;
+          if (movements.length) {
             var iconMap = { upcoming: "↓", "checked-in": "✓", departure: "→" };
             var labelMap = { upcoming: "Upcoming check-in", "checked-in": "Checked in", departure: "Departure" };
             notifList.innerHTML = movements.slice(0, 8).map(function (m) {
               return "<div class=\"notif-item notif-item--" + m.type + "\"><div class=\"notif-item__icon\">" + (iconMap[m.type] || "•") + "</div><div><div class=\"notif-item__name\">" + (m.name || "Guest") + "</div><div class=\"notif-item__detail\">" + (labelMap[m.type] || m.type) + " · Unit " + (m.unit || "—") + (m.tower ? " · " + m.tower : "") + "</div></div></div>";
             }).join("");
             if (notifBadge) notifBadge.textContent = movements.length;
+          } else {
+            notifList.innerHTML = "<div class=\"notif-empty\">No activity today</div>";
+            if (notifBadge) notifBadge.textContent = "";
           }
         }).catch(function () {});
       })();
