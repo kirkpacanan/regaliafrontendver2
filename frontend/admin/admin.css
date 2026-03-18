@@ -1287,6 +1287,39 @@ label .required {
   max-width: 640px;
 }
 
+.modal-card--owner-unit-edit {
+  max-width: min(720px, 96vw);
+  width: 100%;
+}
+
+/* Owner Properties — admin-defined unit type/size (read-only text, supports custom types) */
+.owner-field-hint {
+  font-size: 0.72rem;
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: rgba(79, 127, 132, 0.7);
+  margin-left: 0.35rem;
+}
+.owner-unit-detail-field {
+  cursor: default;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid rgba(79, 127, 132, 0.22);
+  background: rgba(79, 127, 132, 0.07);
+  color: #1a3d40;
+  font-size: 0.95rem;
+  font-family: inherit;
+  font-weight: 500;
+}
+.owner-unit-detail-field:focus {
+  outline: none;
+  border-color: rgba(79, 127, 132, 0.35);
+  box-shadow: none;
+}
+
 .modal-card--edit-unit {
   max-height: 90vh;
   overflow-y: auto;

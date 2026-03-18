@@ -54,7 +54,7 @@
     </div>
 
     <div class="modal-overlay" data-edit-overlay aria-hidden="true">
-      <div class="modal-card modal-card--wide" style="max-height: min(92vh, 720px); display:flex; flex-direction:column;">
+      <div class="modal-card modal-card--wide modal-card--owner-unit-edit" style="max-height: min(92vh, 720px); display:flex; flex-direction:column;">
         <div class="modal-header">
           <h2>Edit unit</h2>
           <button class="icon-button" type="button" data-edit-close aria-label="Close">
@@ -65,18 +65,12 @@
           <div class="update-form-fields" style="padding: 4px 0 0;">
             <label>Unit number (locked) <input type="text" data-edit-unit-number disabled /></label>
             <label>Floor number <input type="text" name="floor_number" data-edit-floor placeholder="e.g. 12" disabled /></label>
-            <label>Unit type
-              <select name="unit_type" data-edit-unit-type disabled>
-                <option value="">— Select —</option>
-                <option value="Studio Type">Studio Type</option>
-                <option value="1 Bedroom">1 Bedroom</option>
-                <option value="2 Bedroom">2 Bedroom</option>
-                <option value="3 Bedroom">3 Bedroom</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Duplex">Duplex</option>
-              </select>
+            <label>Unit type <span class="owner-field-hint">set by admin</span>
+              <input type="text" class="owner-unit-detail-field" data-edit-unit-type readonly tabindex="-1" autocomplete="off" value="" aria-label="Unit type from admin" />
             </label>
-            <label>Unit size (sqm) <input type="number" step="0.01" name="unit_size" data-edit-unit-size placeholder="e.g. 45" disabled /></label>
+            <label>Unit size (sqm) <span class="owner-field-hint">set by admin</span>
+              <input type="text" class="owner-unit-detail-field" data-edit-unit-size readonly tabindex="-1" autocomplete="off" value="" aria-label="Unit size from admin" />
+            </label>
             <label>Price <input type="number" step="0.01" name="price" data-edit-price placeholder="e.g. 50000" /></label>
             <label>Description <textarea name="description" data-edit-description placeholder="Description"></textarea></label>
             <div style="margin-top: 0.75rem;">
@@ -161,6 +155,14 @@
       var openGuestBtn = document.querySelector("[data-open-guest-link]");
       var copyGuestBtn = document.querySelector("[data-copy-guest-link]");
 
+      function formatUnitSizeDisplay(v) {
+        if (v == null || v === "") return "—";
+        var n = Number(v);
+        if (isNaN(n)) return String(v);
+        if (Number.isInteger(n)) return String(n);
+        return String(Math.round(n * 100) / 100);
+      }
+
       function firstImg(unit) {
         var raw = unit && unit.image_urls;
         if (!raw) return null;
@@ -175,8 +177,10 @@
         editingUnitId = unit.unit_id;
         form.querySelector("[data-edit-unit-number]").value = unit.unit_number || "";
         form.querySelector("[data-edit-floor]").value = unit.floor_number || "";
-        form.querySelector("[data-edit-unit-type]").value = unit.unit_type || "";
-        form.querySelector("[data-edit-unit-size]").value = unit.unit_size == null ? "" : unit.unit_size;
+        var typeEl = form.querySelector("[data-edit-unit-type]");
+        var sizeEl = form.querySelector("[data-edit-unit-size]");
+        if (typeEl) typeEl.value = (unit.unit_type != null && String(unit.unit_type).trim() !== "") ? String(unit.unit_type).trim() : "—";
+        if (sizeEl) sizeEl.value = formatUnitSizeDisplay(unit.unit_size);
         form.querySelector("[data-edit-price]").value = unit.price == null ? "" : unit.price;
         form.querySelector("[data-edit-description]").value = unit.description || "";
 
