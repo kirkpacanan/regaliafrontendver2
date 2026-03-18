@@ -24,6 +24,13 @@
         </div>
       </header>
 
+      <nav class="devnav" data-devnav hidden>
+        <button class="devtab" type="button" data-tab="condos">Condominiums</button>
+        <button class="devtab" type="button" data-tab="create-admin">Create Admin</button>
+        <button class="devtab" type="button" data-tab="tracking">Admin Tracking</button>
+        <button class="devtab" type="button" data-tab="settings">Settings</button>
+      </nav>
+
       <section class="grid">
         <section class="card" data-view="gate">
           <h2>Developer access</h2>
@@ -62,7 +69,7 @@
           </form>
         </section>
 
-        <section class="card" data-view="app" hidden>
+        <section class="card" data-view="app" data-panel="condos" hidden>
           <h2>Condominiums</h2>
           <p class="muted">Create a condominium and its unique passcode (store it securely).</p>
           <form class="form form--two" data-condo-form autocomplete="off">
@@ -91,9 +98,9 @@
           </form>
 
           <div class="list" data-condo-list></div>
+        </section>
 
-          <div class="divider"></div>
-
+        <section class="card" data-view="app" data-panel="create-admin" hidden>
           <h2>Provision admin account</h2>
           <p class="muted">Admins are created by developers, not self-signup.</p>
           <form class="form" data-admin-form autocomplete="off">
@@ -143,28 +150,9 @@
               <button class="btn primary" type="submit">Create admin</button>
             </div>
           </form>
-
-          <div class="divider"></div>
-
-          <h2>Change master passcode</h2>
-          <p class="muted">Updates the developer portal master passcode stored in the database.</p>
-          <form class="form form--two" data-master-form autocomplete="off">
-            <label class="field">
-              <span>Current master passcode</span>
-              <input type="password" name="current_passcode" required />
-            </label>
-            <label class="field">
-              <span>New master passcode</span>
-              <input type="password" name="new_passcode" required />
-            </label>
-            <div class="row">
-              <div class="error" data-master-error role="alert"></div>
-              <button class="btn primary" type="submit">Update passcode</button>
-            </div>
-          </form>
         </section>
 
-        <section class="card" data-view="tracking" hidden>
+        <section class="card" data-view="app" data-panel="tracking" hidden>
           <h2>Admin tracking</h2>
           <p class="muted">Admins created by your developer account, including what they created.</p>
           <div class="row row--between">
@@ -188,6 +176,28 @@
             </table>
           </div>
           <div class="error" data-track-error role="alert"></div>
+        </section>
+
+        <section class="card" data-view="app" data-panel="settings" hidden>
+          <h2>Settings</h2>
+          <p class="muted">Security and developer portal settings.</p>
+
+          <h2>Change master passcode</h2>
+          <p class="muted">Updates the developer portal master passcode stored in the database.</p>
+          <form class="form form--two" data-master-form autocomplete="off">
+            <label class="field">
+              <span>Current master passcode</span>
+              <input type="password" name="current_passcode" required />
+            </label>
+            <label class="field">
+              <span>New master passcode</span>
+              <input type="password" name="new_passcode" required />
+            </label>
+            <div class="row">
+              <div class="error" data-master-error role="alert"></div>
+              <button class="btn primary" type="submit">Update passcode</button>
+            </div>
+          </form>
         </section>
       </section>
     </main>

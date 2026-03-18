@@ -15,8 +15,39 @@ body {
 .subtitle { font-size: 13px; color: rgba(231,233,238,0.7); margin-top: 2px; }
 .topbar__actions { display: flex; gap: 10px; }
 
+.devnav {
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(20, 25, 38, 0.55);
+  backdrop-filter: blur(10px);
+  margin-bottom: 14px;
+  overflow: auto;
+}
+.devtab {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(231,233,238,0.85);
+  padding: 9px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.devtab:hover { background: rgba(255,255,255,0.08); }
+.devtab.is-active {
+  border-color: rgba(124, 92, 255, 0.55);
+  background: rgba(124, 92, 255, 0.22);
+  color: #e7e9ee;
+}
+
 .grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 14px; align-items: start; }
 @media (max-width: 980px) { .grid { grid-template-columns: 1fr; } }
+
+.grid[data-layout="app"] { grid-template-columns: 1fr; }
 
 .grid[data-layout="login"],
 .grid[data-layout="gate"] {

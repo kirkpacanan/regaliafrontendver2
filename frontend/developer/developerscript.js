@@ -2,18 +2,20 @@ const STORAGE = {
   master: "regalia_dev_master_passcode",
   token: "regalia_dev_token",
   employee: "regalia_dev_employee",
+  tab: "regalia_dev_tab",
 };
 
 const views = {
   gate: document.querySelector('[data-view="gate"]'),
   login: document.querySelector('[data-view="login"]'),
-  app: document.querySelector('[data-view="app"]'),
-  tracking: document.querySelector('[data-view="tracking"]'),
+  appPanels: Array.from(document.querySelectorAll('[data-view="app"][data-panel]')),
 };
 
 const logoutBtn = document.querySelector('[data-action="logout"]');
 const refreshBtn = document.querySelector('[data-action="refresh"]');
 const sessionLabel = document.querySelector("[data-session-label]");
+const devnav = document.querySelector("[data-devnav]");
+const devtabs = Array.from(document.querySelectorAll("[data-tab]"));
 
 function show(el, yes) {
   if (!el) return;
@@ -69,6 +71,39 @@ function getEmployee() {
   }
 }
 
+function getTab() {
+  try {
+    return localStorage.getItem(STORAGE.tab) || "condos";
+  } catch (e) {
+    return "condos";
+  }
+}
+
+function setTab(v) {
+  try {
+    localStorage.setItem(STORAGE.tab, v);
+  } catch (e) {}
+}
+
+async function activateTab(tab) {
+  const next = tab || "condos";
+  setTab(next);
+  views.appPanels.forEach((p) => {
+    p.hidden = p.getAttribute("data-panel") !== next;
+  });
+  devtabs.forEach((b) => {
+    b.classList.toggle("is-active", b.getAttribute("data-tab") === next);
+  });
+
+  // Lazy refresh based on section
+  if (next === "condos" || next === "create-admin") {
+    await loadCondominiums().catch(() => {});
+  }
+  if (next === "tracking") {
+    await refreshTracking().catch(() => {});
+  }
+}
+
 async function api(path, opts = {}) {
   const token = getToken();
   const headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
@@ -90,8 +125,11 @@ function setUiState() {
 
   show(views.gate, !master);
   show(views.login, !!master && !token);
-  show(views.app, !!master && !!token);
-  show(views.tracking, !!master && !!token);
+  if (views.appPanels && views.appPanels.length) {
+    const shouldShowApp = !!master && !!token;
+    views.appPanels.forEach((p) => (p.hidden = !shouldShowApp));
+  }
+  show(devnav, !!master && !!token);
 
   const grid = document.querySelector(".grid");
   if (grid) {
@@ -104,6 +142,10 @@ function setUiState() {
   const emp = getEmployee();
   if (sessionLabel) {
     sessionLabel.textContent = emp && emp.username ? `Signed in as ${emp.username}` : "";
+  }
+
+  if (master && token) {
+    activateTab(getTab());
   }
 }
 
@@ -269,6 +311,16 @@ if (gateForm) {
   });
 }
 
+// Tabs
+if (devtabs && devtabs.length) {
+  devtabs.forEach((b) => {
+    b.addEventListener("click", async () => {
+      const tab = b.getAttribute("data-tab");
+      await activateTab(tab);
+    });
+  });
+}
+
 // Login
 const loginForm = document.querySelector("[data-login-form]");
 const loginError = document.querySelector("[data-login-error]");
@@ -288,8 +340,7 @@ if (loginForm) {
       setToken(data.token);
       setEmployee(data.employee || null);
       setUiState();
-      await loadCondominiums();
-      await refreshTracking();
+      await activateTab(getTab());
     } catch (e) {
       setError(loginError, e.message || "Login failed");
     }
@@ -383,8 +434,9 @@ if (masterForm) {
 
 if (refreshBtn) {
   refreshBtn.addEventListener("click", async () => {
-    await loadCondominiums().catch(() => {});
-    await refreshTracking();
+    const tab = getTab();
+    if (tab === "tracking") await refreshTracking();
+    else await loadCondominiums().catch(() => {});
   });
 }
 
@@ -400,8 +452,7 @@ if (logoutBtn) {
 (async function init() {
   setUiState();
   if (getToken()) {
-    await loadCondominiums().catch(() => {});
-    await refreshTracking().catch(() => {});
+    await activateTab(getTab()).catch(() => {});
   }
 })();
 
