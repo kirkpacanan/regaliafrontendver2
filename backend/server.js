@@ -1846,15 +1846,8 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
         hint: "Check EMPLOYEE_ROLE allows role_type OWNER and status active.",
       });
     }
-    if (uniqueUnitIds.length) {
-      try {
-        for (const uid of uniqueUnitIds) {
-          await db.promise().query("INSERT INTO OWNER_UNIT (owner_employee_id, unit_id) VALUES (?, ?)", [employeeId, uid]);
-        }
-      } catch (e) {
-        /* OWNER_UNIT optional on older DB */
-      }
-    }
+    // NOTE: OWNER_UNIT inserts must be done *after* inserting OWNER,
+    // because your ERD requires OWNER_UNIT.owner_id (NOT NULL).
     let validBlob = null;
     if (valid_id_data_url && typeof valid_id_data_url === "string") {
       const m = valid_id_data_url.match(/^data:([^;]+);base64,(.+)$/);
@@ -1908,6 +1901,33 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
         } catch (own2) {
           console.error("OWNER insert (retry without ID blob):", own2);
         }
+      }
+    }
+
+    // Connect selected units via OWNER_UNIT using OWNER.owner_id.
+    if (uniqueUnitIds.length) {
+      try {
+        const [[ownRow]] = await db.promise().query(
+          "SELECT owner_id FROM OWNER WHERE employee_id = ? LIMIT 1",
+          [employeeId]
+        );
+        if (ownRow && ownRow.owner_id) {
+          for (const uid of uniqueUnitIds) {
+            const [[exists]] = await db.promise().query(
+              "SELECT 1 AS x FROM OWNER_UNIT WHERE owner_id = ? AND unit_id = ? LIMIT 1",
+              [ownRow.owner_id, uid]
+            );
+            if (!exists) {
+              await db.promise().query(
+                `INSERT INTO OWNER_UNIT (owner_id, unit_id, ownership_start_date, relationship)
+                 VALUES (?, ?, CURDATE(), 'Primary Owner')`,
+                [ownRow.owner_id, uid]
+              );
+            }
+          }
+        }
+      } catch (e) {
+        /* OWNER_UNIT optional on older DB */
       }
     }
     res.status(201).json({ message: "Owner account created", employeeId, unit_ids: uniqueUnitIds });
@@ -2203,7 +2223,11 @@ app.delete("/api/owners/:id", optionalAuth, async (req, res) => {
       await db.promise().query("DELETE FROM OWNER WHERE employee_id = ?", [id]);
     } catch (e) { /* table may not exist */ }
     try {
-      await db.promise().query("DELETE FROM OWNER_UNIT WHERE owner_employee_id = ?", [id]);
+      // ERD: OWNER_UNIT links to OWNER via owner_id
+      const [[ownRow]] = await db.promise().query("SELECT owner_id FROM OWNER WHERE employee_id = ? LIMIT 1", [id]);
+      if (ownRow && ownRow.owner_id) {
+        await db.promise().query("DELETE FROM OWNER_UNIT WHERE owner_id = ?", [ownRow.owner_id]);
+      }
     } catch (e) { /* */ }
     await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [id]);
     await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [id]);
