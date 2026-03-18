@@ -74,7 +74,6 @@ document.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-action]");
   if (actionButton) {
     const action = actionButton.dataset.action;
-    if (action === "to-signup") setActivePanel("signup");
     if (action === "to-login") setActivePanel("login");
     if (action === "to-welcome") setActivePanel("welcome");
   }
@@ -112,52 +111,6 @@ document.querySelectorAll("[data-toggle='password']").forEach((button) => {
     button.textContent = nextType === "password" ? "Show" : "Hide";
   });
 });
-//Signup
-const signupForm = document.querySelector("[data-signup-form]");
-const signupError = document.querySelector("[data-signup-error]");
-
-if (signupForm) {
-  signupForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (signupError) signupError.textContent = "";
-
-    const formData = new FormData(signupForm);
-
-    const payload = {
-    full_name: String(formData.get("full_name") || "").trim(),
-    username: String(formData.get("username") || "").trim(),
-    password: String(formData.get("password") || "").trim(),
-    contact_number: String(formData.get("contact_number") || "").trim(),
-    email: String(formData.get("email") || "").trim(),
-    address: String(formData.get("address") || "").trim()  // <-- added
-    };
-
-
-    try {
-      const response = await fetch("/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert("Signup successful!");
-        console.log(data);
-
-        // Optional: auto switch to login panel
-        setActivePanel("login");
-      } else {
-        if (signupError) signupError.textContent = data.error || "Signup failed";
-      }
-    } catch (err) {
-      console.error(err);
-      if (signupError) signupError.textContent = "Server error. Try again.";
-    }
-  });
-}
-
 //Login
 const loginForm = document.querySelector("[data-login-form]");
 const loginError = document.querySelector("[data-login-error]");

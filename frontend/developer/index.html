@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Regalia Developer Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./developer.css" />
+  </head>
+  <body>
+    <main class="wrap">
+      <header class="topbar">
+        <div>
+          <div class="brand">Regalia</div>
+          <div class="subtitle">Developer Portal</div>
+        </div>
+        <div class="topbar__actions">
+          <button class="btn ghost" type="button" data-action="logout" hidden>Logout</button>
+        </div>
+      </header>
+
+      <section class="grid">
+        <section class="card" data-view="gate">
+          <h2>Developer access</h2>
+          <p class="muted">Enter the master passcode to continue.</p>
+          <form class="form" data-gate-form autocomplete="off">
+            <label class="field">
+              <span>Master passcode</span>
+              <input
+                type="password"
+                name="master_passcode"
+                placeholder="e.g. REGALIADEV"
+                required
+                autocapitalize="off"
+                spellcheck="false"
+              />
+            </label>
+            <div class="error" data-gate-error role="alert"></div>
+            <button class="btn primary" type="submit">Continue</button>
+          </form>
+        </section>
+
+        <section class="card" data-view="login" hidden>
+          <h2>Developer login</h2>
+          <p class="muted">Log in using your developer credentials.</p>
+          <form class="form" data-login-form autocomplete="on">
+            <label class="field">
+              <span>Username</span>
+              <input type="text" name="username" placeholder="Username" autocomplete="username" required />
+            </label>
+            <label class="field">
+              <span>Password</span>
+              <input type="password" name="password" placeholder="Password" autocomplete="current-password" required />
+            </label>
+            <div class="error" data-login-error role="alert"></div>
+            <button class="btn primary" type="submit">Log in</button>
+          </form>
+        </section>
+
+        <section class="card" data-view="app" hidden>
+          <h2>Condominiums</h2>
+          <p class="muted">Create a condominium and its unique passcode (store it securely).</p>
+          <form class="form form--two" data-condo-form autocomplete="off">
+            <label class="field">
+              <span>Condominium name</span>
+              <input type="text" name="name" placeholder="e.g. Azure Towers" required />
+            </label>
+            <label class="field">
+              <span>Condo passcode</span>
+              <input type="password" name="passcode" placeholder="Unique passcode" required />
+            </label>
+            <div class="row">
+              <div class="error" data-condo-error role="alert"></div>
+              <button class="btn primary" type="submit">Create condominium</button>
+            </div>
+          </form>
+
+          <div class="divider"></div>
+
+          <h2>Provision admin account</h2>
+          <p class="muted">Admins are created by developers, not self-signup.</p>
+          <form class="form" data-admin-form autocomplete="off">
+            <label class="field">
+              <span>Condominium</span>
+              <select name="condominium_id" required data-condo-select>
+                <option value="" selected disabled>Select condominium</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Condo passcode</span>
+              <input type="password" name="condominium_passcode" placeholder="Condo passcode" required />
+            </label>
+
+            <div class="grid2">
+              <label class="field">
+                <span>Full name</span>
+                <input type="text" name="full_name" required />
+              </label>
+              <label class="field">
+                <span>Email</span>
+                <input type="email" name="email" required />
+              </label>
+              <label class="field">
+                <span>Username</span>
+                <input type="text" name="username" required />
+              </label>
+              <label class="field">
+                <span>Password</span>
+                <input type="password" name="password" required />
+              </label>
+              <label class="field">
+                <span>Contact number</span>
+                <input type="text" name="contact_number" />
+              </label>
+              <label class="field">
+                <span>Address</span>
+                <input type="text" name="address" />
+              </label>
+            </div>
+
+            <div class="row">
+              <div class="error" data-admin-error role="alert"></div>
+              <button class="btn primary" type="submit">Create admin</button>
+            </div>
+          </form>
+
+          <div class="divider"></div>
+
+          <h2>Change master passcode</h2>
+          <p class="muted">Updates the developer portal master passcode stored in the database.</p>
+          <form class="form form--two" data-master-form autocomplete="off">
+            <label class="field">
+              <span>Current master passcode</span>
+              <input type="password" name="current_passcode" required />
+            </label>
+            <label class="field">
+              <span>New master passcode</span>
+              <input type="password" name="new_passcode" required />
+            </label>
+            <div class="row">
+              <div class="error" data-master-error role="alert"></div>
+              <button class="btn primary" type="submit">Update passcode</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="card" data-view="tracking" hidden>
+          <h2>Admin tracking</h2>
+          <p class="muted">Admins created by your developer account, including what they created.</p>
+          <div class="row row--between">
+            <button class="btn outline" type="button" data-action="refresh">Refresh</button>
+            <div class="muted small" data-session-label></div>
+          </div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Admin</th>
+                  <th>Condominium</th>
+                  <th>Owners created</th>
+                  <th>Staff created</th>
+                </tr>
+              </thead>
+              <tbody data-admins-tbody>
+                <tr><td class="muted" colspan="4">Log in to view.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="error" data-track-error role="alert"></div>
+        </section>
+      </section>
+    </main>
+
+    <script src="./developerscript.js"></script>
+  </body>
+</html>

@@ -41,9 +41,31 @@ function isCondoAdminRole(role) {
 function isResidentOwnerRole(role) {
   return normalizeJwtRole(role) === "OWNER";
 }
+function isDeveloperRole(role) {
+  return normalizeJwtRole(role) === "DEVELOPER";
+}
 function isEmployeeRoleMgmt(roleType) {
   const u = String(roleType || "").toUpperCase();
   return u === "OWNER" || u === "ADMIN";
+}
+
+function requireAuth(req, res, next) {
+  return optionalAuth(req, res, () => {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    next();
+  });
+}
+
+function requireRole(...allowed) {
+  const normalizedAllowed = allowed.map(normalizeJwtRole);
+  return (req, res, next) => {
+    return requireAuth(req, res, () => {
+      const r = normalizeJwtRole(req.user && req.user.role);
+      if (!r || !normalizedAllowed.includes(r))
+        return res.status(403).json({ error: "Forbidden" });
+      next();
+    });
+  };
 }
 
 let didBackfillTowerOwners = false;
@@ -86,6 +108,50 @@ db.connect(err => {
     db.query("ALTER TABLE EMPLOYEE ADD COLUMN resident_unit_id INT NULL", (e) => {
       if (e && e.code !== "ER_DUP_FIELDNAME") { /* ignore if exists */ }
     });
+    db.query("ALTER TABLE EMPLOYEE ADD COLUMN condominium_id INT NULL", (e) => {
+      if (e && e.code !== "ER_DUP_FIELDNAME") { /* ignore if exists */ }
+    });
+    db.query(
+      `CREATE TABLE IF NOT EXISTS CONDOMINIUM (
+        condominium_id INT NOT NULL AUTO_INCREMENT,
+        name VARCHAR(255) NOT NULL,
+        passcode_hash VARCHAR(255) NOT NULL,
+        created_by_employee_id INT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (condominium_id),
+        UNIQUE KEY uniq_condominium_name (name)
+      )`,
+      (e) => {
+        if (e) console.error("Failed creating CONDOMINIUM table:", e.message || e);
+      }
+    );
+
+    db.query(
+      `CREATE TABLE IF NOT EXISTS APP_CONFIG (
+        config_key VARCHAR(100) NOT NULL,
+        config_value VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (config_key)
+      )`,
+      (e) => {
+        if (e) console.error("Failed creating APP_CONFIG table:", e.message || e);
+      }
+    );
+
+    // Seed master developer passcode (stored as bcrypt hash) if missing.
+    try {
+      const seededHash = bcrypt.hashSync("REGALIADEV", 10);
+      db.query(
+        "INSERT IGNORE INTO APP_CONFIG (config_key, config_value) VALUES ('DEV_MASTER_PASSCODE_HASH', ?)",
+        [seededHash],
+        (e) => {
+          if (e) console.error("Failed seeding DEV_MASTER_PASSCODE_HASH:", e.message || e);
+        }
+      );
+    } catch (e) {
+      console.error("Failed hashing default DEV master passcode:", e.message || e);
+    }
   }
 });
 
@@ -100,40 +166,9 @@ app.get("/", (req, res) => {
 
 // ---------------- SIGNUP ----------------
 app.post("/signup", async (req, res) => {
-  
-  try {
-    const { full_name, address, username, password, contact_number, email } = req.body;
-
-    // Check if username or email exists
-    const [existing] = await db.promise().query(
-      "SELECT * FROM EMPLOYEE WHERE username = ? OR email = ?",
-      [username, email]
-    );
-    if (existing.length > 0) 
-      return res.status(400).json({ error: "Username or email already exists" });
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert into EMPLOYEE
-    const [result] = await db.promise().query(
-      "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email) VALUES (?, ?, ?, ?, ?, ?)",
-      [full_name, address, username, hashedPassword, contact_number, email]
-    );
-
-    const employeeId = result.insertId;
-
-    // New accounts = condominium Admin (management), not unit Owner
-    await db.promise().query(
-      "INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'ADMIN', 'active')",
-      [employeeId]
-    );
-
-    res.json({ message: "Account created successfully!", employeeId });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Server error" });
-  }
+  res.status(403).json({
+    error: "Self-service signup is disabled. Ask your developer to provision an admin account.",
+  });
 });
 
 // ---------------- LOGIN ----------------
@@ -167,6 +202,193 @@ app.post("/login", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ---------------- Developer Auth + Provisioning ----------------
+app.post("/api/developer/login", async (req, res) => {
+  try {
+    const master = String(req.body && req.body.master_passcode || "").trim();
+    if (!master) return res.status(403).json({ error: "Invalid developer passcode" });
+    const [[cfg]] = await db.promise().query(
+      "SELECT config_value FROM APP_CONFIG WHERE config_key = 'DEV_MASTER_PASSCODE_HASH' LIMIT 1"
+    );
+    if (!cfg || !cfg.config_value)
+      return res.status(503).json({ error: "Developer passcode is not configured" });
+    const okMaster = await bcrypt.compare(master, String(cfg.config_value || ""));
+    if (!okMaster) return res.status(403).json({ error: "Invalid developer passcode" });
+
+    const username = String(req.body && req.body.username || "").trim();
+    const password = String(req.body && req.body.password || "").trim();
+    if (!username || !password) return res.status(400).json({ error: "username and password required" });
+
+    const [rows] = await db.promise().query("SELECT * FROM EMPLOYEE WHERE username = ?", [username]);
+    if (rows.length === 0) return res.status(400).json({ error: "User not found" });
+    const employee = rows[0];
+    const match = await bcrypt.compare(password, employee.password);
+    if (!match) return res.status(400).json({ error: "Invalid password" });
+
+    const [roles] = await db.promise().query(
+      "SELECT role_type FROM EMPLOYEE_ROLE WHERE employee_id = ? AND status = 'active' ORDER BY role_id DESC",
+      [employee.employee_id]
+    );
+    const roleType = roles[0] && roles[0].role_type ? String(roles[0].role_type) : "";
+    if (!isDeveloperRole(roleType)) return res.status(403).json({ error: "Not a developer account" });
+
+    const token = jwt.sign(
+      { employee_id: employee.employee_id, role: roleType },
+      process.env.JWT_SECRET,
+      { expiresIn: "2h" }
+    );
+    res.json({ message: "Developer login successful", token, employee, role: roleType });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post("/api/developer/master-passcode", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const current_passcode = String(req.body && req.body.current_passcode || "").trim();
+    const new_passcode = String(req.body && req.body.new_passcode || "").trim();
+    if (!current_passcode || !new_passcode)
+      return res.status(400).json({ error: "current_passcode and new_passcode required" });
+
+    const [[cfg]] = await db.promise().query(
+      "SELECT config_value FROM APP_CONFIG WHERE config_key = 'DEV_MASTER_PASSCODE_HASH' LIMIT 1"
+    );
+    if (!cfg || !cfg.config_value)
+      return res.status(503).json({ error: "Developer passcode is not configured" });
+    const ok = await bcrypt.compare(current_passcode, String(cfg.config_value || ""));
+    if (!ok) return res.status(403).json({ error: "Current developer passcode is incorrect" });
+
+    const nextHash = await bcrypt.hash(new_passcode, 10);
+    await db.promise().query(
+      "INSERT INTO APP_CONFIG (config_key, config_value) VALUES ('DEV_MASTER_PASSCODE_HASH', ?) ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)",
+      [nextHash]
+    );
+    res.json({ message: "Developer passcode updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update developer passcode" });
+  }
+});
+
+app.get("/api/developer/condominiums", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      "SELECT condominium_id, name, created_at, updated_at FROM CONDOMINIUM WHERE created_by_employee_id = ? OR created_by_employee_id IS NULL ORDER BY name",
+      [req.user.employee_id]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch condominiums" });
+  }
+});
+
+app.post("/api/developer/condominiums", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const name = String(req.body && req.body.name || "").trim();
+    const passcode = String(req.body && req.body.passcode || "").trim();
+    if (!name || !passcode) return res.status(400).json({ error: "name and passcode required" });
+    const passcodeHash = await bcrypt.hash(passcode, 10);
+    const [result] = await db.promise().query(
+      "INSERT INTO CONDOMINIUM (name, passcode_hash, created_by_employee_id) VALUES (?, ?, ?)",
+      [name, passcodeHash, req.user.employee_id]
+    );
+    res.status(201).json({ message: "Condominium created", condominium_id: result.insertId, name });
+  } catch (err) {
+    const msg = String(err && err.code || "");
+    if (msg === "ER_DUP_ENTRY") return res.status(400).json({ error: "Condominium name already exists" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to create condominium" });
+  }
+});
+
+app.post("/api/developer/admins", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const condominium_id = Number(req.body && req.body.condominium_id);
+    const condominium_passcode = String(req.body && req.body.condominium_passcode || "").trim();
+    if (!condominium_id || !condominium_passcode)
+      return res.status(400).json({ error: "condominium_id and condominium_passcode required" });
+
+    const [[condo]] = await db.promise().query(
+      "SELECT condominium_id, name, passcode_hash FROM CONDOMINIUM WHERE condominium_id = ?",
+      [condominium_id]
+    );
+    if (!condo) return res.status(404).json({ error: "Condominium not found" });
+    const ok = await bcrypt.compare(condominium_passcode, String(condo.passcode_hash || ""));
+    if (!ok) return res.status(403).json({ error: "Invalid condominium passcode" });
+
+    const full_name = String(req.body && req.body.full_name || "").trim();
+    const address = String(req.body && req.body.address || "").trim();
+    const username = String(req.body && req.body.username || "").trim();
+    const password = String(req.body && req.body.password || "").trim();
+    const contact_number = String(req.body && req.body.contact_number || "").trim();
+    const email = String(req.body && req.body.email || "").trim();
+    if (!full_name || !username || !password || !email)
+      return res.status(400).json({ error: "full_name, username, password, and email required" });
+
+    const [existing] = await db.promise().query(
+      "SELECT 1 FROM EMPLOYEE WHERE username = ? OR email = ?",
+      [username, email]
+    );
+    if (existing.length > 0) return res.status(400).json({ error: "Username or email already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const [result] = await db.promise().query(
+      "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email, created_by_employee_id, condominium_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [full_name, address || null, username, hashedPassword, contact_number || null, email, req.user.employee_id, condominium_id]
+    );
+    const employeeId = result.insertId;
+    await db.promise().query(
+      "INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'ADMIN', 'active')",
+      [employeeId]
+    );
+
+    res.status(201).json({ message: "Admin account created", employeeId, condominium_id, condominium_name: condo.name });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to create admin" });
+  }
+});
+
+app.get("/api/developer/admins", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const [rows] = await db.promise().query(
+      `SELECT
+         a.employee_id,
+         a.full_name,
+         a.username,
+         a.email,
+         a.contact_number,
+         a.condominium_id,
+         c.name AS condominium_name,
+         (
+           SELECT COUNT(*)
+           FROM EMPLOYEE e
+           WHERE e.created_by_employee_id = a.employee_id
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'OWNER')
+         ) AS ownersCreatedCount,
+         (
+           SELECT COUNT(*)
+           FROM EMPLOYEE e
+           WHERE e.created_by_employee_id = a.employee_id
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) NOT IN ('OWNER','ADMIN','DEVELOPER'))
+         ) AS staffCreatedCount
+       FROM EMPLOYEE a
+       LEFT JOIN CONDOMINIUM c ON c.condominium_id = a.condominium_id
+       WHERE a.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = a.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')
+       ORDER BY a.full_name`,
+      [developerId]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch admins" });
   }
 });
 
