@@ -285,40 +285,46 @@
           </button>
         </div>
         <div class="assign-sidebar__body assign-sidebar__body--scroll">
-          <div class="assign-sidebar__employee">
-            <div class="assign-sidebar__avatar-wrap">
-              <img class="assign-sidebar__avatar" id="ownerSidebarAvatar" src="" alt="" />
+          <div data-owner-sidebar-units-mode>
+            <div class="assign-sidebar__employee">
+              <div class="assign-sidebar__avatar-wrap">
+                <img class="assign-sidebar__avatar" id="ownerSidebarAvatar" src="" alt="" />
+              </div>
+              <h4 class="assign-sidebar__name" id="ownerSidebarName">—</h4>
+              <p class="assign-sidebar__role" id="ownerSidebarUser">—</p>
+              <p class="assign-sidebar__id" id="ownerSidebarId">ID: REG-000000</p>
             </div>
-            <h4 class="assign-sidebar__name" id="ownerSidebarName">—</h4>
-            <p class="assign-sidebar__role" id="ownerSidebarUser">—</p>
-            <p class="assign-sidebar__id" id="ownerSidebarId">ID: REG-000000</p>
+            <div class="assign-sidebar__actions-row">
+              <button type="button" class="submit-button ghost" data-owner-edit-toggle>Edit details</button>
+              <button type="button" class="submit-button danger" data-owner-delete-full>Delete owner</button>
+            </div>
+            <p class="assign-sidebar__label">Assigned units</p>
+            <p class="panel-subtitle muted" style="margin: -0.35rem 0 0.5rem; font-size: 0.75rem">Same condo, different towers — pick a tower below, then select one or more units.</p>
+            <ul class="owner-sidebar__unit-list" data-owner-units-list></ul>
+            <p class="assign-sidebar__label">Assign units</p>
+            <label class="modal-form" style="display: grid; gap: 0.35rem; margin: 0">
+              <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-1); font-weight: 600">Tower</span>
+              <select class="modal-form select" data-owner-tower-pick style="padding: 0.55rem; border-radius: 10px; border: 1px solid rgba(79,127,132,0.3)">
+                <option value="">— Select tower —</option>
+              </select>
+            </label>
+            <div class="owner-unit-pick-grid" data-owner-units-checkboxes></div>
+            <button type="button" class="submit-button full" data-owner-add-units>Add selected units</button>
+            <div class="settings-msg" data-owner-assign-msg style="min-height: 1em; margin-top: 0.5rem; font-size: 0.8rem"></div>
           </div>
-          <div class="assign-sidebar__actions-row">
-            <button type="button" class="submit-button ghost" data-owner-edit-toggle>Edit details</button>
-            <button type="button" class="submit-button danger" data-owner-delete-full>Delete owner</button>
+          <div data-owner-sidebar-edit-mode hidden>
+            <button type="button" class="submit-button ghost full" style="margin-bottom: 1rem" data-owner-back-units>← Back to units</button>
+            <p class="assign-sidebar__label" style="margin-top: 0">Edit account</p>
+            <div class="owner-edit-panel owner-edit-panel--sidebar">
+              <label>Full name <input type="text" data-edit-full-name /></label>
+              <label>Email <input type="email" data-edit-email /></label>
+              <label>Contact <input type="text" data-edit-contact /></label>
+              <label>Username <input type="text" data-edit-username /></label>
+              <label>New password <input type="password" data-edit-password placeholder="Leave blank to keep" autocomplete="new-password" /></label>
+              <div class="settings-msg" data-owner-edit-msg style="min-height: 1em; font-size: 0.8rem"></div>
+              <button type="button" class="submit-button" data-owner-save-profile>Save changes</button>
+            </div>
           </div>
-          <div class="owner-edit-panel" data-owner-edit-panel hidden>
-            <label>Full name <input type="text" data-edit-full-name /></label>
-            <label>Email <input type="email" data-edit-email /></label>
-            <label>Contact <input type="text" data-edit-contact /></label>
-            <label>Username <input type="text" data-edit-username /></label>
-            <label>New password <input type="password" data-edit-password placeholder="Leave blank to keep" autocomplete="new-password" /></label>
-            <div class="settings-msg" data-owner-edit-msg style="min-height: 1em; font-size: 0.8rem"></div>
-            <button type="button" class="submit-button" data-owner-save-profile>Save changes</button>
-          </div>
-          <p class="assign-sidebar__label">Assigned units</p>
-          <p class="panel-subtitle muted" style="margin: -0.35rem 0 0.5rem; font-size: 0.75rem">Same condo, different towers — pick a tower below, then select one or more units.</p>
-          <ul class="owner-sidebar__unit-list" data-owner-units-list></ul>
-          <p class="assign-sidebar__label">Assign units</p>
-          <label class="modal-form" style="display: grid; gap: 0.35rem; margin: 0">
-            <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-1); font-weight: 600">Tower</span>
-            <select class="modal-form select" data-owner-tower-pick style="padding: 0.55rem; border-radius: 10px; border: 1px solid rgba(79,127,132,0.3)">
-              <option value="">— Select tower —</option>
-            </select>
-          </label>
-          <div class="owner-unit-pick-grid" data-owner-units-checkboxes></div>
-          <button type="button" class="submit-button full" data-owner-add-units>Add selected units</button>
-          <div class="settings-msg" data-owner-assign-msg style="min-height: 1em; margin-top: 0.5rem; font-size: 0.8rem"></div>
         </div>
       </div>
     </div>
@@ -504,11 +510,16 @@
           .catch(function () { ownersCache = []; renderOwners([]); });
       }
 
+      function setOwnerSidebarMode(units) {
+        var u = document.querySelector("[data-owner-sidebar-units-mode]");
+        var e = document.querySelector("[data-owner-sidebar-edit-mode]");
+        if (u) u.hidden = !units;
+        if (e) e.hidden = !!units;
+      }
       function openOwnerSidebar(employeeId) {
         activeOwnerId = employeeId;
         if (!ownerSidebar || !ownerSidebarContent) return;
-        var editPanel = document.querySelector("[data-owner-edit-panel]");
-        if (editPanel) editPanel.hidden = true;
+        setOwnerSidebarMode(true);
         ownerSidebar.classList.add("is-open");
         ownerSidebar.setAttribute("aria-hidden", "false");
         requestAnimationFrame(function () {
@@ -523,6 +534,7 @@
           ownerSidebar.classList.remove("is-open");
           ownerSidebar.setAttribute("aria-hidden", "true");
           activeOwnerId = null;
+          setOwnerSidebarMode(true);
         }, 280);
       }
       function refreshOwnerSidebar(employeeId) {
@@ -627,9 +639,10 @@
           });
       });
       document.querySelector("[data-owner-edit-toggle]").addEventListener("click", function () {
-        var p = document.querySelector("[data-owner-edit-panel]");
-        if (p) p.hidden = !p.hidden;
+        setOwnerSidebarMode(false);
       });
+      var backUnits = document.querySelector("[data-owner-back-units]");
+      if (backUnits) backUnits.addEventListener("click", function () { setOwnerSidebarMode(true); });
       document.querySelector("[data-owner-save-profile]").addEventListener("click", function () {
         if (!activeOwnerId) return;
         var msg = document.querySelector("[data-owner-edit-msg]");
@@ -649,6 +662,7 @@
             if (msg) msg.textContent = "Saved.";
             document.querySelector("[data-edit-password]").value = "";
             loadOwners();
+            setOwnerSidebarMode(true);
             setTimeout(function () { if (activeOwnerId) refreshOwnerSidebar(activeOwnerId); }, 300);
           })
           .catch(function () { if (msg) msg.textContent = "Error"; });

@@ -1416,6 +1416,18 @@ async function fetchOwnersListRows(adminId) {
                AND ${ownerRoleExists}
              ORDER BY e.full_name`;
 
+  const ownerMetaSql = `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+            NULL AS unit_id, NULL AS unit_number, NULL AS tower_name,
+            o.owner_id,
+            COALESCE(o.is_verified, 0) AS is_verified,
+            CASE WHEN o.valid_id IS NOT NULL AND LENGTH(o.valid_id) > 0 THEN 1 ELSE 0 END AS has_valid_id,
+            NULL AS units_label
+           FROM EMPLOYEE e
+           LEFT JOIN OWNER o ON o.employee_id = e.employee_id
+           WHERE e.created_by_employee_id = ?
+             AND ${ownerRoleExists}
+           ORDER BY e.full_name`;
+
   const noOwnerSql = `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
               e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
               NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id, NULL AS units_label
@@ -1443,6 +1455,7 @@ async function fetchOwnersListRows(adminId) {
   const tries = [
     () => db.promise().query(fullSql, [adminId]),
     () => db.promise().query(noOwnerUnitSql, [adminId]),
+    () => db.promise().query(ownerMetaSql, [adminId]),
     () => db.promise().query(noOwnerSql, [adminId]),
     () => db.promise().query(noResidentSql, [adminId]),
     () => db.promise().query(minimalSql, [adminId]),
@@ -1671,7 +1684,23 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
       if (ownErr.code === "ER_NO_SUCH_TABLE") {
         console.warn("OWNER table missing; run migrations/owner_table.sql");
       } else {
-        console.error(ownErr);
+        console.error("OWNER insert (with ID file):", ownErr);
+        try {
+          await db.promise().query(
+            `INSERT INTO OWNER (employee_id, unit_id, full_name, contact_number, email, valid_id, is_verified)
+             VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+            [
+              employeeId,
+              primaryUid,
+              String(full_name).trim(),
+              contact_number ? String(contact_number).trim() : null,
+              String(email).trim(),
+              verified ? 1 : 0,
+            ]
+          );
+        } catch (own2) {
+          console.error("OWNER insert (retry without ID blob):", own2);
+        }
       }
     }
     res.status(201).json({ message: "Owner account created", employeeId, unit_ids: uniqueUnitIds });
@@ -1702,13 +1731,35 @@ app.patch("/api/owners/:id", optionalAuth, async (req, res) => {
       body.is_verified === 1 ||
       body.is_verified === "1" ||
       String(body.is_verified).toLowerCase() === "true";
+    const bit = v ? 1 : 0;
     try {
-      await db.promise().query("UPDATE OWNER SET is_verified = ? WHERE employee_id = ?", [v ? 1 : 0, id]);
+      const [ur] = await db.promise().query("UPDATE OWNER SET is_verified = ? WHERE employee_id = ?", [bit, id]);
+      const n = ur && typeof ur.affectedRows === "number" ? ur.affectedRows : 0;
+      if (n === 0) {
+        const [[emp]] = await db.promise().query(
+          "SELECT full_name, contact_number, email, resident_unit_id FROM EMPLOYEE WHERE employee_id = ?",
+          [id]
+        );
+        if (emp) {
+          await db.promise().query(
+            `INSERT INTO OWNER (employee_id, unit_id, full_name, contact_number, email, valid_id, is_verified)
+             VALUES (?, ?, ?, ?, ?, NULL, ?)`,
+            [
+              id,
+              emp.resident_unit_id != null ? emp.resident_unit_id : null,
+              String(emp.full_name || "").trim() || "Owner",
+              emp.contact_number ? String(emp.contact_number).trim() : null,
+              String(emp.email || "").trim(),
+              bit,
+            ]
+          );
+        }
+      }
     } catch (e) {
-      if (e.code === "ER_NO_SUCH_TABLE") return res.json({ ok: true, is_verified: v ? 1 : 0 });
+      if (e.code === "ER_NO_SUCH_TABLE") return res.json({ ok: true, is_verified: bit });
       throw e;
     }
-    res.json({ ok: true, is_verified: v ? 1 : 0 });
+    res.json({ ok: true, is_verified: bit });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to update owner" });
