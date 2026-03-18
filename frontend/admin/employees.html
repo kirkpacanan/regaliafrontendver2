@@ -142,7 +142,7 @@
                   <div class="profile-avatar-lg" data-profile-initials-lg>OW</div>
                   <div>
                     <div class="profile-name" data-profile-name>Owner</div>
-                    <div class="profile-role" data-profile-role>OWNER</div>
+                    <div class="profile-role" data-profile-role>ADMIN</div>
                   </div>
                 </div>
                 <div class="topbar-dropdown__divider"></div>
@@ -317,7 +317,7 @@
               <option value="Admin">Admin</option>
               <option value="Security">Security</option>
               <option value="Maintenance">Maintenance</option>
-              <option value="OWNER">OWNER</option>
+              <option value="ADMIN">Admin</option>
             </select>
           </label>
           <div class="step-actions">
@@ -372,7 +372,7 @@
       (function () {
         try {
           var emp = JSON.parse(localStorage.getItem("employee") || "{}");
-          var role = localStorage.getItem("role") || "OWNER";
+          var role = localStorage.getItem("role") || "ADMIN";
           var name = emp.full_name || emp.username || "Owner";
           var initials = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "OW";
           var profileBtn = document.querySelector("[data-profile-btn]");

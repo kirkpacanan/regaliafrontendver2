@@ -172,8 +172,12 @@ if (loginForm) {
     const password = String(formData.get("password") || "").trim();
 
     // Offline accounts for local development
+    function isManagementDashboardRole(r) {
+      const n = String(r || "").toUpperCase().replace(/[\s_-]/g, "");
+      return n === "OWNER" || n === "ADMIN";
+    }
     const offlineAccounts = {
-      admin: { password: "admin123", role: "OWNER", employee: { full_name: "Admin (Offline)", username: "admin" } },
+      admin: { password: "admin123", role: "ADMIN", employee: { full_name: "Admin (Offline)", username: "admin" } },
       staff:  { password: "staff123", role: "Front Desk", employee: { full_name: "Staff (Offline)", username: "staff" } }
     };
     const offlineMatch = offlineAccounts[username];
@@ -181,7 +185,7 @@ if (loginForm) {
       localStorage.setItem("token", "offline-token");
       localStorage.setItem("role", offlineMatch.role);
       localStorage.setItem("employee", JSON.stringify(offlineMatch.employee));
-      window.location.href = offlineMatch.role === "OWNER" ? "./admin/index.html" : "./staff/index.html";
+      window.location.href = isManagementDashboardRole(offlineMatch.role) ? "./admin/index.html" : "./staff/index.html";
       return;
     }
 
@@ -204,8 +208,8 @@ if (loginForm) {
           localStorage.setItem("theme_color", data.theme_color);
         }
 
-        // Redirect based on role: OWNER → admin panel; staff roles → staff area
-        if (data.role === "OWNER") {
+        // Redirect: management (OWNER legacy / ADMIN) → admin panel; staff → staff area
+        if (isManagementDashboardRole(data.role)) {
           window.location.href = "./admin/index.html";
         } else if (data.role === "Admin" || data.role === "Front Desk" || data.role === "Property Manager" || data.role === "Security" || data.role === "Maintenance") {
           window.location.href = "./staff/index.html";

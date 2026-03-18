@@ -31,6 +31,19 @@ function optionalAuth(req, res, next) {
   next();
 }
 
+/** JWT / signup role: condominium management (admin dashboard). Signup assigns ADMIN; legacy accounts may be OWNER. */
+function normalizeJwtRole(role) {
+  return role ? String(role).toUpperCase().replace(/[\s_-]/g, "") : "";
+}
+function isManagementAdminRole(role) {
+  const n = normalizeJwtRole(role);
+  return n === "OWNER" || n === "ADMIN";
+}
+function isEmployeeRoleMgmt(roleType) {
+  const u = String(roleType || "").toUpperCase();
+  return u === "OWNER" || u === "ADMIN";
+}
+
 let didBackfillTowerOwners = false;
 async function tryBackfillTowerOwners() {
   if (didBackfillTowerOwners) return;
@@ -103,9 +116,9 @@ app.post("/signup", async (req, res) => {
 
     const employeeId = result.insertId;
 
-    // Automatically assign OWNER role
+    // New accounts = condominium Admin (management), not unit Owner
     await db.promise().query(
-      "INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'OWNER', 'active')",
+      "INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'ADMIN', 'active')",
       [employeeId]
     );
 
@@ -154,7 +167,7 @@ app.get("/api/towers", optionalAuth, async (req, res) => {
   try {
     await tryBackfillTowerOwners();
     let rows;
-    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
     try {
       [rows] = await db.promise().query(
@@ -201,7 +214,7 @@ app.post("/api/towers", optionalAuth, async (req, res) => {
     const { tower_name, number_floors } = req.body;
     if (!tower_name || number_floors == null)
       return res.status(400).json({ error: "tower_name and number_floors required" });
-    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
     let result;
     try {
@@ -228,7 +241,7 @@ app.delete("/api/towers/:id", optionalAuth, async (req, res) => {
   try {
     const towerId = Number(req.params.id);
     if (!towerId) return res.status(400).json({ error: "Invalid tower id" });
-    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
 
     if (ownerId != null) {
@@ -274,7 +287,7 @@ app.get("/api/units", optionalAuth, async (req, res) => {
   try {
     await tryBackfillTowerOwners();
     const roleNorm = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-    const isOwner = !!(req.user && roleNorm === "OWNER");
+    const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
     const isFrontDesk = !!(req.user && (roleNorm === "FRONTDESK" || roleNorm === "STAFF"));
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
     const staffId = isFrontDesk ? Number(req.user.employee_id) : null;
@@ -416,7 +429,7 @@ app.post("/api/units", optionalAuth, async (req, res) => {
     const hasImages = image_urls != null && String(image_urls).trim() !== "";
     const priceVal = priceNum;
     await tryBackfillTowerOwners();
-    const isOwner = !!(req.user && String(req.user.role || "").toUpperCase() === "OWNER");
+    const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
     let result;
     try {
@@ -507,7 +520,7 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
     try {
       await tryBackfillTowerOwners();
       const roleNorm = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-      const isOwner = !!(req.user && roleNorm === "OWNER");
+      const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
       const isFrontDesk = !!(req.user && (roleNorm === "FRONTDESK" || roleNorm === "STAFF"));
       const ownerId = isOwner ? Number(req.user.employee_id) : null;
       const staffId = isFrontDesk ? Number(req.user.employee_id) : null;
@@ -542,9 +555,9 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
       }
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR") {
-        // Older schema without ownership columns: best-effort isolation for OWNER using employee->tower assignments.
+        // Older schema without ownership columns: best-effort isolation for management admin using employee->tower assignments.
         const roleNorm = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-        const isOwner = !!(req.user && roleNorm === "OWNER");
+        const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
         const isFrontDesk = !!(req.user && (roleNorm === "FRONTDESK" || roleNorm === "STAFF"));
         const ownerId = isOwner ? Number(req.user.employee_id) : null;
         const staffId = isFrontDesk ? Number(req.user.employee_id) : null;
@@ -649,22 +662,22 @@ app.get("/api/employees", optionalAuth, async (req, res) => {
       (SELECT GROUP_CONCAT(t.tower_name ORDER BY t.tower_name SEPARATOR ', ') FROM EMPLOYEE_TOWER et JOIN TOWER t ON t.tower_id = et.tower_id WHERE et.employee_id = e.employee_id) AS assigned_tower
      FROM EMPLOYEE e`;
     let rows;
-    if (req.user && req.user.role === "OWNER") {
+    if (req.user && isManagementAdminRole(req.user.role)) {
       try {
         const [r] = await db.promise().query(
-          baseSelect + ` WHERE e.created_by_employee_id = ? AND (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) != 'OWNER' ORDER BY e.full_name`,
+          baseSelect + ` WHERE e.created_by_employee_id = ? AND (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) NOT IN ('OWNER', 'ADMIN') ORDER BY e.full_name`,
           [req.user.employee_id]
         );
         rows = r;
       } catch (colErr) {
         if (colErr.code === "ER_BAD_FIELD_ERROR" && /created_by_employee_id/.test(colErr.message)) {
           const [r] = await db.promise().query(baseSelect + ` ORDER BY e.full_name`);
-          rows = (r || []).filter(e => e.role_type !== "OWNER");
+          rows = (r || []).filter(e => !isEmployeeRoleMgmt(e.role_type));
         } else throw colErr;
       }
     } else {
       const [r] = await db.promise().query(baseSelect + ` ORDER BY e.full_name`);
-      rows = (r || []).filter(e => e.role_type !== "OWNER");
+      rows = (r || []).filter(e => !isEmployeeRoleMgmt(e.role_type));
     }
     res.json(rows);
   } catch (err) {
@@ -805,7 +818,7 @@ app.delete("/api/employees/:id", optionalAuth, async (req, res) => {
   try {
     const employeeId = Number(req.params.id);
     const [roleRows] = await db.promise().query(
-      "SELECT 1 FROM EMPLOYEE_ROLE WHERE employee_id = ? AND role_type = 'OWNER' AND status = 'active' LIMIT 1",
+      "SELECT 1 FROM EMPLOYEE_ROLE WHERE employee_id = ? AND role_type IN ('OWNER', 'ADMIN') AND status = 'active' LIMIT 1",
       [employeeId]
     );
     const isOwner = Array.isArray(roleRows) && roleRows.length > 0;
@@ -849,7 +862,7 @@ app.get("/api/bookings", optionalAuth, async (req, res) => {
   try {
     await tryBackfillTowerOwners();
     const roleNorm = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-    const isOwner = !!(req.user && roleNorm === "OWNER");
+    const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
     const isFrontDesk = !!(req.user && (roleNorm === "FRONTDESK" || roleNorm === "STAFF"));
     const ownerId = isOwner ? Number(req.user.employee_id) : null;
     const staffId = isFrontDesk ? Number(req.user.employee_id) : null;
@@ -1806,8 +1819,7 @@ app.delete("/api/charges/:chargeId", optionalAuth, async (req, res) => {
 
 app.get("/api/charges/all", optionalAuth, async (req, res) => {
   try {
-    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-    const ownerId = role === "OWNER" ? req.user.employee_id : null;
+    const ownerId = req.user && isManagementAdminRole(req.user.role) ? req.user.employee_id : null;
     if (ownerId == null) {
       return res.json([]);
     }
@@ -1832,8 +1844,7 @@ app.get("/api/charges/all", optionalAuth, async (req, res) => {
 // ---------------- Payments (record only; owner-scoped) ----------------
 app.get("/api/payments", optionalAuth, async (req, res) => {
   try {
-    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-    const isOwner = role === "OWNER";
+    const isOwner = !!(req.user && isManagementAdminRole(req.user.role));
     const ownerId = isOwner ? req.user.employee_id : null;
     let rows;
     if (ownerId != null) {
@@ -1865,7 +1876,7 @@ app.post("/api/payments", optionalAuth, async (req, res) => {
     const amt = Number(amount);
     if (!amt || amt <= 0) return res.status(400).json({ error: "amount required and must be positive" });
     const date = toYmd(payment_date) || new Date().toISOString().slice(0, 10);
-    let ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    let ownerId = req.user && isManagementAdminRole(req.user.role) ? req.user.employee_id : null;
     let unitId = unit_id != null ? Number(unit_id) : null;
     const bid = booking_id != null ? Number(booking_id) : null;
     if (bid && ownerId == null) {
@@ -1906,7 +1917,7 @@ app.post("/api/payments", optionalAuth, async (req, res) => {
 app.delete("/api/payments/:id", optionalAuth, async (req, res) => {
   try {
     const paymentId = Number(req.params.id);
-    const ownerId = req.user && req.user.role === "OWNER" ? req.user.employee_id : null;
+    const ownerId = req.user && isManagementAdminRole(req.user.role) ? req.user.employee_id : null;
     const [[payment]] = await db.promise().query(
       "SELECT payment_id, owner_employee_id, unit_id, booking_id FROM PAYMENT WHERE payment_id = ?",
       [paymentId]
@@ -1946,11 +1957,10 @@ app.delete("/api/payments/:id", optionalAuth, async (req, res) => {
 // ---------------- Monthly Dues (owner-scoped) ----------------
 app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
   try {
-    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-    const ownerId = role === "OWNER" ? req.user.employee_id : null;
+    const ownerId = req.user && isManagementAdminRole(req.user.role) ? req.user.employee_id : null;
     let rows;
     if (ownerId != null) {
-      // Only show dues for this owner (no other accounts)
+      // Only show dues for this management account (no other accounts)
       const [r] = await db.promise().query(
         `SELECT d.id, d.unit_id, d.amount,
           DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
@@ -2022,11 +2032,10 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
     }
     let ownerId = null;
     if (req.user && req.user.employee_id) {
-      const role = req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-      if (role === "OWNER") ownerId = req.user.employee_id;
+      if (isManagementAdminRole(req.user.role)) ownerId = req.user.employee_id;
       else {
         const [[row]] = await db.promise().query(
-          "SELECT 1 FROM EMPLOYEE_ROLE WHERE employee_id = ? AND role_type = 'OWNER' AND status = 'active' LIMIT 1",
+          "SELECT 1 FROM EMPLOYEE_ROLE WHERE employee_id = ? AND role_type IN ('OWNER', 'ADMIN') AND status = 'active' LIMIT 1",
           [req.user.employee_id]
         );
         if (row) ownerId = req.user.employee_id;
@@ -2059,8 +2068,7 @@ app.delete("/api/monthly-dues/:id", optionalAuth, async (req, res) => {
   try {
     const id = Number(req.params.id);
     if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: "Not found" });
-    const role = req.user && req.user.role ? String(req.user.role).toUpperCase().replace(/[\s_-]/g, "") : "";
-    const ownerId = role === "OWNER" ? req.user.employee_id : null;
+    const ownerId = req.user && isManagementAdminRole(req.user.role) ? req.user.employee_id : null;
     if (ownerId != null) {
       const [result] = await db.promise().query("DELETE FROM MONTHLY_DUE WHERE id = ? AND owner_employee_id = ?", [id, ownerId]);
       if (result.affectedRows === 0) return res.status(404).json({ error: "Not found" });
