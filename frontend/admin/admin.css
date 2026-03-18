@@ -1738,10 +1738,11 @@ label .required {
 
 /* Manage Owners — same card shell, non-button for inner controls */
 .owner-card {
-  cursor: default;
+  cursor: pointer;
 }
 .owner-card:hover {
-  transform: none;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
 }
 .owner-card .employee-card__media {
   cursor: default;
@@ -1872,6 +1873,118 @@ label .required {
   cursor: pointer;
   text-decoration: underline;
   font-family: inherit;
+}
+
+/* Add Owner modal — scrollable on short viewports */
+.modal-card--owner-add {
+  max-height: min(92vh, 720px);
+  display: flex;
+  flex-direction: column;
+  width: min(440px, 94vw);
+}
+.modal-card--owner-add .modal-header {
+  flex-shrink: 0;
+}
+.modal-card--owner-add .modal-form--scroll {
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+  max-height: min(calc(92vh - 130px), 600px);
+  padding-right: 0.35rem;
+}
+.modal-card--owner-add .modal-form--scroll .step-actions {
+  position: sticky;
+  bottom: 0;
+  background: linear-gradient(to top, #fff 85%, transparent);
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.owner-sidebar__unit-list {
+  list-style: none;
+  margin: 0 0 1rem;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.owner-sidebar__unit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  background: rgba(79, 127, 132, 0.08);
+  font-size: 0.85rem;
+}
+.owner-sidebar__unit-row span {
+  color: var(--accent-1, #2d5a5e);
+  font-weight: 500;
+}
+.owner-sidebar__unit-row small {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 400;
+}
+.owner-unassign-btn {
+  font-size: 0.72rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: 8px;
+  border: 1px solid rgba(220, 80, 80, 0.45);
+  background: rgba(255, 100, 100, 0.1);
+  color: #c0392b;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+}
+.owner-unit-pick-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-height: 200px;
+  overflow-y: auto;
+  margin: 0.5rem 0 0.75rem;
+  padding: 0.35rem;
+  border-radius: 10px;
+  background: rgba(79, 127, 132, 0.06);
+}
+.owner-unit-pick-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+.owner-unit-pick-row input {
+  accent-color: var(--accent-1, #4f7f84);
+}
+.owner-edit-panel {
+  display: grid;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(79, 127, 132, 0.06);
+  border: 1px solid rgba(79, 127, 132, 0.15);
+}
+.owner-edit-panel label {
+  display: grid;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent-1);
+  font-weight: 600;
+}
+.owner-edit-panel input {
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.88rem;
+  padding: 0.5rem 0.65rem;
+  border-radius: 10px;
+  border: 1px solid rgba(79, 127, 132, 0.25);
 }
 
 .icon--sm {

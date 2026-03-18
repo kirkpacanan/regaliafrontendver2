@@ -232,29 +232,20 @@
 
     <!-- Add Owner — same flow as Add Employee + OWNER ERD -->
     <div class="modal-overlay" data-owner-modal>
-      <div class="modal-card" style="max-width: 440px">
+      <div class="modal-card modal-card--owner-add">
         <div class="modal-header">
           <h2>Add Owner</h2>
           <button class="icon-button" type="button" data-close-owner-modal aria-label="Close">
             <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
           </button>
         </div>
-        <form class="modal-form" data-owner-form>
+        <form class="modal-form modal-form--scroll" data-owner-form>
+          <p class="panel-subtitle muted" style="margin: 0 0 0.75rem; font-size: 0.8rem">Create the account first. Assign units after from the owner card.</p>
           <label>Full name <input type="text" name="full_name" required placeholder="Full name" autocomplete="name" /></label>
           <label>Email <input type="email" name="email" required placeholder="Email" autocomplete="email" /></label>
           <label>Username <input type="text" name="username" required placeholder="Username" autocomplete="username" /></label>
           <label>Password <input type="password" name="password" required minlength="6" placeholder="Password" autocomplete="new-password" /></label>
           <label>Contact number <input type="tel" name="contact_number" required placeholder="+63…" autocomplete="tel" /></label>
-          <label>
-            Unit(s)
-            <textarea name="unit_numbers" rows="2" placeholder="e.g. 1203, 1205 or #42 (comma-separated)"></textarea>
-          </label>
-          <label>
-            Quick pick unit
-            <select data-owner-unit-pick>
-              <option value="">— Insert #unit_id —</option>
-            </select>
-          </label>
           <div class="valid-id-panel">
             <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-1); font-weight: 600">Valid ID (OWNER ERD)</span>
             <input type="file" name="valid_id" accept="image/*,.pdf,application/pdf" hidden data-valid-id-input />
@@ -281,6 +272,54 @@
             <button type="submit" class="submit-button">Create Account</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div class="assign-sidebar" id="ownerDetailSidebar" aria-hidden="true">
+      <div class="assign-sidebar__backdrop" data-close-owner-sidebar></div>
+      <div class="assign-sidebar__content" id="ownerDetailSidebarContent">
+        <div class="assign-sidebar__header">
+          <h3 class="assign-sidebar__title">Owner details</h3>
+          <button type="button" class="icon-button" data-close-owner-sidebar aria-label="Close">
+            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+          </button>
+        </div>
+        <div class="assign-sidebar__body assign-sidebar__body--scroll">
+          <div class="assign-sidebar__employee">
+            <div class="assign-sidebar__avatar-wrap">
+              <img class="assign-sidebar__avatar" id="ownerSidebarAvatar" src="" alt="" />
+            </div>
+            <h4 class="assign-sidebar__name" id="ownerSidebarName">—</h4>
+            <p class="assign-sidebar__role" id="ownerSidebarUser">—</p>
+            <p class="assign-sidebar__id" id="ownerSidebarId">ID: REG-000000</p>
+          </div>
+          <div class="assign-sidebar__actions-row">
+            <button type="button" class="submit-button ghost" data-owner-edit-toggle>Edit details</button>
+            <button type="button" class="submit-button danger" data-owner-delete-full>Delete owner</button>
+          </div>
+          <div class="owner-edit-panel" data-owner-edit-panel hidden>
+            <label>Full name <input type="text" data-edit-full-name /></label>
+            <label>Email <input type="email" data-edit-email /></label>
+            <label>Contact <input type="text" data-edit-contact /></label>
+            <label>Username <input type="text" data-edit-username /></label>
+            <label>New password <input type="password" data-edit-password placeholder="Leave blank to keep" autocomplete="new-password" /></label>
+            <div class="settings-msg" data-owner-edit-msg style="min-height: 1em; font-size: 0.8rem"></div>
+            <button type="button" class="submit-button" data-owner-save-profile>Save changes</button>
+          </div>
+          <p class="assign-sidebar__label">Assigned units</p>
+          <p class="panel-subtitle muted" style="margin: -0.35rem 0 0.5rem; font-size: 0.75rem">Same condo, different towers — pick a tower below, then select one or more units.</p>
+          <ul class="owner-sidebar__unit-list" data-owner-units-list></ul>
+          <p class="assign-sidebar__label">Assign units</p>
+          <label class="modal-form" style="display: grid; gap: 0.35rem; margin: 0">
+            <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-1); font-weight: 600">Tower</span>
+            <select class="modal-form select" data-owner-tower-pick style="padding: 0.55rem; border-radius: 10px; border: 1px solid rgba(79,127,132,0.3)">
+              <option value="">— Select tower —</option>
+            </select>
+          </label>
+          <div class="owner-unit-pick-grid" data-owner-units-checkboxes></div>
+          <button type="button" class="submit-button full" data-owner-add-units>Add selected units</button>
+          <div class="settings-msg" data-owner-assign-msg style="min-height: 1em; margin-top: 0.5rem; font-size: 0.8rem"></div>
+        </div>
       </div>
     </div>
 
@@ -365,8 +404,13 @@
       }
 
       var grid = document.querySelector("[data-owners-grid]");
+      var ownersCache = [];
       var ownerModal = document.querySelector("[data-owner-modal]");
       var ownerForm = document.querySelector("[data-owner-form]");
+      var ownerSidebar = document.getElementById("ownerDetailSidebar");
+      var ownerSidebarContent = document.getElementById("ownerDetailSidebarContent");
+      var activeOwnerId = null;
+      var assignedUnitIds = new Set();
       var validInput = document.querySelector("[data-valid-id-input]");
       var validZone = document.querySelector("[data-valid-id-zone]");
       var validPreviewWrap = document.querySelector("[data-valid-id-preview-wrap]");
@@ -406,19 +450,6 @@
       }
       if (validClear) validClear.addEventListener("click", function (e) { e.preventDefault(); resetValidIdUi(); });
 
-      function loadUnitPick(sel) {
-        if (!sel) return;
-        fetch("/api/properties", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
-          sel.innerHTML = "<option value=\"\">— Insert #unit_id —</option>";
-          (rows || []).forEach(function (u) {
-            var opt = document.createElement("option");
-            opt.value = u.unit_id;
-            opt.textContent = (u.tower_name || "") + " – Unit " + (u.unit_number || u.unit_id) + " (#" + u.unit_id + ")";
-            sel.appendChild(opt);
-          });
-        });
-      }
-
       function renderOwners(rows) {
         if (!grid) return;
         grid.innerHTML = "";
@@ -451,7 +482,7 @@
             "<span>REG-" + String(o.employee_id).padStart(6, "0") + "</span>" +
             "<span class=\"employee-card__location\" title=\"" + escapeHtml(units) + "\">" + escapeHtml(units.length > 42 ? units.slice(0, 40) + "…" : units) + "</span>" +
             "</div>" +
-            "<div class=\"owner-card__actions\">" +
+            "<div class=\"owner-card__actions\" data-no-owner-open>" +
             "<label class=\"owner-card__verified\">" +
             "<input type=\"checkbox\" data-owner-verify=\"" + o.employee_id + "\" " + (verified ? "checked" : "") + " />" +
             "<span>Verified</span></label>" +
@@ -467,15 +498,179 @@
         fetch("/api/owners", { headers: getH() })
           .then(function (r) { return r.json(); })
           .then(function (rows) {
-            renderOwners(Array.isArray(rows) ? rows : []);
+            ownersCache = Array.isArray(rows) ? rows : [];
+            renderOwners(ownersCache);
           })
-          .catch(function () { renderOwners([]); });
+          .catch(function () { ownersCache = []; renderOwners([]); });
       }
+
+      function openOwnerSidebar(employeeId) {
+        activeOwnerId = employeeId;
+        if (!ownerSidebar || !ownerSidebarContent) return;
+        var editPanel = document.querySelector("[data-owner-edit-panel]");
+        if (editPanel) editPanel.hidden = true;
+        ownerSidebar.classList.add("is-open");
+        ownerSidebar.setAttribute("aria-hidden", "false");
+        requestAnimationFrame(function () {
+          ownerSidebarContent.classList.add("is-visible");
+        });
+        refreshOwnerSidebar(employeeId);
+      }
+      function closeOwnerSidebar() {
+        if (!ownerSidebar || !ownerSidebarContent) return;
+        ownerSidebarContent.classList.remove("is-visible");
+        setTimeout(function () {
+          ownerSidebar.classList.remove("is-open");
+          ownerSidebar.setAttribute("aria-hidden", "true");
+          activeOwnerId = null;
+        }, 280);
+      }
+      function refreshOwnerSidebar(employeeId) {
+        var o = ownersCache.find(function (x) { return Number(x.employee_id) === Number(employeeId); });
+        if (!o) return;
+        var img = document.getElementById("ownerSidebarAvatar");
+        if (img) img.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(o.full_name || employeeId);
+        var nm = document.getElementById("ownerSidebarName"); if (nm) nm.textContent = o.full_name || "—";
+        var us = document.getElementById("ownerSidebarUser"); if (us) us.textContent = "@" + (o.username || "—") + " · " + (o.contact_number || "—");
+        var rid = document.getElementById("ownerSidebarId"); if (rid) rid.textContent = "ID: REG-" + String(employeeId).padStart(6, "0");
+        document.querySelector("[data-edit-full-name]").value = o.full_name || "";
+        document.querySelector("[data-edit-email]").value = o.email || "";
+        document.querySelector("[data-edit-contact]").value = o.contact_number || "";
+        document.querySelector("[data-edit-username]").value = o.username || "";
+        document.querySelector("[data-edit-password]").value = "";
+        document.querySelector("[data-owner-edit-msg]").textContent = "";
+        fetch("/api/owners/" + employeeId + "/units", { headers: getH() })
+          .then(function (r) { return r.json(); })
+          .then(function (d) {
+            var units = (d && d.units) || [];
+            assignedUnitIds = new Set(units.map(function (u) { return Number(u.unit_id); }));
+            var ul = document.querySelector("[data-owner-units-list]");
+            if (!ul) return;
+            if (!units.length) {
+              ul.innerHTML = "<li class=\"panel-subtitle muted\" style=\"list-style:none;padding:0.5rem 0\">No units yet. Choose a tower below and add units.</li>";
+            } else {
+              ul.innerHTML = units.map(function (u) {
+                var label = (u.tower_name || "Tower") + " — Unit " + (u.unit_number || u.unit_id);
+                return "<li class=\"owner-sidebar__unit-row\"><span>" + escapeHtml(label) + "<small>#" + u.unit_id + "</small></span><button type=\"button\" class=\"owner-unassign-btn\" data-unassign-unit=\"" + u.unit_id + "\">Unassign</button></li>";
+              }).join("");
+            }
+            var tid = document.querySelector("[data-owner-tower-pick]").value;
+            if (tid) loadUnitsForTower(Number(tid));
+            else document.querySelector("[data-owner-units-checkboxes]").innerHTML = "";
+          })
+          .catch(function () {
+            assignedUnitIds = new Set();
+            document.querySelector("[data-owner-units-list]").innerHTML = "<li class=\"muted\">Could not load units.</li>";
+          });
+        loadTowersDropdown();
+      }
+      function loadTowersDropdown() {
+        var sel = document.querySelector("[data-owner-tower-pick]");
+        var cur = sel.value;
+        fetch("/api/towers", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (towers) {
+          sel.innerHTML = "<option value=\"\">— Select tower —</option>";
+          (towers || []).forEach(function (t) {
+            var opt = document.createElement("option");
+            opt.value = t.tower_id;
+            opt.textContent = t.tower_name + (t.number_floors ? " (" + t.number_floors + " fl)" : "");
+            sel.appendChild(opt);
+          });
+          if (cur && Array.from(sel.options).some(function (o) { return o.value === cur; })) sel.value = cur;
+        });
+      }
+      function loadUnitsForTower(towerId) {
+        var box = document.querySelector("[data-owner-units-checkboxes]");
+        if (!towerId || !activeOwnerId) { if (box) box.innerHTML = ""; return; }
+        fetch("/api/towers/" + towerId + "/units", { headers: getH() })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (units) {
+            var avail = (units || []).filter(function (u) { return !assignedUnitIds.has(Number(u.unit_id)); });
+            if (!avail.length) {
+              box.innerHTML = "<span class=\"muted\" style=\"font-size:0.85rem\">No free units in this tower (all assigned to this owner or none listed).</span>";
+              return;
+            }
+            box.innerHTML = avail.map(function (u) {
+              return "<label class=\"owner-unit-pick-row\"><input type=\"checkbox\" value=\"" + u.unit_id + "\" data-owner-unit-cb /> Unit " + escapeHtml(String(u.unit_number || u.unit_id)) + "</label>";
+            }).join("");
+          })
+          .catch(function () { box.innerHTML = "<span class=\"muted\">Failed to load units.</span>"; });
+      }
+
+      document.querySelector("[data-owner-tower-pick]").addEventListener("change", function () {
+        loadUnitsForTower(Number(this.value) || 0);
+      });
+      document.querySelector("[data-owner-add-units]").addEventListener("click", function () {
+        if (!activeOwnerId) return;
+        var ids = Array.from(document.querySelectorAll("[data-owner-unit-cb]:checked")).map(function (x) { return Number(x.value); }).filter(Boolean);
+        var msg = document.querySelector("[data-owner-assign-msg]");
+        if (!ids.length) { if (msg) msg.textContent = "Select at least one unit."; return; }
+        if (msg) msg.textContent = "Saving…";
+        fetch("/api/owners/" + activeOwnerId + "/units", { method: "POST", headers: getH(true), body: JSON.stringify({ unit_ids: ids }) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { if (msg) msg.textContent = res.d.error || "Failed"; return; }
+            if (msg) msg.textContent = res.d.added && res.d.added.length ? "Added " + res.d.added.length + " unit(s)." : "No new units (already assigned).";
+            loadOwners();
+            setTimeout(function () { refreshOwnerSidebar(activeOwnerId); }, 400);
+          })
+          .catch(function () { if (msg) msg.textContent = "Network error"; });
+      });
+      document.querySelector("[data-owner-units-list]").addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-unassign-unit]");
+        if (!btn || !activeOwnerId) return;
+        var uid = btn.getAttribute("data-unassign-unit");
+        if (!confirm("Remove this owner from this unit?")) return;
+        fetch("/api/owners/" + activeOwnerId + "/units/" + uid, { method: "DELETE", headers: getH() })
+          .then(function () {
+            loadOwners();
+            refreshOwnerSidebar(activeOwnerId);
+          });
+      });
+      document.querySelector("[data-owner-edit-toggle]").addEventListener("click", function () {
+        var p = document.querySelector("[data-owner-edit-panel]");
+        if (p) p.hidden = !p.hidden;
+      });
+      document.querySelector("[data-owner-save-profile]").addEventListener("click", function () {
+        if (!activeOwnerId) return;
+        var msg = document.querySelector("[data-owner-edit-msg]");
+        var body = {
+          full_name: document.querySelector("[data-edit-full-name]").value.trim(),
+          email: document.querySelector("[data-edit-email]").value.trim(),
+          contact_number: document.querySelector("[data-edit-contact]").value.trim(),
+          username: document.querySelector("[data-edit-username]").value.trim()
+        };
+        var pw = document.querySelector("[data-edit-password]").value;
+        if (pw.length >= 6) body.new_password = pw;
+        if (msg) msg.textContent = "Saving…";
+        fetch("/api/owners/" + activeOwnerId, { method: "PUT", headers: getH(true), body: JSON.stringify(body) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { if (msg) msg.textContent = res.d.error || "Failed"; return; }
+            if (msg) msg.textContent = "Saved.";
+            document.querySelector("[data-edit-password]").value = "";
+            loadOwners();
+            setTimeout(function () { if (activeOwnerId) refreshOwnerSidebar(activeOwnerId); }, 300);
+          })
+          .catch(function () { if (msg) msg.textContent = "Error"; });
+      });
+      document.querySelector("[data-owner-delete-full]").addEventListener("click", function () {
+        if (!activeOwnerId) return;
+        if (!confirm("Delete this owner account permanently?")) return;
+        fetch("/api/owners/" + activeOwnerId, { method: "DELETE", headers: getH() }).then(function () {
+          closeOwnerSidebar();
+          loadOwners();
+        });
+      });
+      document.querySelectorAll("[data-close-owner-sidebar]").forEach(function (b) {
+        b.addEventListener("click", closeOwnerSidebar);
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && ownerSidebar && ownerSidebar.classList.contains("is-open")) closeOwnerSidebar();
+      });
 
       document.querySelector("[data-add-owner]").addEventListener("click", function () {
         resetValidIdUi();
         if (ownerForm) ownerForm.reset();
-        loadUnitPick(document.querySelector("[data-owner-unit-pick]"));
         ownerModal.classList.add("is-open");
       });
       document.querySelectorAll("[data-close-owner-modal],[data-close-owner-modal2]").forEach(function (b) {
@@ -483,21 +678,10 @@
       });
       ownerModal.addEventListener("click", function (e) { if (e.target === ownerModal) ownerModal.classList.remove("is-open"); });
 
-      document.querySelector("[data-owner-unit-pick]").addEventListener("change", function () {
-        var v = this.value;
-        if (!v) return;
-        var ta = ownerForm.querySelector("textarea[name=unit_numbers]");
-        var cur = ta && ta.value.trim() ? ta.value.trim() + ", " : "";
-        if (ta) ta.value = cur + "#" + v;
-        this.value = "";
-      });
-
       ownerForm.addEventListener("submit", function (e) {
         e.preventDefault();
         var msg = document.querySelector("[data-owner-form-msg]");
         var fd = new FormData(ownerForm);
-        var unitTxt = (fd.get("unit_numbers") || "").trim();
-        if (!unitTxt) { msg.textContent = "Enter at least one unit."; return; }
         function send(dataUrl) {
           var body = {
             full_name: fd.get("full_name"),
@@ -505,7 +689,6 @@
             username: fd.get("username"),
             email: fd.get("email"),
             password: fd.get("password"),
-            unit_numbers: unitTxt,
             is_verified: ownerForm.querySelector("[name=is_verified]").checked,
             valid_id_data_url: dataUrl || null
           };
@@ -544,10 +727,15 @@
       });
 
       grid.addEventListener("click", function (e) {
-        var btn = e.target.closest("[data-del-owner]");
-        if (!btn) return;
-        if (!confirm("Remove this owner? They will no longer be able to log in.")) return;
-        fetch("/api/owners/" + btn.getAttribute("data-del-owner"), { method: "DELETE", headers: getH() }).then(loadOwners);
+        var delBtn = e.target.closest("[data-del-owner]");
+        if (delBtn) {
+          if (!confirm("Remove this owner? They will no longer be able to log in.")) return;
+          fetch("/api/owners/" + delBtn.getAttribute("data-del-owner"), { method: "DELETE", headers: getH() }).then(loadOwners);
+          return;
+        }
+        if (e.target.closest("[data-no-owner-open]")) return;
+        var card = e.target.closest(".owner-card");
+        if (card && card.dataset.employeeId) openOwnerSidebar(Number(card.dataset.employeeId));
       });
 
       document.querySelector("[data-logout-link]").addEventListener("click", function () {

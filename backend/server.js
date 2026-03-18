@@ -755,6 +755,29 @@ app.get("/api/towers", optionalAuth, async (req, res) => {
   }
 });
 
+// Units in a tower (admin portfolio) — for owner unit assignment UI
+app.get("/api/towers/:towerId/units", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
+    const tid = Number(req.params.towerId);
+    const adminId = req.user.employee_id;
+    if (!tid) return res.status(400).json({ error: "Invalid tower" });
+    const [rows] = await db.promise().query(
+      `SELECT u.unit_id, u.unit_number, u.floor_number, t.tower_name
+       FROM UNIT u
+       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+       WHERE u.tower_id = ? AND COALESCE(u.owner_employee_id, t.owner_employee_id) = ?
+       ORDER BY u.floor_number, u.unit_number, u.unit_id`,
+      [tid, adminId]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to fetch units" });
+  }
+});
+
 app.post("/api/towers", optionalAuth, async (req, res) => {
   try {
     if (!req.user || !isCondoAdminRole(req.user.role))
@@ -1473,7 +1496,6 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     } else if (unit_ids_raw != null && unit_ids_raw !== "") {
       requested = ["#" + Number(unit_ids_raw)];
     }
-    if (!requested.length) return res.status(400).json({ error: "At least one unit required (numbers, comma-separated, or #unit_id)" });
     if (requested.length > 20) return res.status(400).json({ error: "Too many units (max 20)" });
 
     const unitIds = [];
@@ -1508,7 +1530,6 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     }
 
     const uniqueUnitIds = Array.from(new Set(unitIds));
-    if (!uniqueUnitIds.length) return res.status(400).json({ error: "At least one valid unit is required" });
     const [existing] = await db.promise().query("SELECT 1 FROM EMPLOYEE WHERE username = ? OR email = ?", [username, email]);
     if (existing.length > 0) return res.status(400).json({ error: "Username or email already exists" });
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -1516,7 +1537,7 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     try {
       [result] = await db.promise().query(
         "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email, created_by_employee_id, resident_unit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [full_name, address || null, username, hashedPassword, contact_number || null, email, adminId, uniqueUnitIds[0]]
+        [full_name, address || null, username, hashedPassword, contact_number || null, email, adminId, uniqueUnitIds[0] || null]
       );
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(colErr.message)) {
@@ -1528,12 +1549,14 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     }
     const employeeId = result.insertId;
     await db.promise().query("INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'OWNER', 'active')", [employeeId]);
-    try {
-      for (const uid of uniqueUnitIds) {
-        await db.promise().query("INSERT INTO OWNER_UNIT (owner_employee_id, unit_id) VALUES (?, ?)", [employeeId, uid]);
+    if (uniqueUnitIds.length) {
+      try {
+        for (const uid of uniqueUnitIds) {
+          await db.promise().query("INSERT INTO OWNER_UNIT (owner_employee_id, unit_id) VALUES (?, ?)", [employeeId, uid]);
+        }
+      } catch (e) {
+        /* OWNER_UNIT optional on older DB */
       }
-    } catch (e) {
-      /* OWNER_UNIT optional on older DB */
     }
     let validBlob = null;
     if (valid_id_data_url && typeof valid_id_data_url === "string") {
@@ -1552,7 +1575,7 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
       is_verified === 1 ||
       is_verified === "1" ||
       String(is_verified).toLowerCase() === "true";
-    const primaryUid = uniqueUnitIds[0];
+    const primaryUid = uniqueUnitIds[0] ?? null;
     try {
       await db.promise().query(
         `INSERT INTO OWNER (employee_id, unit_id, full_name, contact_number, email, valid_id, is_verified)
@@ -1609,6 +1632,208 @@ app.patch("/api/owners/:id", optionalAuth, async (req, res) => {
       throw e;
     }
     res.json({ ok: true, is_verified: v ? 1 : 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to update owner" });
+  }
+});
+
+async function syncOwnerPrimaryUnit(dbConn, ownerEmployeeId) {
+  try {
+    const [rows] = await dbConn.promise().query(
+      `SELECT ou.unit_id FROM OWNER_UNIT ou WHERE ou.owner_employee_id = ? ORDER BY ou.unit_id LIMIT 1`,
+      [ownerEmployeeId]
+    );
+    const uid = rows && rows[0] ? rows[0].unit_id : null;
+    await dbConn.promise().query("UPDATE EMPLOYEE SET resident_unit_id = ? WHERE employee_id = ?", [uid, ownerEmployeeId]);
+    await dbConn.promise().query("UPDATE OWNER SET unit_id = ? WHERE employee_id = ?", [uid, ownerEmployeeId]);
+  } catch (e) {
+    try {
+      const [rows] = await dbConn.promise().query(
+        `SELECT ou.unit_id FROM OWNER_UNIT ou WHERE ou.owner_employee_id = ? ORDER BY ou.unit_id LIMIT 1`,
+        [ownerEmployeeId]
+      );
+      const uid = rows && rows[0] ? rows[0].unit_id : null;
+      await dbConn.promise().query("UPDATE EMPLOYEE SET resident_unit_id = ? WHERE employee_id = ?", [uid, ownerEmployeeId]);
+    } catch (e2) { /* */ }
+  }
+}
+
+app.get("/api/owners/:id/units", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
+    const id = Number(req.params.id);
+    const adminId = req.user.employee_id;
+    const [[own]] = await db.promise().query(
+      `SELECT e.employee_id FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+      [id, adminId]
+    );
+    if (!own) return res.status(404).json({ error: "Owner not found" });
+    let units = [];
+    try {
+      const [r] = await db.promise().query(
+        `SELECT u.unit_id, u.unit_number, t.tower_id, t.tower_name
+         FROM OWNER_UNIT ou
+         JOIN UNIT u ON u.unit_id = ou.unit_id
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         WHERE ou.owner_employee_id = ?
+         ORDER BY t.tower_name, u.unit_number`,
+        [id]
+      );
+      units = r || [];
+    } catch (e) {
+      if (e.code === "ER_NO_SUCH_TABLE") {
+        const [[emp]] = await db.promise().query(
+          "SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?",
+          [id]
+        );
+        if (emp && emp.resident_unit_id) {
+          const [r2] = await db.promise().query(
+            `SELECT u.unit_id, u.unit_number, t.tower_id, t.tower_name
+             FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE u.unit_id = ?`,
+            [emp.resident_unit_id]
+          );
+          units = r2 || [];
+        }
+      } else throw e;
+    }
+    res.json({ units });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to fetch units" });
+  }
+});
+
+app.post("/api/owners/:id/units", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
+    const id = Number(req.params.id);
+    const adminId = req.user.employee_id;
+    const [[own]] = await db.promise().query(
+      `SELECT e.employee_id FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+      [id, adminId]
+    );
+    if (!own) return res.status(404).json({ error: "Owner not found" });
+    const raw = req.body && req.body.unit_ids;
+    const ids = Array.isArray(raw) ? raw.map((x) => Number(x)).filter((x) => x > 0) : [];
+    if (!ids.length) return res.status(400).json({ error: "unit_ids array required" });
+    const added = [];
+    for (const unitId of [...new Set(ids)]) {
+      const [[row]] = await db.promise().query(
+        `SELECT u.unit_id FROM UNIT u
+         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+         WHERE u.unit_id = ? AND COALESCE(u.owner_employee_id, t.owner_employee_id) = ?`,
+        [unitId, adminId]
+      );
+      if (!row) continue;
+      try {
+        const [[exists]] = await db.promise().query(
+          "SELECT 1 AS x FROM OWNER_UNIT WHERE owner_employee_id = ? AND unit_id = ? LIMIT 1",
+          [id, unitId]
+        );
+        if (!exists) {
+          await db.promise().query("INSERT INTO OWNER_UNIT (owner_employee_id, unit_id) VALUES (?, ?)", [id, unitId]);
+          added.push(unitId);
+        }
+      } catch (e) {
+        if (e.code !== "ER_NO_SUCH_TABLE") throw e;
+      }
+    }
+    await syncOwnerPrimaryUnit(db, id);
+    res.json({ ok: true, added });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to assign units" });
+  }
+});
+
+app.delete("/api/owners/:id/units/:unitId", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
+    const id = Number(req.params.id);
+    const unitId = Number(req.params.unitId);
+    const adminId = req.user.employee_id;
+    const [[own]] = await db.promise().query(
+      `SELECT e.employee_id FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+      [id, adminId]
+    );
+    if (!own) return res.status(404).json({ error: "Owner not found" });
+    try {
+      await db.promise().query("DELETE FROM OWNER_UNIT WHERE owner_employee_id = ? AND unit_id = ?", [id, unitId]);
+    } catch (e) {
+      if (e.code !== "ER_NO_SUCH_TABLE") throw e;
+    }
+    await syncOwnerPrimaryUnit(db, id);
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to remove unit" });
+  }
+});
+
+app.put("/api/owners/:id", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
+    const id = Number(req.params.id);
+    const adminId = req.user.employee_id;
+    const [[own]] = await db.promise().query(
+      `SELECT e.employee_id, e.username FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+      [id, adminId]
+    );
+    if (!own) return res.status(404).json({ error: "Owner not found" });
+    const b = req.body || {};
+    const full_name = b.full_name != null ? String(b.full_name).trim() : null;
+    const email = b.email != null ? String(b.email).trim() : null;
+    const contact_number = b.contact_number != null ? String(b.contact_number).trim() : null;
+    const username = b.username != null ? String(b.username).trim() : null;
+    const new_password = b.new_password != null ? String(b.new_password) : "";
+    if (!full_name || !email) return res.status(400).json({ error: "full_name and email required" });
+    if (username && username !== own.username) {
+      const [taken] = await db.promise().query("SELECT 1 FROM EMPLOYEE WHERE username = ? AND employee_id <> ?", [
+        username,
+        id,
+      ]);
+      if (taken.length) return res.status(400).json({ error: "Username already taken" });
+    }
+    const [emailTaken] = await db.promise().query("SELECT 1 FROM EMPLOYEE WHERE email = ? AND employee_id <> ?", [
+      email,
+      id,
+    ]);
+    if (emailTaken.length) return res.status(400).json({ error: "Email already in use" });
+    let hash = null;
+    if (new_password.length >= 6) hash = await bcrypt.hash(new_password, 10);
+    if (hash) {
+      await db.promise().query(
+        "UPDATE EMPLOYEE SET full_name = ?, email = ?, contact_number = ?, username = ?, password = ? WHERE employee_id = ?",
+        [full_name, email, contact_number || null, username || own.username, hash, id]
+      );
+    } else {
+      await db.promise().query(
+        "UPDATE EMPLOYEE SET full_name = ?, email = ?, contact_number = ?, username = ? WHERE employee_id = ?",
+        [full_name, email, contact_number || null, username || own.username, id]
+      );
+    }
+    try {
+      await db.promise().query(
+        "UPDATE OWNER SET full_name = ?, email = ?, contact_number = ? WHERE employee_id = ?",
+        [full_name, email, contact_number || null, id]
+      );
+    } catch (e) {
+      /* OWNER row optional */
+    }
+    res.json({ ok: true, message: "Owner updated" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to update owner" });
