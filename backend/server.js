@@ -742,11 +742,12 @@ app.get("/api/towers", optionalAuth, async (req, res) => {
 
 app.post("/api/towers", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const { tower_name, number_floors } = req.body;
     if (!tower_name || number_floors == null)
       return res.status(400).json({ error: "tower_name and number_floors required" });
-    const isOwner = !!(req.user && isCondoAdminRole(req.user.role));
-    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    const ownerId = Number(req.user.employee_id);
     let result;
     try {
       [result] = await db.promise().query(
@@ -770,21 +771,17 @@ app.post("/api/towers", optionalAuth, async (req, res) => {
 
 app.delete("/api/towers/:id", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const towerId = Number(req.params.id);
     if (!towerId) return res.status(400).json({ error: "Invalid tower id" });
-    const isOwner = !!(req.user && isCondoAdminRole(req.user.role));
-    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    const ownerId = Number(req.user.employee_id);
 
-    if (ownerId != null) {
-      const [[row]] = await db.promise().query(
-        "SELECT tower_id FROM TOWER WHERE tower_id = ? AND (owner_employee_id IS NULL OR owner_employee_id = ?)",
-        [towerId, ownerId]
-      );
-      if (!row) return res.status(404).json({ error: "Tower not found or you cannot delete it" });
-    } else {
-      const [[row]] = await db.promise().query("SELECT tower_id FROM TOWER WHERE tower_id = ?", [towerId]);
-      if (!row) return res.status(404).json({ error: "Tower not found" });
-    }
+    const [[row]] = await db.promise().query(
+      "SELECT tower_id FROM TOWER WHERE tower_id = ? AND (owner_employee_id IS NULL OR owner_employee_id = ?)",
+      [towerId, ownerId]
+    );
+    if (!row) return res.status(404).json({ error: "Tower not found or you cannot delete it" });
 
     const [unitRows] = await db.promise().query("SELECT unit_id FROM UNIT WHERE tower_id = ?", [towerId]);
     const unitIds = (unitRows || []).map((r) => r.unit_id);
@@ -951,6 +948,8 @@ app.get("/api/units/:id", async (req, res) => {
 
 app.post("/api/units", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, price } = req.body;
     if (!tower_id || !unit_number)
       return res.status(400).json({ error: "tower_id and unit_number required" });
@@ -960,8 +959,7 @@ app.post("/api/units", optionalAuth, async (req, res) => {
     const hasImages = image_urls != null && String(image_urls).trim() !== "";
     const priceVal = priceNum;
     await tryBackfillTowerOwners();
-    const isOwner = !!(req.user && isCondoAdminRole(req.user.role));
-    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    const ownerId = Number(req.user.employee_id);
     let result;
     try {
       if (hasImages) {
@@ -1169,8 +1167,10 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
 });
 
 // Update unit (price optional – add column with: ALTER TABLE UNIT ADD COLUMN price DECIMAL(10,2) NULL;)
-app.put("/api/units/:id", async (req, res) => {
+app.put("/api/units/:id", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const unitId = Number(req.params.id);
     const { unit_number, floor_number, unit_type, unit_size, description, image_urls, price } = req.body;
     if (!unit_number) return res.status(400).json({ error: "unit_number required" });
@@ -1199,8 +1199,10 @@ app.put("/api/units/:id", async (req, res) => {
 });
 
 // Delete unit
-app.delete("/api/units/:id", async (req, res) => {
+app.delete("/api/units/:id", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const unitId = Number(req.params.id);
     const [result] = await db.promise().query("DELETE FROM UNIT WHERE unit_id = ?", [unitId]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Unit not found" });
@@ -1208,6 +1210,48 @@ app.delete("/api/units/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to delete unit" });
+  }
+});
+
+// Owner edits assigned unit details (cannot change unit_number)
+app.put("/api/owner/units/:id", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isResidentOwnerRole(req.user.role))
+      return res.status(403).json({ error: "Owners only" });
+    const unitId = Number(req.params.id);
+    if (!unitId) return res.status(400).json({ error: "Invalid unit id" });
+
+    // Verify this unit is assigned to this owner (OWNER_UNIT) or fallback resident_unit_id.
+    let allowed = false;
+    try {
+      const [[m]] = await db.promise().query(
+        "SELECT 1 AS ok FROM OWNER_UNIT WHERE owner_employee_id = ? AND unit_id = ? LIMIT 1",
+        [req.user.employee_id, unitId]
+      );
+      allowed = !!m;
+    } catch (e) {
+      const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+      allowed = !!(emp && Number(emp.resident_unit_id) === unitId);
+    }
+    if (!allowed) return res.status(403).json({ error: "Not allowed to edit this unit" });
+
+    const { floor_number, unit_type, unit_size, description, image_urls, price } = req.body || {};
+    const updates = [];
+    const values = [];
+    if (floor_number !== undefined) { updates.push("floor_number = ?"); values.push(floor_number === "" || floor_number == null ? null : String(floor_number).trim()); }
+    if (unit_type !== undefined) { updates.push("unit_type = ?"); values.push(unit_type === "" || unit_type == null ? null : String(unit_type).trim()); }
+    if (unit_size !== undefined) { updates.push("unit_size = ?"); values.push(unit_size === "" || unit_size == null ? null : Number(unit_size)); }
+    if (description !== undefined) { updates.push("description = ?"); values.push(description === "" || description == null ? null : String(description).trim()); }
+    if (image_urls !== undefined) { updates.push("image_urls = ?"); values.push(image_urls === "" || image_urls == null ? null : (typeof image_urls === "string" ? image_urls : JSON.stringify(image_urls))); }
+    if (price !== undefined) { updates.push("price = ?"); values.push(price === "" || price == null ? null : Number(price)); }
+
+    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
+    values.push(unitId);
+    await db.promise().query(`UPDATE UNIT SET ${updates.join(", ")} WHERE unit_id = ?`, values);
+    res.json({ message: "Unit updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to update unit" });
   }
 });
 

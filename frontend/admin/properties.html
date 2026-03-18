@@ -108,57 +108,20 @@
         <header class="topbar">
           <div>
             <h1>Properties</h1>
-            <p>Manage towers and units.</p>
+            <p>Add towers and units that you own. Assigned owners can edit their unit details later.</p>
           </div>
           <div class="top-actions">
-            <button class="btn-primary" data-open-modal>
-              <span class="icon fill">
-                <svg viewBox="0 0 24 24">
-                  <line x1="12" y1="5" x2="12" y2="19"></line>
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                </svg>
-              </span>
-              Add Property
-            </button>
-            <div class="notif-wrap">
-              <button class="notif-btn" data-notif-btn aria-label="Notifications">
-                <svg viewBox="0 0 24 24">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
-                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                </svg>
-                <span class="notif-badge" data-notif-badge></span>
-              </button>
-              <div class="topbar-dropdown notif-dropdown" data-notif-dropdown>
-                <div class="topbar-dropdown__title">Today's Activity</div>
-                <div class="notif-list" data-notif-list>
-                  <div class="notif-empty">No activity today</div>
-                </div>
-              </div>
-            </div>
             <div class="profile-wrap">
-              <button class="avatar avatar-btn" data-profile-btn aria-label="Account">OW</button>
+              <button class="avatar avatar-btn" data-profile-btn aria-label="Account">AD</button>
               <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
                 <div class="profile-info">
-                  <div class="profile-avatar-lg" data-profile-initials-lg>OW</div>
+                  <div class="profile-avatar-lg" data-profile-initials-lg>AD</div>
                   <div>
-                    <div class="profile-name" data-profile-name>Owner</div>
+                    <div class="profile-name" data-profile-name>Admin</div>
                     <div class="profile-role" data-profile-role>ADMIN</div>
                   </div>
                 </div>
-                <div class="topbar-dropdown__divider"></div>
-                <button class="profile-action" data-open-profile>
-                  <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  Profile
-                </button>
-                <a href="../index.html" class="profile-action" data-logout-link>
-                  <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
-                  Logout
-                </a>
-                <div class="topbar-dropdown__divider"></div>
-                <button class="profile-action danger" data-delete-account-btn>
-                  <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path><path d="M10 11v6"></path><path d="M14 11v6"></path><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path></svg>
-                  Delete Account
-                </button>
+                <a href="../index.html" class="profile-action" data-logout-link>Logout</a>
               </div>
             </div>
           </div>
@@ -179,8 +142,41 @@
         </div>
 
         <section class="panel">
-          <h3>Available Properties (Units)</h3>
-          <div class="properties-list" data-properties></div>
+          <h3>Add tower</h3>
+          <p class="panel-subtitle muted">Towers you create will belong to your admin account.</p>
+          <form class="settings-form" data-tower-form>
+            <label class="settings-field"><span>Tower name</span><input type="text" name="tower_name" placeholder="e.g. Tower A" required /></label>
+            <label class="settings-field"><span>Number of floors</span><input type="number" min="1" name="number_floors" placeholder="e.g. 10" required /></label>
+            <div class="settings-msg" data-tower-msg></div>
+            <button type="submit" class="btn ghost settings-save">Add tower</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h3>Add unit</h3>
+          <p class="panel-subtitle muted">Units you add here can later be assigned to owners.</p>
+          <form class="settings-form" data-unit-form>
+            <label class="settings-field"><span>Tower</span>
+              <select name="tower_id" data-tower-select required>
+                <option value="">— Select tower —</option>
+              </select>
+            </label>
+            <label class="settings-field"><span>Unit type</span>
+              <select name="unit_type" required>
+                <option value="">— Select —</option>
+                <option value="Studio Type">Studio Type</option>
+                <option value="1 Bedroom">1 Bedroom</option>
+                <option value="2 Bedroom">2 Bedroom</option>
+                <option value="3 Bedroom">3 Bedroom</option>
+                <option value="Penthouse">Penthouse</option>
+                <option value="Duplex">Duplex</option>
+              </select>
+            </label>
+            <label class="settings-field"><span>Unit number</span><input type="text" name="unit_number" placeholder="e.g. 1201" required /></label>
+            <label class="settings-field"><span>Unit size (sqm)</span><input type="number" step="0.01" name="unit_size" placeholder="e.g. 45" required /></label>
+            <div class="settings-msg" data-unit-msg></div>
+            <button type="submit" class="btn ghost settings-save">Add unit</button>
+          </form>
         </section>
       </main>
 
@@ -242,212 +238,129 @@
       </div>
     </div>
 
-    <div class="modal-overlay" data-modal>
-      <div class="modal-card">
-        <div class="modal-header">
-          <h2 data-modal-title>Add Property</h2>
-          <button class="icon-button" type="button" data-close-modal>
-            <svg viewBox="0 0 24 24">
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-              <line x1="6" y1="18" x2="18" y2="6"></line>
-            </svg>
-          </button>
-        </div>
-        <form class="modal-form" data-step="1">
-          <div class="form-step is-active" data-step="1" data-title="Tower">
-            <label>
-              Tower
-              <select name="tower_id" data-tower-select>
-                <option value="">— Select tower —</option>
-                <option value="__new__">+ Add new tower</option>
-              </select>
-            </label>
-            <div class="new-tower-fields" data-new-tower style="display: none;">
-              <label>
-                Tower name
-                <input type="text" placeholder="e.g. Tower A" name="tower_name" />
-              </label>
-              <label>
-                Number of floors
-                <input type="number" min="1" placeholder="e.g. 10" name="number_floors" />
-              </label>
-            </div>
-            <div class="tower-delete-wrap" data-delete-tower-wrap style="display: none;">
-              <button type="button" class="submit-button danger" data-delete-tower-btn>Delete this tower</button>
-            </div>
-          </div>
+    <script>
+      (function gate() {
+        try {
+          if (!localStorage.getItem("token")) { window.location.replace("../index.html"); return; }
+          var r = String(localStorage.getItem("role") || "").toUpperCase();
+          if (r === "OWNER") window.location.replace("../owner/index.html");
+          else if (r !== "ADMIN") window.location.replace("../staff/index.html");
+        } catch (e) {}
+      })();
+      function getH() {
+        var h = { "Content-Type": "application/json" };
+        try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+        return h;
+      }
+      function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+      function loadTowers() {
+        var sel = document.querySelector("[data-tower-select]");
+        return fetch("/api/towers", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+          if (!sel) return;
+          sel.innerHTML = "<option value=\"\">— Select tower —</option>";
+          (rows || []).forEach(function (t) {
+            var opt = document.createElement("option");
+            opt.value = t.tower_id;
+            opt.textContent = t.tower_name + (t.number_floors ? " (" + t.number_floors + " floors)" : "");
+            sel.appendChild(opt);
+          });
+        });
+      }
+      document.querySelector("[data-tower-form]").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var msg = document.querySelector("[data-tower-msg]");
+        var fd = new FormData(e.target);
+        msg.textContent = "Saving…";
+        fetch("/api/towers", { method: "POST", headers: getH(), body: JSON.stringify({ tower_name: fd.get("tower_name"), number_floors: fd.get("number_floors") }) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { msg.textContent = res.d.error || "Failed"; return; }
+            msg.textContent = "Tower added.";
+            e.target.reset();
+            loadTowers();
+            setTimeout(function () { msg.textContent = ""; }, 1500);
+          }).catch(function () { msg.textContent = "Network error"; });
+      });
+      document.querySelector("[data-unit-form]").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var msg = document.querySelector("[data-unit-msg]");
+        var fd = new FormData(e.target);
+        var body = { tower_id: fd.get("tower_id"), unit_type: fd.get("unit_type"), unit_number: fd.get("unit_number"), unit_size: fd.get("unit_size"), price: 0 };
+        msg.textContent = "Saving…";
+        fetch("/api/units", { method: "POST", headers: getH(), body: JSON.stringify(body) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { msg.textContent = res.d.error || "Failed"; return; }
+            msg.textContent = "Unit added.";
+            e.target.reset();
+            loadTowers();
+            setTimeout(function () { msg.textContent = ""; }, 1500);
+          }).catch(function () { msg.textContent = "Network error"; });
+      });
+      // Profile dropdown minimal
+      (function () {
+        var profileBtn = document.querySelector("[data-profile-btn]");
+        var profileDd = document.querySelector("[data-profile-dropdown]");
+        if (profileBtn) profileBtn.addEventListener("click", function (ev) { ev.stopPropagation(); profileDd.classList.toggle("is-open"); });
+        document.addEventListener("click", function () { if (profileDd) profileDd.classList.remove("is-open"); });
+        try {
+          var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+          var name = emp.full_name || emp.username || "Admin";
+          var ini = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "AD";
+          if (profileBtn) profileBtn.textContent = ini;
+          var plg = document.querySelector("[data-profile-initials-lg]"); if (plg) plg.textContent = ini;
+          var pn = document.querySelector("[data-profile-name]"); if (pn) pn.textContent = name;
+        } catch (x) {}
+        document.querySelector("[data-logout-link]").addEventListener("click", function () { try { localStorage.clear(); } catch (e) {} });
+      })();
 
-          <div class="form-step" data-step="2" data-title="Unit details">
-            <label>
-              Unit number
-              <input type="text" placeholder="e.g. 501" name="unit_number" required />
-            </label>
-            <label>
-              Floor number
-              <input type="text" placeholder="e.g. 5" name="floor_number" />
-            </label>
-            <label>
-              Unit type
-              <select name="unit_type">
-                <option value="">— Select —</option>
-                <option value="Studio Type">Studio Type</option>
-                <option value="1 Bedroom">1 Bedroom</option>
-                <option value="2 Bedroom">2 Bedroom</option>
-                <option value="3 Bedroom">3 Bedroom</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Duplex">Duplex</option>
-              </select>
-            </label>
-            <label>
-              Unit size (sqm)
-              <input type="number" step="0.01" placeholder="e.g. 45" name="unit_size" />
-            </label>
-            <label>
-              Price <span class="required">(required)</span>
-              <input type="number" step="0.01" min="0" placeholder="e.g. 5000" name="price" required />
-            </label>
-            <label>
-              Description
-              <textarea placeholder="Description" name="description"></textarea>
-            </label>
-          </div>
-
-          <div class="form-step" data-step="3" data-title="Unit images">
-            <div class="photo-title">Add 4 images <span>(first image is the cover)</span></div>
-            <div class="photo-grid" data-photo-grid>
-              <button type="button" class="photo-slot" data-photo-slot="0">
-                <span class="photo-slot-text">Add image</span>
-                <img class="photo-slot-preview" alt="" hidden />
-              </button>
-              <button type="button" class="photo-slot" data-photo-slot="1">
-                <span class="photo-slot-text">Add image</span>
-                <img class="photo-slot-preview" alt="" hidden />
-              </button>
-              <button type="button" class="photo-slot" data-photo-slot="2">
-                <span class="photo-slot-text">Add image</span>
-                <img class="photo-slot-preview" alt="" hidden />
-              </button>
-              <button type="button" class="photo-slot" data-photo-slot="3">
-                <span class="photo-slot-text">Add image</span>
-                <img class="photo-slot-preview" alt="" hidden />
-              </button>
-            </div>
-            <input type="file" accept="image/*" data-photo-input data-slot="0" class="photo-input-hidden" aria-hidden="true" />
-            <input type="file" accept="image/*" data-photo-input data-slot="1" class="photo-input-hidden" aria-hidden="true" />
-            <input type="file" accept="image/*" data-photo-input data-slot="2" class="photo-input-hidden" aria-hidden="true" />
-            <input type="file" accept="image/*" data-photo-input data-slot="3" class="photo-input-hidden" aria-hidden="true" />
-          </div>
-
-          <div class="step-actions">
-            <button class="submit-button ghost" type="button" data-prev>
-              <span class="icon fill">
-                <svg viewBox="0 0 24 24">
-                  <path d="M19 12H5"></path>
-                  <path d="M11 6l-6 6 6 6"></path>
-                </svg>
-              </span>
-              Back
-            </button>
-            <button class="submit-button" type="button" data-next>
-              <span class="icon fill">
-                <svg viewBox="0 0 24 24">
-                  <path d="M5 12h14"></path>
-                  <path d="M13 6l6 6-6 6"></path>
-                </svg>
-              </span>
-              Next
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Property overview sidebar (like Assign Building) -->
-    <div class="assign-sidebar" id="propertyOverviewSidebar" data-property-overview-sidebar aria-hidden="true">
-      <div class="assign-sidebar__backdrop" data-close-property-overview></div>
-      <div class="assign-sidebar__content" id="propertyOverviewSidebarContent">
-        <div class="assign-sidebar__header">
-          <h3 class="assign-sidebar__title">Property</h3>
-          <button class="icon-button" type="button" data-close-property-overview aria-label="Close">
-            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
-          </button>
-        </div>
-        <div class="assign-sidebar__body">
-          <div class="assign-sidebar__employee assign-sidebar__property-overview">
-            <div class="assign-sidebar__avatar-wrap">
-              <img class="assign-sidebar__avatar assign-sidebar__property-img" id="propertyOverviewImg" src="" alt="" />
-              <span class="assign-sidebar__property-placeholder" id="propertyOverviewPlaceholder"></span>
-            </div>
-            <h4 class="assign-sidebar__name" id="propertyOverviewName">Unit</h4>
-            <p class="assign-sidebar__role" id="propertyOverviewTower">Tower</p>
-            <p class="assign-sidebar__id" id="propertyOverviewMeta">—</p>
-          </div>
-          <div class="assign-sidebar__actions-row">
-            <button type="button" class="submit-button ghost" data-property-edit-details>Edit details</button>
-            <button type="button" class="submit-button danger" data-property-delete-unit>Delete unit</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Edit Unit modal (same as Edit Employee popup) -->
-    <div class="modal-overlay" data-update-sidebar aria-hidden="true">
-      <div class="modal-card modal-card--wide modal-card--edit-unit">
-        <div class="modal-header">
-          <h2 data-update-title>Edit Unit</h2>
-          <button class="icon-button" type="button" data-close-update aria-label="Close">
-            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
-          </button>
-        </div>
-        <form class="modal-form assign-sidebar-form" data-update-form>
-          <div class="update-form-fields">
-            <label>Unit number <input type="text" name="unit_number" data-update-unit-number required /></label>
-            <label>Floor number <input type="text" name="floor_number" data-update-floor placeholder="e.g. 5" /></label>
-            <label>Unit type
-              <select name="unit_type" data-update-unit-type>
-                <option value="">— Select —</option>
-                <option value="Studio Type">Studio Type</option>
-                <option value="1 Bedroom">1 Bedroom</option>
-                <option value="2 Bedroom">2 Bedroom</option>
-                <option value="3 Bedroom">3 Bedroom</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Duplex">Duplex</option>
-              </select>
-            </label>
-            <label>Unit size (sqm) <input type="number" step="0.01" name="unit_size" data-update-unit-size placeholder="e.g. 45" /></label>
-            <label>Price (optional) <input type="number" step="0.01" name="price" data-update-price placeholder="e.g. 50000" /></label>
-            <label>Description <textarea name="description" data-update-description placeholder="Description"></textarea></label>
-          </div>
-          <div class="update-form-images">
-            <p class="photo-title">Images <span>(first is cover)</span></p>
-            <div class="photo-grid" data-update-photo-grid>
-              <button type="button" class="photo-slot" data-update-photo-slot="0"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
-              <button type="button" class="photo-slot" data-update-photo-slot="1"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
-              <button type="button" class="photo-slot" data-update-photo-slot="2"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
-              <button type="button" class="photo-slot" data-update-photo-slot="3"><span class="photo-slot-text">Add</span><img class="photo-slot-preview" alt="" hidden /></button>
-            </div>
-            <input type="file" accept="image/*" data-update-photo-input data-slot="0" class="photo-input-hidden" aria-hidden="true" />
-            <input type="file" accept="image/*" data-update-photo-input data-slot="1" class="photo-input-hidden" aria-hidden="true" />
-            <input type="file" accept="image/*" data-update-photo-input data-slot="2" class="photo-input-hidden" aria-hidden="true" />
-            <input type="file" accept="image/*" data-update-photo-input data-slot="3" class="photo-input-hidden" aria-hidden="true" />
-          </div>
-          <label class="update-booking-label">
-            Booking Link
-            <div class="link-field">
-              <input type="text" data-booking-link readonly />
-              <button class="icon-button" type="button" data-copy-link><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"></rect><rect x="2" y="2" width="13" height="13" rx="2"></rect></svg></button>
-              <button class="icon-button" type="button" data-open-link><svg viewBox="0 0 24 24"><path d="M14 3h7v7"></path><path d="M10 14 21 3"></path><path d="M5 7v14h14v-5"></path></svg></button>
-            </div>
-          </label>
-          <div class="step-actions">
-            <button class="submit-button danger" type="button" data-delete-unit>Delete Unit</button>
-            <button class="submit-button" type="button" data-save-update>Save changes</button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <script src="./adminscript.js"></script>
+      // Settings (theme picker) modal
+      (function () {
+        var overlay = document.querySelector("[data-settings-overlay]");
+        var closeBtn = document.querySelector("[data-settings-close]");
+        var openBtn = document.querySelector("[data-open-settings]");
+        if (!overlay || !openBtn) return;
+        function openSettings() { overlay.classList.add("is-open"); }
+        function closeSettings() { overlay.classList.remove("is-open"); }
+        openBtn.addEventListener("click", function (e) { e.preventDefault(); openSettings(); });
+        if (closeBtn) closeBtn.addEventListener("click", closeSettings);
+        overlay.addEventListener("click", function (e) { if (e.target === overlay) closeSettings(); });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeSettings(); });
+        var themes = ["default","ocean","sunset","forest","purple","midnight","rose"];
+        var grid = overlay.querySelector("[data-theme-grid]");
+        var statusEl = overlay.querySelector("[data-theme-status]");
+        function applyTheme(name) {
+          themes.forEach(function (t) { document.body.classList.remove("theme-" + t); });
+          if (name && name !== "default") document.body.classList.add("theme-" + name);
+          if (grid) grid.querySelectorAll(".theme-swatch").forEach(function (s) {
+            s.classList.toggle("is-active", s.getAttribute("data-theme") === name);
+          });
+        }
+        function saveTheme(name) {
+          localStorage.setItem("theme_color", name);
+          if (statusEl) { statusEl.textContent = "Saving..."; statusEl.className = "theme-status"; }
+          fetch("/api/employee/theme", { method: "PUT", headers: getH(), body: JSON.stringify({ theme_color: name }) })
+            .then(function (r) { return r.ok ? r.json() : null; })
+            .then(function () {
+              if (statusEl) { statusEl.textContent = "Theme saved!"; statusEl.className = "theme-status success"; }
+              setTimeout(function () { if (statusEl) statusEl.textContent = ""; }, 1500);
+            })
+            .catch(function () {
+              if (statusEl) { statusEl.textContent = "Saved locally"; statusEl.className = "theme-status"; }
+            });
+        }
+        if (grid) grid.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-theme]");
+          if (!btn) return;
+          var t = btn.getAttribute("data-theme");
+          applyTheme(t);
+          saveTheme(t);
+        });
+        var saved = localStorage.getItem("theme_color") || "default";
+        applyTheme(saved);
+      })();
+      loadTowers();
+    </script>
     <script>
       // Profile info from localStorage
       (function () {
