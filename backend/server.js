@@ -174,7 +174,7 @@ app.post("/signup", async (req, res) => {
 // ---------------- LOGIN ----------------
 app.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, condominium_passcode } = req.body;
 
     const [rows] = await db.promise().query(
       "SELECT * FROM EMPLOYEE WHERE username = ?",
@@ -192,13 +192,29 @@ app.post("/login", async (req, res) => {
       [employee.employee_id]
     );
 
+    const primaryRole = roles[0]?.role_type || null;
+    // Enforce condominium passcode for ADMIN accounts (prevents cross-condo login).
+    if (normalizeJwtRole(primaryRole) === "ADMIN") {
+      const condoId = Number(employee.condominium_id || 0);
+      if (!condoId) return res.status(403).json({ error: "Admin account is not linked to a condominium" });
+      const passRaw = String(condominium_passcode || "").trim();
+      if (!passRaw) return res.status(403).json({ error: "Condominium passcode required for admin login" });
+      const [[condo]] = await db.promise().query(
+        "SELECT passcode_hash FROM CONDOMINIUM WHERE condominium_id = ?",
+        [condoId]
+      );
+      if (!condo || !condo.passcode_hash) return res.status(403).json({ error: "Condominium configuration missing" });
+      const ok = await bcrypt.compare(passRaw, String(condo.passcode_hash || ""));
+      if (!ok) return res.status(403).json({ error: "Incorrect condominium passcode" });
+    }
+
     const token = jwt.sign(
-      { employee_id: employee.employee_id, role: roles[0]?.role_type },
+      { employee_id: employee.employee_id, role: primaryRole },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    res.json({ message: "Login successful", token, employee, role: roles[0]?.role_type, theme_color: employee.theme_color || "default" });
+    res.json({ message: "Login successful", token, employee, role: primaryRole, theme_color: employee.theme_color || "default" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -326,6 +342,33 @@ app.post("/api/developer/condominiums", requireRole("DEVELOPER"), async (req, re
   }
 });
 
+app.delete("/api/developer/condominiums/:id", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const condominiumId = Number(req.params.id);
+    if (!condominiumId) return res.status(400).json({ error: "Invalid condominium id" });
+
+    const [[condo]] = await db.promise().query(
+      "SELECT condominium_id FROM CONDOMINIUM WHERE condominium_id = ? AND created_by_employee_id = ?",
+      [condominiumId, developerId]
+    );
+    if (!condo) return res.status(404).json({ error: "Condominium not found" });
+
+    const [[linked]] = await db.promise().query(
+      "SELECT COUNT(*) AS cnt FROM EMPLOYEE WHERE condominium_id = ?",
+      [condominiumId]
+    );
+    if (Number(linked && linked.cnt || 0) > 0)
+      return res.status(400).json({ error: "Cannot delete condominium: accounts are linked to it" });
+
+    await db.promise().query("DELETE FROM CONDOMINIUM WHERE condominium_id = ?", [condominiumId]);
+    res.json({ message: "Condominium deleted", condominium_id: condominiumId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete condominium" });
+  }
+});
+
 app.post("/api/developer/admins", requireRole("DEVELOPER"), async (req, res) => {
   try {
     const condominium_id = Number(req.body && req.body.condominium_id);
@@ -409,6 +452,65 @@ app.get("/api/developer/admins", requireRole("DEVELOPER"), async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch admins" });
+  }
+});
+
+function generateTempPasscode(len = 10) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return out;
+}
+
+app.post("/api/developer/admins/:id/reset-passcode", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const adminId = Number(req.params.id);
+    if (!adminId) return res.status(400).json({ error: "Invalid admin id" });
+
+    const explicit = String(req.body && req.body.new_passcode || "").trim();
+    const newPasscode = explicit || generateTempPasscode(10);
+
+    const [[row]] = await db.promise().query(
+      `SELECT e.employee_id
+       FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')`,
+      [adminId, developerId]
+    );
+    if (!row) return res.status(404).json({ error: "Admin not found" });
+
+    const hashed = await bcrypt.hash(newPasscode, 10);
+    await db.promise().query("UPDATE EMPLOYEE SET password = ? WHERE employee_id = ?", [hashed, adminId]);
+    res.json({ message: "Admin passcode reset", admin_id: adminId, new_passcode: newPasscode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reset admin passcode" });
+  }
+});
+
+app.delete("/api/developer/admins/:id", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const adminId = Number(req.params.id);
+    if (!adminId) return res.status(400).json({ error: "Invalid admin id" });
+
+    const [[row]] = await db.promise().query(
+      `SELECT e.employee_id
+       FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')`,
+      [adminId, developerId]
+    );
+    if (!row) return res.status(404).json({ error: "Admin not found" });
+
+    await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [adminId]);
+    await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [adminId]);
+    await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [adminId]);
+    res.json({ message: "Admin deleted", admin_id: adminId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete admin" });
   }
 });
 

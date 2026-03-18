@@ -72,13 +72,25 @@
             </label>
             <label class="field">
               <span>Condo passcode</span>
-              <input type="password" name="passcode" placeholder="Unique passcode" required />
+              <div class="input-inline">
+                <input type="password" name="passcode" placeholder="Unique passcode" required data-passcode />
+                <button class="btn ghost btn-icon" type="button" data-toggle="passcode" aria-label="Show passcode">Show</button>
+              </div>
+            </label>
+            <label class="field">
+              <span>Confirm condo passcode</span>
+              <div class="input-inline">
+                <input type="password" name="passcode_confirm" placeholder="Re-enter passcode" required data-passcode />
+                <button class="btn ghost btn-icon" type="button" data-toggle="passcode" aria-label="Show passcode">Show</button>
+              </div>
             </label>
             <div class="row">
               <div class="error" data-condo-error role="alert"></div>
               <button class="btn primary" type="submit">Create condominium</button>
             </div>
           </form>
+
+          <div class="list" data-condo-list></div>
 
           <div class="divider"></div>
 
@@ -164,10 +176,11 @@
                   <th>Condominium</th>
                   <th>Owners created</th>
                   <th>Staff created</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody data-admins-tbody>
-                <tr><td class="muted" colspan="4">Log in to view.</td></tr>
+                <tr><td class="muted" colspan="5">Log in to view.</td></tr>
               </tbody>
             </table>
           </div>

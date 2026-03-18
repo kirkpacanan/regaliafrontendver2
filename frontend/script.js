@@ -123,6 +123,7 @@ if (loginForm) {
     const formData = new FormData(loginForm);
     const username = String(formData.get("login") || "").trim();
     const password = String(formData.get("password") || "").trim();
+    const condominium_passcode = String(formData.get("condominium_passcode") || "").trim();
 
     // Offline accounts for local development
     const offlineAccounts = {
@@ -146,7 +147,7 @@ if (loginForm) {
       const response = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password, condominium_passcode })
       });
 
       const data = await response.json();

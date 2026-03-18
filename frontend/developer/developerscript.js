@@ -93,6 +93,12 @@ function setUiState() {
   show(views.app, !!master && !!token);
   show(views.tracking, !!master && !!token);
 
+  const grid = document.querySelector(".grid");
+  if (grid) {
+    const mode = !master ? "gate" : (!token ? "login" : "app");
+    grid.setAttribute("data-layout", mode);
+  }
+
   if (logoutBtn) logoutBtn.hidden = !token;
 
   const emp = getEmployee();
@@ -103,6 +109,7 @@ function setUiState() {
 
 async function loadCondominiums() {
   const select = document.querySelector("[data-condo-select]");
+  const list = document.querySelector("[data-condo-list]");
   if (!select) return;
   const condos = await api("/api/developer/condominiums", { method: "GET" });
   const current = select.value;
@@ -114,6 +121,26 @@ async function loadCondominiums() {
     select.appendChild(opt);
   });
   if (current) select.value = current;
+
+  if (list) {
+    list.innerHTML = "";
+    condos.forEach((c) => {
+      const item = document.createElement("div");
+      item.className = "list-item";
+      const id = Number(c.condominium_id);
+      const createdAt = c.created_at ? new Date(c.created_at).toLocaleString() : "";
+      item.innerHTML = `
+        <div class="list-item__left">
+          <div class="list-item__title">${escapeHtml(c.name || "Condominium")}</div>
+          <div class="list-item__meta">${escapeHtml(createdAt)}</div>
+        </div>
+        <div>
+          <button class="btn ghost" type="button" data-action="delete-condo" data-condo-id="${id}">Delete</button>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  }
 }
 
 function renderAdmins(rows) {
@@ -122,18 +149,23 @@ function renderAdmins(rows) {
   tbody.innerHTML = "";
   if (!rows || rows.length === 0) {
     const tr = document.createElement("tr");
-    tr.innerHTML = '<td class="muted" colspan="4">No admins created yet.</td>';
+    tr.innerHTML = '<td class="muted" colspan="5">No admins created yet.</td>';
     tbody.appendChild(tr);
     return;
   }
   rows.forEach((r) => {
     const tr = document.createElement("tr");
     const adminLabel = `${r.full_name || "Admin"}${r.username ? ` (@${r.username})` : ""}`;
+    const adminId = Number(r.employee_id);
     tr.innerHTML = `
       <td>${escapeHtml(adminLabel)}</td>
       <td>${escapeHtml(r.condominium_name || "-")}</td>
       <td>${Number(r.ownersCreatedCount || 0)}</td>
       <td>${Number(r.staffCreatedCount || 0)}</td>
+      <td>
+        <button class="btn ghost" type="button" data-action="reset-admin" data-admin-id="${adminId}">Reset passcode</button>
+        <button class="btn ghost" type="button" data-action="delete-admin" data-admin-id="${adminId}">Delete</button>
+      </td>
     `;
     tbody.appendChild(tr);
   });
@@ -158,6 +190,67 @@ async function refreshTracking() {
     setError(trackError, e.message || "Failed to load tracking");
   }
 }
+
+document.addEventListener("click", async (event) => {
+  // Show/hide passcode inputs
+  const toggle = event.target && event.target.closest && event.target.closest("[data-toggle='passcode']");
+  if (toggle) {
+    const wrap = toggle.closest(".field") || toggle.parentElement;
+    const input = wrap ? wrap.querySelector("input") : null;
+    if (!input) return;
+    input.type = input.type === "password" ? "text" : "password";
+    toggle.textContent = input.type === "password" ? "Show" : "Hide";
+    return;
+  }
+
+  const btn = event.target && event.target.closest && event.target.closest("[data-action][data-admin-id]");
+  if (!btn) return;
+  const action = btn.getAttribute("data-action");
+  const adminId = Number(btn.getAttribute("data-admin-id"));
+  if (!adminId) return;
+
+  if (action === "delete-admin") {
+    const ok = window.confirm("Delete this admin account? This cannot be undone.");
+    if (!ok) return;
+    try {
+      await api(`/api/developer/admins/${adminId}`, { method: "DELETE" });
+      await refreshTracking();
+    } catch (e) {
+      const trackError = document.querySelector("[data-track-error]");
+      setError(trackError, e.message || "Failed to delete admin");
+    }
+  }
+
+  if (action === "reset-admin") {
+    const ok = window.confirm("Reset this admin passcode? The new passcode will be shown once.");
+    if (!ok) return;
+    try {
+      const data = await api(`/api/developer/admins/${adminId}/reset-passcode`, { method: "POST", body: JSON.stringify({}) });
+      window.alert(`New admin passcode: ${data.new_passcode}`);
+    } catch (e) {
+      const trackError = document.querySelector("[data-track-error]");
+      setError(trackError, e.message || "Failed to reset admin passcode");
+    }
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const btn = event.target && event.target.closest && event.target.closest("[data-action='delete-condo'][data-condo-id]");
+  if (!btn) return;
+  const condoId = Number(btn.getAttribute("data-condo-id"));
+  if (!condoId) return;
+  const ok = window.confirm("Delete this condominium? This cannot be undone.");
+  if (!ok) return;
+  const condoError = document.querySelector("[data-condo-error]");
+  setError(condoError, "");
+  try {
+    await api(`/api/developer/condominiums/${condoId}`, { method: "DELETE" });
+    await loadCondominiums();
+    await refreshTracking().catch(() => {});
+  } catch (e) {
+    setError(condoError, e.message || "Failed to delete condominium");
+  }
+});
 
 // Gate
 const gateForm = document.querySelector("[data-gate-form]");
@@ -211,6 +304,11 @@ if (condoForm) {
     const fd = new FormData(condoForm);
     const name = String(fd.get("name") || "").trim();
     const passcode = String(fd.get("passcode") || "").trim();
+    const passcode_confirm = String(fd.get("passcode_confirm") || "").trim();
+    if (passcode !== passcode_confirm) {
+      setError(condoError, "Passcodes do not match.");
+      return;
+    }
     try {
       await api("/api/developer/condominiums", {
         method: "POST",
