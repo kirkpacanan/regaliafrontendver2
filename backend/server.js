@@ -49,6 +49,49 @@ function isEmployeeRoleMgmt(roleType) {
   return u === "OWNER" || u === "ADMIN";
 }
 
+/** Matches EMPLOYEE_ROLE rows that count as resident owner (same logic as GET /api/owners list). */
+const OWNER_ROLE_EXISTS_SQL = `EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND (r.role_type = 'OWNER' OR UPPER(TRIM(r.role_type)) = 'OWNER'))`;
+
+async function runStartupSchemaFixes() {
+  try {
+    const [[dbRow]] = await db.promise().query("SELECT DATABASE() AS d");
+    const schema = dbRow && dbRow.d;
+    if (!schema) return;
+    async function tableExists(name) {
+      const [t] = await db.promise().query(
+        "SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? LIMIT 1",
+        [schema, name]
+      );
+      return t.length > 0;
+    }
+    async function colExists(table, col) {
+      const [c] = await db.promise().query(
+        "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND COLUMN_NAME = ? LIMIT 1",
+        [schema, table, col]
+      );
+      return c.length > 0;
+    }
+    if (await tableExists("OWNER_UNIT")) {
+      const hasOe = await colExists("OWNER_UNIT", "owner_employee_id");
+      const hasEmp = await colExists("OWNER_UNIT", "employee_id");
+      if (!hasOe && hasEmp) {
+        await db.promise().query(
+          "ALTER TABLE OWNER_UNIT CHANGE COLUMN employee_id owner_employee_id INT NOT NULL"
+        );
+        console.log("[schema] OWNER_UNIT: employee_id → owner_employee_id");
+      }
+    }
+    for (const tbl of ["TOWER", "UNIT"]) {
+      if (await tableExists(tbl) && !(await colExists(tbl, "owner_employee_id"))) {
+        await db.promise().query(`ALTER TABLE \`${tbl}\` ADD COLUMN owner_employee_id INT NULL`);
+        console.log(`[schema] ${tbl}: added owner_employee_id`);
+      }
+    }
+  } catch (e) {
+    console.error("[schema] startup fixes:", e.message || e);
+  }
+}
+
 function requireAuth(req, res, next) {
   return optionalAuth(req, res, () => {
     if (!req.user) return res.status(401).json({ error: "Unauthorized" });
@@ -1719,7 +1762,7 @@ app.patch("/api/owners/:id", optionalAuth, async (req, res) => {
     const [[row]] = await db.promise().query(
       `SELECT e.employee_id FROM EMPLOYEE e
        WHERE e.employee_id = ? AND e.created_by_employee_id = ?
-         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+         AND ` + OWNER_ROLE_EXISTS_SQL,
       [id, adminId]
     );
     if (!row) return res.status(404).json({ error: "Owner not found" });
@@ -1796,7 +1839,7 @@ app.get("/api/owners/:id/units", optionalAuth, async (req, res) => {
     const [[own]] = await db.promise().query(
       `SELECT e.employee_id FROM EMPLOYEE e
        WHERE e.employee_id = ? AND e.created_by_employee_id = ?
-         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+         AND ` + OWNER_ROLE_EXISTS_SQL,
       [id, adminId]
     );
     if (!own) return res.status(404).json({ error: "Owner not found" });
@@ -1844,7 +1887,7 @@ app.post("/api/owners/:id/units", optionalAuth, async (req, res) => {
     const [[own]] = await db.promise().query(
       `SELECT e.employee_id FROM EMPLOYEE e
        WHERE e.employee_id = ? AND e.created_by_employee_id = ?
-         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+         AND ` + OWNER_ROLE_EXISTS_SQL,
       [id, adminId]
     );
     if (!own) return res.status(404).json({ error: "Owner not found" });
@@ -1891,7 +1934,7 @@ app.delete("/api/owners/:id/units/:unitId", optionalAuth, async (req, res) => {
     const [[own]] = await db.promise().query(
       `SELECT e.employee_id FROM EMPLOYEE e
        WHERE e.employee_id = ? AND e.created_by_employee_id = ?
-         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+         AND ` + OWNER_ROLE_EXISTS_SQL,
       [id, adminId]
     );
     if (!own) return res.status(404).json({ error: "Owner not found" });
@@ -1917,7 +1960,7 @@ app.put("/api/owners/:id", optionalAuth, async (req, res) => {
     const [[own]] = await db.promise().query(
       `SELECT e.employee_id, e.username FROM EMPLOYEE e
        WHERE e.employee_id = ? AND e.created_by_employee_id = ?
-         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+         AND ` + OWNER_ROLE_EXISTS_SQL,
       [id, adminId]
     );
     if (!own) return res.status(404).json({ error: "Owner not found" });
@@ -1977,7 +2020,7 @@ app.delete("/api/owners/:id", optionalAuth, async (req, res) => {
     const [[row]] = await db.promise().query(
       `SELECT e.employee_id FROM EMPLOYEE e
        WHERE e.employee_id = ? AND e.created_by_employee_id = ?
-         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+         AND ` + OWNER_ROLE_EXISTS_SQL,
       [id, adminId]
     );
     if (!row) return res.status(404).json({ error: "Owner not found" });
@@ -3920,4 +3963,11 @@ app.get(/^\/.*$/, (req, res) => {
 
 // ---------------- Start Server ----------------
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));
+runStartupSchemaFixes()
+  .then(() => {
+    app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT}`));
+  })
+  .catch((e) => {
+    console.error(e);
+    app.listen(PORT, "0.0.0.0", () => console.log(`Server running on port ${PORT} (schema fixes skipped)`));
+  });
