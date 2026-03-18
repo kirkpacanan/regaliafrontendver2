@@ -137,6 +137,7 @@ body {
 
 .row { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
 .row--between { justify-content: space-between; }
+.tracking-toolbar { margin: 6px 0 10px; }
 .error { color: #ffb4b4; min-height: 18px; font-size: 12px; }
 
 .list { margin-top: 12px; display: grid; gap: 8px; }
