@@ -284,22 +284,31 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
 .settings-divider { height: 1px; background: rgba(255,255,255,0.12); margin: 1.1rem 0; }
 .settings-msg { font-size: 0.8rem; min-height: 1.2em; color: rgba(255,200,200,0.95); }
 .settings-msg.success { color: rgba(200,255,226,0.95); }
+/* Solid fill: Windows Chrome/Edge often ignores translucent select backgrounds */
 .settings-field select {
   padding: 0.55rem 0.8rem;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.3);
-  background: rgba(255,255,255,0.08);
-  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #f0fafb;
   font-size: 0.88rem;
   font-family: inherit;
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='rgba(255,255,255,0.7)' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
+  color-scheme: dark;
+  background: #1a4d52 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='rgba(255,255,255,0.85)' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E")
+    no-repeat right 0.75rem center;
   padding-right: 2rem;
 }
-.settings-field select:focus { outline: none; border-color: rgba(255,255,255,0.55); background-color: rgba(255,255,255,0.12); }
+.settings-field select option {
+  background-color: #143a3e;
+  color: #f0fafb;
+}
+.settings-field select:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.65);
+  background: #22656b url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='rgba(255,255,255,0.9)' stroke-width='2'%3E%3Cpath d='M2 4l4 4 4-4'/%3E%3C/svg%3E")
+    no-repeat right 0.75rem center;
+}
 .settings-form-actions {
   display: flex;
   gap: 0.5rem;
@@ -404,12 +413,22 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
 
 .modal-form input,
 .modal-form select {
-  border: 1.5px solid rgba(79, 127, 132, 0.3);
+  border: 1.5px solid rgba(79, 127, 132, 0.35);
   border-radius: 12px;
   padding: 0.65rem 0.8rem;
   font-size: 0.9rem;
   font-family: "Poppins", "Segoe UI", system-ui, sans-serif;
   background: rgba(79, 127, 132, 0.04);
+}
+.modal-form select {
+  color-scheme: light;
+  background-color: #ffffff;
+  color: #1a3d40;
+  appearance: auto;
+}
+.modal-form select option {
+  background-color: #ffffff;
+  color: #1a3d40;
 }
 
 .modal-form textarea {
@@ -904,9 +923,7 @@ label .required {
   height: 2.75rem;
   padding: 0 0.75rem;
   border-radius: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.35);
   font-size: 0.95rem;
   font-family: inherit;
   line-height: 1.4;
@@ -914,15 +931,22 @@ label .required {
 
 .dues-form-field input {
   padding: 0 0.75rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
 }
 
 .dues-form-field select {
   cursor: pointer;
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 0.75rem center;
+  color-scheme: dark;
+  color: #f0fafb;
+  background: #1a4d52 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")
+    no-repeat right 0.75rem center;
   padding-right: 2rem;
+}
+.dues-form-field select option {
+  background-color: #143a3e;
+  color: #f0fafb;
 }
 
 .dues-form-field input::placeholder {
@@ -1710,6 +1734,144 @@ label .required {
 
 .employee-card__location--none {
   font-style: italic;
+}
+
+/* Manage Owners — same card shell, non-button for inner controls */
+.owner-card {
+  cursor: default;
+}
+.owner-card:hover {
+  transform: none;
+}
+.owner-card .employee-card__media {
+  cursor: default;
+}
+.owner-card__actions {
+  margin-top: 0.65rem;
+  padding-top: 0.65rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.owner-card__verified {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+.owner-card__verified input {
+  width: 38px;
+  height: 20px;
+  accent-color: var(--accent-1, #4f7f84);
+  cursor: pointer;
+}
+.owner-card__remove {
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 100, 100, 0.45);
+  background: rgba(255, 80, 80, 0.12);
+  color: #ffb4b4;
+  cursor: pointer;
+  font-family: inherit;
+}
+.owner-card__remove:hover {
+  background: rgba(255, 80, 80, 0.2);
+}
+
+.employee-card__badge--verified {
+  background: rgba(34, 197, 94, 0.35);
+  border-color: rgba(34, 197, 94, 0.5);
+  color: #ecfdf5;
+}
+.employee-card__badge--pending {
+  background: rgba(250, 204, 21, 0.35);
+  border-color: rgba(250, 204, 21, 0.45);
+}
+
+/* Add Owner — Valid ID upload panel */
+.valid-id-panel {
+  display: grid;
+  gap: 0.5rem;
+}
+.valid-id-panel__zone {
+  border: 2px dashed rgba(79, 127, 132, 0.45);
+  border-radius: 14px;
+  padding: 1.25rem 1rem;
+  text-align: center;
+  background: rgba(79, 127, 132, 0.06);
+  transition: border-color 0.2s, background 0.2s;
+  cursor: pointer;
+}
+.valid-id-panel__zone:hover,
+.valid-id-panel__zone:focus-within {
+  border-color: rgba(79, 127, 132, 0.75);
+  background: rgba(79, 127, 132, 0.1);
+}
+.valid-id-panel__zone.is-filled {
+  border-style: solid;
+  border-color: rgba(79, 127, 132, 0.35);
+}
+.valid-id-panel__icon {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 0.5rem;
+  border-radius: 10px;
+  background: rgba(79, 127, 132, 0.15);
+  display: grid;
+  place-items: center;
+}
+.valid-id-panel__icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: var(--accent-1, #4f7f84);
+  fill: none;
+  stroke-width: 2;
+}
+.valid-id-panel__title {
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--accent-1, #2d5a5e);
+  margin: 0 0 0.25rem;
+}
+.valid-id-panel__hint {
+  font-size: 0.75rem;
+  color: rgba(79, 127, 132, 0.75);
+  margin: 0;
+}
+.valid-id-panel__filename {
+  font-size: 0.8rem;
+  color: var(--accent-1, #2d5a5e);
+  font-weight: 500;
+  word-break: break-all;
+}
+.valid-id-panel__preview {
+  max-height: 120px;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 0.35rem;
+}
+.valid-id-panel__preview img {
+  width: 100%;
+  max-height: 120px;
+  object-fit: contain;
+  display: block;
+  background: rgba(0, 0, 0, 0.06);
+}
+.valid-id-panel__clear {
+  margin-top: 0.35rem;
+  font-size: 0.78rem;
+  border: none;
+  background: none;
+  color: #b91c1c;
+  cursor: pointer;
+  text-decoration: underline;
+  font-family: inherit;
 }
 
 .icon--sm {

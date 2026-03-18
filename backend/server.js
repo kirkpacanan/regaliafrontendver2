@@ -1581,6 +1581,40 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
   }
 });
 
+app.patch("/api/owners/:id", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
+    const id = Number(req.params.id);
+    const adminId = req.user.employee_id;
+    const [[row]] = await db.promise().query(
+      `SELECT e.employee_id FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.role_type = 'OWNER' AND r.status = 'active')`,
+      [id, adminId]
+    );
+    if (!row) return res.status(404).json({ error: "Owner not found" });
+    const body = req.body || {};
+    if (typeof body.is_verified === "undefined")
+      return res.status(400).json({ error: "is_verified required" });
+    const v =
+      body.is_verified === true ||
+      body.is_verified === 1 ||
+      body.is_verified === "1" ||
+      String(body.is_verified).toLowerCase() === "true";
+    try {
+      await db.promise().query("UPDATE OWNER SET is_verified = ? WHERE employee_id = ?", [v ? 1 : 0, id]);
+    } catch (e) {
+      if (e.code === "ER_NO_SUCH_TABLE") return res.json({ ok: true, is_verified: v ? 1 : 0 });
+      throw e;
+    }
+    res.json({ ok: true, is_verified: v ? 1 : 0 });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to update owner" });
+  }
+});
+
 app.delete("/api/owners/:id", optionalAuth, async (req, res) => {
   try {
     if (!req.user || !isCondoAdminRole(req.user.role))
