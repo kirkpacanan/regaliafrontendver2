@@ -63,21 +63,19 @@
         </div>
         <form class="modal-form" data-edit-form style="overflow-y:auto; flex: 1; min-height: 0; padding-right: 0.35rem;">
           <div class="update-form-fields" style="padding: 4px 0 0;">
-            <label>Unit number (locked) <input type="text" data-edit-unit-number disabled /></label>
+            <label>Unit number <input type="text" data-edit-unit-number disabled /></label>
             <label>Floor number <input type="text" name="floor_number" data-edit-floor placeholder="e.g. 12" disabled /></label>
-            <label>Unit type <span class="owner-field-hint">set by admin</span>
-              <input type="text" class="owner-unit-detail-field" data-edit-unit-type readonly tabindex="-1" autocomplete="off" value="" aria-label="Unit type from admin" />
+            <label>Unit type
+              <input type="text" class="owner-unit-detail-field" data-edit-unit-type readonly tabindex="-1" autocomplete="off" value="" aria-label="Unit type" />
             </label>
-            <label>Unit size (sqm) <span class="owner-field-hint">set by admin</span>
-              <input type="text" class="owner-unit-detail-field" data-edit-unit-size readonly tabindex="-1" autocomplete="off" value="" aria-label="Unit size from admin" />
+            <label>Unit size (sqm)
+              <input type="text" class="owner-unit-detail-field" data-edit-unit-size readonly tabindex="-1" autocomplete="off" value="" aria-label="Unit size (sqm)" />
             </label>
             <label>Price <input type="number" step="0.01" name="price" data-edit-price placeholder="e.g. 50000" /></label>
             <label>Description <textarea name="description" data-edit-description placeholder="Description"></textarea></label>
-            <div style="margin-top: 0.75rem;">
-              <div style="font-weight: 600; color: rgba(79,127,132,0.95); font-size: 0.9rem; margin-bottom: 0.35rem">
-                Unit images (4 slots, cover = slot 1)
-              </div>
-              <div class="photo-grid update-form-images" data-edit-photo-grid>
+            <div class="owner-unit-images-section">
+              <div class="owner-unit-images-title">Unit images</div>
+              <div class="photo-grid update-form-images owner-unit-images-grid" data-edit-photo-grid>
                 <label class="photo-slot" data-edit-photo-slot="0" title="Cover image">
                   <span class="photo-slot-text">Cover</span>
                   <img class="photo-slot-preview" data-edit-photo-preview="0" alt="" hidden />
