@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Owner Dashboard | Regalia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../admin/admin.css" />
+  </head>
+  <body data-page="owner-dashboard">
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand"><img class="brand-logo" src="../logo.png" alt="Regalia" /></div>
+        <nav class="nav">
+          <a class="active" href="./index.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg></span>Dashboard</a>
+          <a href="./monthly-dues.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></span>Monthly Dues</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="../index.html"><span class="icon"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline></svg></span>Log out</a>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Owner Dashboard</h1>
+            <p>Your unit — view monthly dues assigned by management.</p>
+          </div>
+          <div class="top-actions">
+            <div class="profile-wrap">
+              <button class="avatar avatar-btn" data-profile-btn>OW</button>
+              <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
+                <div class="profile-info">
+                  <div class="profile-avatar-lg" data-profile-initials-lg>OW</div>
+                  <div>
+                    <div class="profile-name" data-profile-name>Owner</div>
+                    <div class="profile-role" data-profile-role>OWNER</div>
+                  </div>
+                </div>
+                <a href="../index.html" class="profile-action" data-logout-link>Logout</a>
+              </div>
+            </div>
+          </div>
+        </header>
+        <section class="panel">
+          <h2>Welcome</h2>
+          <p class="panel-subtitle muted">Management posts monthly dues for your unit. Open <strong>Monthly Dues</strong> to see amounts, due dates, and status.</p>
+          <p style="margin-top:1.5rem;"><a href="./monthly-dues.html" class="btn-primary" style="display:inline-block;padding:0.65rem 1.25rem;text-decoration:none;border-radius:8px;">View monthly dues</a></p>
+        </section>
+      </main>
+    </div>
+    <script>
+      (function gate() {
+        try {
+          if (!localStorage.getItem("token")) { window.location.replace("../index.html"); return; }
+          if (String(localStorage.getItem("role") || "").toUpperCase() !== "OWNER") {
+            if (String(localStorage.getItem("role") || "").toUpperCase() === "ADMIN") window.location.replace("../admin/index.html");
+            else window.location.replace("../index.html");
+          }
+        } catch (e) {}
+      })();
+      try {
+        var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+        var name = emp.full_name || emp.username || "Owner";
+        var ini = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "OW";
+        document.querySelector("[data-profile-btn]").textContent = ini;
+        document.querySelector("[data-profile-initials-lg]").textContent = ini;
+        document.querySelector("[data-profile-name]").textContent = name;
+      } catch (e) {}
+      document.querySelector("[data-profile-btn]").addEventListener("click", function (e) { e.stopPropagation(); document.querySelector("[data-profile-dropdown]").classList.toggle("is-open"); });
+      document.addEventListener("click", function () { document.querySelector("[data-profile-dropdown]").classList.remove("is-open"); });
+      document.querySelector("[data-logout-link]").addEventListener("click", function () { localStorage.clear(); });
+    </script>
+  </body>
+</html>

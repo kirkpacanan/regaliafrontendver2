@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Monthly Dues | Regalia Owner</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../admin/admin.css" />
+  </head>
+  <body data-page="owner-monthly-dues">
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand"><img class="brand-logo" src="../logo.png" alt="Regalia" /></div>
+        <nav class="nav">
+          <a href="./index.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg></span>Dashboard</a>
+          <a class="active" href="./monthly-dues.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></span>Monthly Dues</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="../index.html"><span class="icon"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline></svg></span>Log out</a>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Monthly Dues</h1>
+            <p>View-only — dues assigned to your unit by management.</p>
+          </div>
+          <div class="top-actions">
+            <div class="profile-wrap">
+              <button class="avatar avatar-btn" data-profile-btn>OW</button>
+              <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
+                <div class="profile-info">
+                  <div class="profile-avatar-lg" data-profile-initials-lg>OW</div>
+                  <div>
+                    <div class="profile-name" data-profile-name>Owner</div>
+                    <div class="profile-role">OWNER</div>
+                  </div>
+                </div>
+                <a href="../index.html" class="profile-action" data-logout-link>Logout</a>
+              </div>
+            </div>
+          </div>
+        </header>
+        <section class="panel">
+          <div class="dues-list-header" style="display:flex;flex-wrap:wrap;align-items:center;gap:1rem;margin-bottom:0.75rem;">
+            <h3 style="margin:0;">Your monthly dues</h3>
+            <label class="dues-view-month-wrap">
+              <span class="dues-view-month-label">View month</span>
+              <select class="dues-view-month" data-dues-view-month></select>
+            </label>
+          </div>
+          <p class="panel-subtitle muted" data-dues-hint></p>
+          <div class="payment-placeholder-table">
+            <table class="payment-table">
+              <thead>
+                <tr><th>Unit</th><th>Amount</th><th>Due</th><th>Status</th></tr>
+              </thead>
+              <tbody data-dues-list>
+                <tr data-empty><td colspan="4" class="payment-placeholder-cell">No dues for your unit yet.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script>
+      (function gate() {
+        try {
+          if (!localStorage.getItem("token")) { window.location.replace("../index.html"); return; }
+          if (String(localStorage.getItem("role") || "").toUpperCase() !== "OWNER") {
+            if (String(localStorage.getItem("role") || "").toUpperCase() === "ADMIN") window.location.replace("../admin/monthly-dues.html");
+            else window.location.replace("../index.html");
+          }
+        } catch (e) {}
+      })();
+      function getH() {
+        var h = {};
+        try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+        return h;
+      }
+      function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+      function pad(n) { return String(n).padStart(2, "0"); }
+      function buildMonths(sel) {
+        sel.innerHTML = "";
+        var all = document.createElement("option"); all.value = "all"; all.textContent = "All months"; sel.appendChild(all);
+        var now = new Date();
+        var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        for (var y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
+          for (var m = 1; m <= 12; m++) {
+            var o = document.createElement("option");
+            o.value = y + "-" + pad(m);
+            o.textContent = months[m - 1] + " " + y;
+            sel.appendChild(o);
+          }
+        }
+      }
+      function dueApplies(d, yyyyMm) {
+        if (yyyyMm === "all") return true;
+        var eff = d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month)) ? String(d.effective_from_month).trim() : (d.due_date && d.due_date.length >= 7 ? d.due_date.slice(0, 7) : null);
+        if (!eff) return false;
+        return yyyyMm >= eff;
+      }
+      function formatDue(d) {
+        var v = d.due_date || "";
+        if (v.length >= 10) {
+          var day = parseInt(v.slice(8, 10), 10) || 1;
+          return "Day " + day + " each month";
+        }
+        return v || "—";
+      }
+      function render() {
+        var sel = document.querySelector("[data-dues-view-month]");
+        var vm = sel && sel.value ? sel.value : "all";
+        var hint = document.querySelector("[data-dues-hint]");
+        if (hint) hint.textContent = vm === "all" ? "Showing all months." : "Showing dues that apply to " + vm + ".";
+        fetch("/api/monthly-dues", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+          var tb = document.querySelector("[data-dues-list]");
+          var empty = document.querySelector("[data-empty]");
+          tb.querySelectorAll("[data-row]").forEach(function (x) { x.remove(); });
+          if (!Array.isArray(rows) || rows.length === 0) {
+            if (empty) empty.style.display = "";
+            return;
+          }
+          if (empty) empty.style.display = "none";
+          rows.filter(function (d) { return dueApplies(d, vm); }).forEach(function (d) {
+            var tr = document.createElement("tr");
+            tr.dataset.row = "1";
+            var amt = d.amount != null ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
+            var st = (d.status && String(d.status).toLowerCase() === "paid") ? "Paid" : "Pending";
+            tr.innerHTML = "<td>" + esc(d.unit_label || "Your unit") + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>" + esc(st) + "</td>";
+            tb.appendChild(tr);
+          });
+          if (tb.querySelectorAll("[data-row]").length === 0 && empty) empty.style.display = "";
+        });
+      }
+      buildMonths(document.querySelector("[data-dues-view-month]"));
+      document.querySelector("[data-dues-view-month]").addEventListener("change", render);
+      try {
+        var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+        var name = emp.full_name || "Owner";
+        var ini = name.split(" ").map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "OW";
+        document.querySelector("[data-profile-btn]").textContent = ini;
+        document.querySelector("[data-profile-initials-lg]").textContent = ini;
+        document.querySelector("[data-profile-name]").textContent = name;
+      } catch (e) {}
+      document.querySelector("[data-profile-btn]").addEventListener("click", function (e) { e.stopPropagation(); document.querySelector("[data-profile-dropdown]").classList.toggle("is-open"); });
+      document.addEventListener("click", function () { document.querySelector("[data-profile-dropdown]").classList.remove("is-open"); });
+      document.querySelector("[data-logout-link]").addEventListener("click", function () { localStorage.clear(); });
+      render();
+    </script>
+  </body>
+</html>

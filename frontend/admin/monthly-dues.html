@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Monthly Dues | Regalia Owner</title>
+    <title>Monthly Dues | Regalia Admin</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -30,25 +30,6 @@
             </span>
             Dashboard
           </a>
-          <a href="./bookings.html">
-            <span class="icon">
-              <svg viewBox="0 0 24 24">
-                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
-                <path d="M16 2v4M8 2v4M3 10h18"></path>
-              </svg>
-            </span>
-            Bookings
-          </a>
-          <a href="./properties.html">
-            <span class="icon">
-              <svg viewBox="0 0 24 24">
-                <path d="M3 21h18"></path>
-                <path d="M5 21V7l7-4 7 4v14"></path>
-                <path d="M9 21v-6h6v6"></path>
-              </svg>
-            </span>
-            Properties
-          </a>
           <a href="./employees.html">
             <span class="icon">
               <svg viewBox="0 0 24 24">
@@ -60,14 +41,16 @@
             </span>
             Manage Employees
           </a>
-          <a href="./payments.html">
+          <a href="./manage-owners.html">
             <span class="icon">
               <svg viewBox="0 0 24 24">
-                <rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect>
-                <line x1="1" y1="10" x2="23" y2="10"></line>
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
               </svg>
             </span>
-            Payments
+            Manage Owners
           </a>
           <a class="active" href="./monthly-dues.html">
             <span class="icon">
@@ -108,7 +91,7 @@
         <header class="topbar">
           <div>
             <h1>Monthly Dues</h1>
-            <p>Add and manage monthly dues.</p>
+            <p>Create and track dues for unit owners.</p>
           </div>
           <div class="top-actions">
             <div class="notif-wrap">
@@ -331,6 +314,14 @@
       </div>
     </div>
     <script>
+      (function gate() {
+        try {
+          if (!localStorage.getItem("token")) { window.location.replace("../index.html"); return; }
+          var r = String(localStorage.getItem("role") || "").toUpperCase();
+          if (r === "OWNER") window.location.replace("../owner/monthly-dues.html");
+          else if (r !== "ADMIN") window.location.replace("../staff/index.html");
+        } catch (e) {}
+      })();
       (function () {
         try {
           var emp = JSON.parse(localStorage.getItem("employee") || "{}");

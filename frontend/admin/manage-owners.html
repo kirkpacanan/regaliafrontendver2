@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Manage Owners | Regalia Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./admin.css" />
+  </head>
+  <body data-page="manage-owners">
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand"><img class="brand-logo" src="../logo.png" alt="Regalia" /></div>
+        <nav class="nav">
+          <a href="./index.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg></span>Dashboard</a>
+          <a href="./employees.html"><span class="icon"><svg viewBox="0 0 24 24"><path d="M16 7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2"></path><rect x="6" y="2" width="6" height="4" rx="1"></rect></svg></span>Manage Employees</a>
+          <a class="active" href="./manage-owners.html"><span class="icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg></span>Manage Owners</a>
+          <a href="./monthly-dues.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></span>Monthly Dues</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="#" data-open-settings><span class="icon"><svg viewBox="0 0 24 24"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle></svg></span>Settings</a>
+          <a href="../index.html"><span class="icon"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg></span>Log out</a>
+        </div>
+      </aside>
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Manage Unit Owners</h1>
+            <p>Create resident accounts linked to a unit. They log in with role Owner and see monthly dues for that unit only.</p>
+          </div>
+          <div class="top-actions">
+            <button type="button" class="btn-primary" data-open-add-owner>Add unit owner</button>
+            <div class="profile-wrap">
+              <button class="avatar avatar-btn" data-profile-btn aria-label="Account">AD</button>
+              <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
+                <div class="profile-info">
+                  <div class="profile-avatar-lg" data-profile-initials-lg>AD</div>
+                  <div>
+                    <div class="profile-name" data-profile-name>Admin</div>
+                    <div class="profile-role" data-profile-role>ADMIN</div>
+                  </div>
+                </div>
+                <a href="../index.html" class="profile-action" data-logout-link>Logout</a>
+              </div>
+            </div>
+          </div>
+        </header>
+        <section class="panel">
+          <p class="panel-subtitle muted" data-owners-msg></p>
+          <div class="payment-placeholder-table">
+            <table class="payment-table">
+              <thead>
+                <tr><th>Name</th><th>Email</th><th>Username</th><th>Unit</th><th></th></tr>
+              </thead>
+              <tbody data-owners-tbody>
+                <tr data-owners-empty><td colspan="5" class="payment-placeholder-cell">No unit owners yet. Add one to assign a login to a unit.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <div class="modal-overlay" data-owner-modal>
+      <div class="modal-card" style="max-width:420px;">
+        <div class="modal-header">
+          <h2>Add unit owner</h2>
+          <button class="icon-button" type="button" data-close-owner-modal aria-label="Close">&times;</button>
+        </div>
+        <form class="modal-form" data-owner-form>
+          <label>Full name <input type="text" name="full_name" required /></label>
+          <label>Username <input type="text" name="username" required /></label>
+          <label>Email <input type="email" name="email" required /></label>
+          <label>Password <input type="password" name="password" required minlength="6" /></label>
+          <label>Unit <select name="unit_id" data-owner-unit required><option value="">— Loading units —</option></select></label>
+          <div class="settings-msg" data-owner-form-msg></div>
+          <div class="step-actions">
+            <button type="button" class="submit-button ghost" data-close-owner-modal2>Cancel</button>
+            <button type="submit" class="submit-button">Create owner</button>
+          </div>
+        </form>
+      </div>
+    </div>
+    <script>
+      (function gate() {
+        try {
+          if (!localStorage.getItem("token")) { window.location.replace("../index.html"); return; }
+          var r = String(localStorage.getItem("role") || "").toUpperCase();
+          if (r === "OWNER") window.location.replace("../owner/index.html");
+          else if (r !== "ADMIN") window.location.replace("../staff/index.html");
+        } catch (e) {}
+      })();
+      function getH() {
+        var h = { "Content-Type": "application/json" };
+        try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+        return h;
+      }
+      function loadUnits(sel) {
+        fetch("/api/properties", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
+          sel.innerHTML = "<option value=\"\">— Select unit —</option>";
+          (rows || []).forEach(function (u) {
+            var opt = document.createElement("option");
+            opt.value = u.unit_id;
+            opt.textContent = (u.tower_name || "") + " – Unit " + (u.unit_number || u.unit_id);
+            sel.appendChild(opt);
+          });
+        });
+      }
+      function loadOwners() {
+        var tb = document.querySelector("[data-owners-tbody]");
+        var empty = document.querySelector("[data-owners-empty]");
+        fetch("/api/owners", { headers: getH() }).then(function (r) { return r.json(); }).then(function (rows) {
+          if (!Array.isArray(rows)) rows = [];
+          tb.querySelectorAll("[data-owner-row]").forEach(function (x) { x.remove(); });
+          if (rows.length === 0) { if (empty) empty.style.display = ""; return; }
+          if (empty) empty.style.display = "none";
+          rows.forEach(function (o) {
+            var tr = document.createElement("tr");
+            tr.dataset.ownerRow = "1";
+            var unit = o.tower_name && o.unit_number ? o.tower_name + " – Unit " + o.unit_number : (o.unit_id ? "Unit #" + o.unit_id : "—");
+            tr.innerHTML = "<td>" + escapeHtml(o.full_name || "") + "</td><td>" + escapeHtml(o.email || "") + "</td><td>" + escapeHtml(o.username || "") + "</td><td>" + escapeHtml(unit) + "</td><td><button type=\"button\" class=\"btn ghost danger\" data-del-owner=\"" + o.employee_id + "\">Remove</button></td>";
+            tb.appendChild(tr);
+          });
+        }).catch(function () {});
+      }
+      function escapeHtml(s) {
+        if (!s) return "";
+        var d = document.createElement("div"); d.textContent = s; return d.innerHTML;
+      }
+      document.querySelector("[data-open-add-owner]").addEventListener("click", function () {
+        var m = document.querySelector("[data-owner-modal]");
+        var sel = document.querySelector("[data-owner-unit]");
+        loadUnits(sel);
+        m.classList.add("is-open");
+      });
+      document.querySelectorAll("[data-close-owner-modal],[data-close-owner-modal2]").forEach(function (b) {
+        b.addEventListener("click", function () { document.querySelector("[data-owner-modal]").classList.remove("is-open"); });
+      });
+      document.querySelector("[data-owner-modal]").addEventListener("click", function (e) {
+        if (e.target === e.currentTarget) e.currentTarget.classList.remove("is-open");
+      });
+      document.querySelector("[data-owner-form]").addEventListener("submit", function (e) {
+        e.preventDefault();
+        var msg = document.querySelector("[data-owner-form-msg]");
+        var fd = new FormData(e.target);
+        var body = { full_name: fd.get("full_name"), username: fd.get("username"), email: fd.get("email"), password: fd.get("password"), unit_id: fd.get("unit_id") };
+        msg.textContent = "Saving…";
+        fetch("/api/owners", { method: "POST", headers: getH(), body: JSON.stringify(body) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { msg.textContent = res.d.error || "Failed"; return; }
+            msg.textContent = "";
+            e.target.reset();
+            document.querySelector("[data-owner-modal]").classList.remove("is-open");
+            loadOwners();
+          }).catch(function () { msg.textContent = "Network error"; });
+      });
+      document.querySelector("[data-owners-tbody]").addEventListener("click", function (e) {
+        var btn = e.target.closest("[data-del-owner]");
+        if (!btn) return;
+        if (!confirm("Remove this owner account? They will no longer be able to log in.")) return;
+        fetch("/api/owners/" + btn.getAttribute("data-del-owner"), { method: "DELETE", headers: getH() }).then(loadOwners);
+      });
+      var profileBtn = document.querySelector("[data-profile-btn]");
+      var profileDd = document.querySelector("[data-profile-dropdown]");
+      if (profileBtn) profileBtn.addEventListener("click", function (ev) { ev.stopPropagation(); profileDd.classList.toggle("is-open"); });
+      document.addEventListener("click", function () { if (profileDd) profileDd.classList.remove("is-open"); });
+      try {
+        var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+        var name = emp.full_name || emp.username || "Admin";
+        var ini = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "AD";
+        if (profileBtn) profileBtn.textContent = ini;
+        var plg = document.querySelector("[data-profile-initials-lg]"); if (plg) plg.textContent = ini;
+        var pn = document.querySelector("[data-profile-name]"); if (pn) pn.textContent = name;
+      } catch (x) {}
+      document.querySelector("[data-logout-link]").addEventListener("click", function () { try { localStorage.clear(); } catch (e) {} });
+      loadOwners();
+    </script>
+  </body>
+</html>

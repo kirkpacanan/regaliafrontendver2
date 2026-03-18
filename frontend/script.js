@@ -172,20 +172,20 @@ if (loginForm) {
     const password = String(formData.get("password") || "").trim();
 
     // Offline accounts for local development
-    function isManagementDashboardRole(r) {
-      const n = String(r || "").toUpperCase().replace(/[\s_-]/g, "");
-      return n === "OWNER" || n === "ADMIN";
-    }
     const offlineAccounts = {
-      admin: { password: "admin123", role: "ADMIN", employee: { full_name: "Admin (Offline)", username: "admin" } },
-      staff:  { password: "staff123", role: "Front Desk", employee: { full_name: "Staff (Offline)", username: "staff" } }
+      admin: { password: "admin123", role: "ADMIN", employee: { full_name: "Admin (Offline)", username: "admin", employee_id: 1 } },
+      owner: { password: "owner123", role: "OWNER", employee: { full_name: "Unit Owner (Offline)", username: "owner", employee_id: 2 } },
+      staff: { password: "staff123", role: "Front Desk", employee: { full_name: "Staff (Offline)", username: "staff" } }
     };
     const offlineMatch = offlineAccounts[username];
     if (offlineMatch && offlineMatch.password === password) {
       localStorage.setItem("token", "offline-token");
       localStorage.setItem("role", offlineMatch.role);
       localStorage.setItem("employee", JSON.stringify(offlineMatch.employee));
-      window.location.href = isManagementDashboardRole(offlineMatch.role) ? "./admin/index.html" : "./staff/index.html";
+      const n = String(offlineMatch.role || "").toUpperCase().replace(/[\s_-]/g, "");
+      if (n === "ADMIN") window.location.href = "./admin/index.html";
+      else if (n === "OWNER") window.location.href = "./owner/index.html";
+      else window.location.href = "./staff/index.html";
       return;
     }
 
@@ -208,14 +208,12 @@ if (loginForm) {
           localStorage.setItem("theme_color", data.theme_color);
         }
 
-        // Redirect: management (OWNER legacy / ADMIN) → admin panel; staff → staff area
-        if (isManagementDashboardRole(data.role)) {
-          window.location.href = "./admin/index.html";
-        } else if (data.role === "Admin" || data.role === "Front Desk" || data.role === "Property Manager" || data.role === "Security" || data.role === "Maintenance") {
+        const roleKey = String(data.role || "").toUpperCase().replace(/[\s_-]/g, "");
+        if (roleKey === "ADMIN") window.location.href = "./admin/index.html";
+        else if (roleKey === "OWNER") window.location.href = "./owner/index.html";
+        else if (data.role === "Admin" || data.role === "Front Desk" || data.role === "Property Manager" || data.role === "Security" || data.role === "Maintenance")
           window.location.href = "./staff/index.html";
-        } else {
-          window.location.href = "./staff/index.html"; // fallback for any other role
-        }
+        else window.location.href = "./staff/index.html";
       } else {
         if (loginError) loginError.textContent = data.error || "Login failed";
       }
