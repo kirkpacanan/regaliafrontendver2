@@ -143,14 +143,14 @@
             <div class="settings-msg" data-tower-msg></div>
             <button type="submit" class="btn ghost settings-save">Add tower</button>
           </form>
-        </section>
 
-        <section class="panel">
-          <h3>Add unit</h3>
-          <p class="panel-subtitle muted">Units you add here can later be assigned to owners.</p>
-          <form class="settings-form" data-unit-form>
+          <div class="settings-divider"></div>
+
+          <h3 style="margin:0 0 0.75rem; font-size: 0.95rem; font-weight: 600; color: var(--accent-1);">Add unit template</h3>
+          <p class="panel-subtitle muted" style="margin:0 0 1rem;">Save unit type + size so the Add unit form can auto-fill.</p>
+          <form class="settings-form" data-template-form>
             <label class="settings-field"><span>Tower</span>
-              <select name="tower_id" data-tower-select required>
+              <select name="tower_id" data-template-tower-select required>
                 <option value="">— Select tower —</option>
               </select>
             </label>
@@ -165,7 +165,41 @@
                 <option value="Duplex">Duplex</option>
               </select>
             </label>
+            <label class="settings-field"><span>Unit size (sqm)</span><input type="number" step="0.01" name="unit_size" placeholder="e.g. 45" required /></label>
+            <label class="settings-field"><span>Example unit number (optional)</span><input type="text" name="unit_number_example" placeholder="e.g. 1201" /></label>
+            <label class="settings-field"><span>Default floor level (optional)</span><input type="text" name="floor_number_default" placeholder="e.g. 12" /></label>
+            <div class="settings-msg" data-template-msg></div>
+            <button type="submit" class="btn ghost settings-save">Save template</button>
+          </form>
+        </section>
+
+        <section class="panel">
+          <h3>Add unit</h3>
+          <p class="panel-subtitle muted">Units you add here can later be assigned to owners.</p>
+          <form class="settings-form" data-unit-form>
+            <label class="settings-field"><span>Tower</span>
+              <select name="tower_id" data-tower-select required>
+                <option value="">— Select tower —</option>
+              </select>
+            </label>
+            <label class="settings-field"><span>Unit template</span>
+              <select name="unit_template_key" data-unit-template-select>
+                <option value="">— Select template —</option>
+              </select>
+            </label>
+            <label class="settings-field"><span>Unit type</span>
+              <select name="unit_type" required>
+                <option value="">— Select —</option>
+                <option value="Studio Type">Studio Type</option>
+                <option value="1 Bedroom">1 Bedroom</option>
+                <option value="2 Bedroom">2 Bedroom</option>
+                <option value="3 Bedroom">3 Bedroom</option>
+                <option value="Penthouse">Penthouse</option>
+                <option value="Duplex">Duplex</option>
+              </select>
+            </label>
             <label class="settings-field"><span>Unit number</span><input type="text" name="unit_number" placeholder="e.g. 1201" required /></label>
+            <label class="settings-field"><span>Floor level</span><input type="text" name="floor_number" placeholder="e.g. 12" /></label>
             <label class="settings-field"><span>Unit size (sqm)</span><input type="number" step="0.01" name="unit_size" placeholder="e.g. 45" required /></label>
             <div class="settings-msg" data-unit-msg></div>
             <button type="submit" class="btn ghost settings-save">Add unit</button>
@@ -246,16 +280,95 @@
         return h;
       }
       function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+      var UNIT_TEMPLATES_KEY = "admin_unit_templates_v1";
+      var adminUnitsCache = null;
+      var unitTemplateOptionsByKey = {};
+      function getSavedTemplates() {
+        try { return JSON.parse(localStorage.getItem(UNIT_TEMPLATES_KEY) || "[]"); } catch (e) { return []; }
+      }
+      function setSavedTemplates(arr) {
+        try { localStorage.setItem(UNIT_TEMPLATES_KEY, JSON.stringify(arr || [])); } catch (e) {}
+      }
       function loadTowers() {
         var sel = document.querySelector("[data-tower-select]");
+        var tSel = document.querySelector("[data-template-tower-select]");
         return fetch("/api/towers", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
-          if (!sel) return;
-          sel.innerHTML = "<option value=\"\">— Select tower —</option>";
+          if (sel) sel.innerHTML = "<option value=\"\">— Select tower —</option>";
+          if (tSel) tSel.innerHTML = "<option value=\"\">— Select tower —</option>";
           (rows || []).forEach(function (t) {
             var opt = document.createElement("option");
             opt.value = t.tower_id;
             opt.textContent = t.tower_name + (t.number_floors ? " (" + t.number_floors + " floors)" : "");
+            if (sel) sel.appendChild(opt.cloneNode(true));
+            if (tSel) tSel.appendChild(opt);
+          });
+        });
+      }
+      function loadAdminUnitsOnce() {
+        if (adminUnitsCache) return Promise.resolve(adminUnitsCache);
+        return fetch("/api/units", { headers: getH() })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (rows) { adminUnitsCache = Array.isArray(rows) ? rows : []; return adminUnitsCache; })
+          .catch(function () { adminUnitsCache = []; return adminUnitsCache; });
+      }
+      function templateKey(towerId, unitType, unitSize) {
+        return String(towerId) + "|" + String(unitType || "").trim() + "|" + String(unitSize == null ? "" : unitSize);
+      }
+      function refreshUnitTemplateOptionsForTower(towerId) {
+        var sel = document.querySelector("[data-unit-template-select]");
+        if (!sel) return;
+        unitTemplateOptionsByKey = {};
+        if (!towerId) {
+          sel.innerHTML = "<option value=\"\">— Select template —</option>";
+          return;
+        }
+        return loadAdminUnitsOnce().then(function (units) {
+          var saved = getSavedTemplates();
+          var optsByKey = {};
+
+          // Saved templates first
+          saved.filter(function (t) { return String(t.tower_id) === String(towerId); }).forEach(function (t) {
+            var key = templateKey(t.tower_id, t.unit_type, t.unit_size);
+            optsByKey[key] = {
+              key: key,
+              tower_id: t.tower_id,
+              unit_type: t.unit_type,
+              unit_size: t.unit_size,
+              unit_number_example: t.unit_number_example || "",
+              floor_number_default: t.floor_number_default || ""
+            };
+          });
+
+          // Infer templates from already-created units
+          (units || []).filter(function (u) { return String(u.tower_id) === String(towerId); }).forEach(function (u) {
+            if (!u.unit_type || u.unit_size == null || u.unit_size === "") return;
+            var key = templateKey(u.tower_id, u.unit_type, u.unit_size);
+            if (!optsByKey[key]) {
+              optsByKey[key] = {
+                key: key,
+                tower_id: u.tower_id,
+                unit_type: u.unit_type,
+                unit_size: u.unit_size,
+                unit_number_example: u.unit_number || "",
+                floor_number_default: u.floor_number || ""
+              };
+            }
+          });
+
+          var list = Object.keys(optsByKey).map(function (k) { return optsByKey[k]; });
+          list.sort(function (a, b) {
+            var t = String(a.unit_type || "").localeCompare(String(b.unit_type || ""));
+            if (t !== 0) return t;
+            return Number(a.unit_size || 0) - Number(b.unit_size || 0);
+          });
+
+          sel.innerHTML = "<option value=\"\">— Select template —</option>";
+          list.forEach(function (t) {
+            var opt = document.createElement("option");
+            opt.value = t.key;
+            opt.textContent = (t.unit_type || "Unit") + " · " + (t.unit_size != null && t.unit_size !== "" ? t.unit_size + " sqm" : "");
             sel.appendChild(opt);
+            unitTemplateOptionsByKey[t.key] = t;
           });
         });
       }
@@ -278,7 +391,9 @@
         e.preventDefault();
         var msg = document.querySelector("[data-unit-msg]");
         var fd = new FormData(e.target);
-        var body = { tower_id: fd.get("tower_id"), unit_type: fd.get("unit_type"), unit_number: fd.get("unit_number"), unit_size: fd.get("unit_size"), price: 0 };
+        var floorVal = fd.get("floor_number");
+        if (floorVal === "" || floorVal == null) floorVal = null;
+        var body = { tower_id: fd.get("tower_id"), unit_type: fd.get("unit_type"), unit_number: fd.get("unit_number"), floor_number: floorVal, unit_size: fd.get("unit_size"), price: 0 };
         msg.textContent = "Saving…";
         fetch("/api/units", { method: "POST", headers: getH(), body: JSON.stringify(body) })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -290,6 +405,88 @@
             setTimeout(function () { msg.textContent = ""; }, 1500);
           }).catch(function () { msg.textContent = "Network error"; });
       });
+      // Template save + unit template selection
+      (function initTemplates() {
+        var templateForm = document.querySelector("[data-template-form]");
+        var templateMsg = document.querySelector("[data-template-msg]");
+        var unitTemplateSel = document.querySelector("[data-unit-template-select]");
+        var unitTowerSel = document.querySelector("[data-tower-select]");
+        var unitTypeSel = document.querySelector("[data-unit-form] [name=\"unit_type\"]");
+        var unitSizeInput = document.querySelector("[data-unit-form] [name=\"unit_size\"]");
+        var unitNumberInput = document.querySelector("[data-unit-form] [name=\"unit_number\"]");
+        var unitFloorInput = document.querySelector("[data-unit-form] [name=\"floor_number\"]");
+
+        function setInputValue(input, value) {
+          if (!input) return;
+          input.value = value == null ? "" : value;
+        }
+
+        if (unitTowerSel) {
+          unitTowerSel.addEventListener("change", function () {
+            refreshUnitTemplateOptionsForTower(unitTowerSel.value).then(function () {
+              if (unitTemplateSel) unitTemplateSel.value = "";
+              // Keep user-entered values unless a template is selected explicitly
+            });
+          });
+        }
+
+        if (unitTemplateSel) {
+          unitTemplateSel.addEventListener("change", function () {
+            var t = unitTemplateOptionsByKey[unitTemplateSel.value];
+            if (!t) return;
+            if (unitTypeSel) unitTypeSel.value = t.unit_type || "";
+            if (unitSizeInput) unitSizeInput.value = t.unit_size == null ? "" : t.unit_size;
+            if (unitNumberInput && t.unit_number_example) unitNumberInput.value = t.unit_number_example;
+            if (unitFloorInput) setInputValue(unitFloorInput, t.floor_number_default);
+          });
+        }
+
+        if (templateForm) {
+          templateForm.addEventListener("submit", function (e) {
+            e.preventDefault();
+            var fd = new FormData(templateForm);
+            var towerId = fd.get("tower_id");
+            var unitType = fd.get("unit_type");
+            var unitSize = fd.get("unit_size");
+            var unitNumberExample = fd.get("unit_number_example");
+            var floorDefault = fd.get("floor_number_default");
+
+            if (!towerId || !unitType || unitSize === "" || unitSize == null) {
+              if (templateMsg) templateMsg.textContent = "Please complete tower, unit type, and unit size.";
+              return;
+            }
+
+            var templates = getSavedTemplates();
+            var key = templateKey(towerId, unitType, unitSize);
+            var replaced = false;
+            templates = templates.map(function (t) {
+              if (templateKey(t.tower_id, t.unit_type, t.unit_size) === key) {
+                replaced = true;
+                return {
+                  tower_id: towerId,
+                  unit_type: unitType,
+                  unit_size: unitSize,
+                  unit_number_example: unitNumberExample || "",
+                  floor_number_default: floorDefault || ""
+                };
+              }
+              return t;
+            });
+            if (!replaced) {
+              templates.push({ tower_id: towerId, unit_type: unitType, unit_size: unitSize, unit_number_example: unitNumberExample || "", floor_number_default: floorDefault || "" });
+            }
+            setSavedTemplates(templates);
+            if (templateMsg) templateMsg.textContent = "Template saved!";
+            setTimeout(function () { if (templateMsg) templateMsg.textContent = ""; }, 1200);
+            templateForm.reset();
+
+            // If currently on same tower, refresh templates
+            if (unitTowerSel && String(unitTowerSel.value) === String(towerId)) {
+              refreshUnitTemplateOptionsForTower(towerId);
+            }
+          });
+        }
+      })();
       // Profile dropdown minimal
       (function () {
         var profileBtn = document.querySelector("[data-profile-btn]");
