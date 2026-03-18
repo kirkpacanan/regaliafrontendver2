@@ -17,6 +17,8 @@ const sessionLabel = document.querySelector("[data-session-label]");
 const devnav = document.querySelector("[data-devnav]");
 const devtabs = Array.from(document.querySelectorAll("[data-tab]"));
 
+let selectedAdminId = null;
+
 function show(el, yes) {
   if (!el) return;
   el.hidden = !yes;
@@ -199,6 +201,9 @@ function renderAdmins(rows) {
     const tr = document.createElement("tr");
     const adminLabel = `${r.full_name || "Admin"}${r.username ? ` (@${r.username})` : ""}`;
     const adminId = Number(r.employee_id);
+    tr.setAttribute("data-admin-row", "1");
+    tr.setAttribute("data-admin-id", String(adminId));
+    tr.style.cursor = "pointer";
     tr.innerHTML = `
       <td>${escapeHtml(adminLabel)}</td>
       <td>${escapeHtml(r.condominium_name || "-")}</td>
@@ -235,6 +240,104 @@ async function refreshTracking() {
   }
 }
 
+function renderPeople(container, people, kind) {
+  if (!container) return;
+  container.innerHTML = "";
+  if (!people || people.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "muted small";
+    empty.textContent = kind === "owners" ? "No owners yet." : "No staff yet.";
+    container.appendChild(empty);
+    return;
+  }
+  people.forEach((p) => {
+    const el = document.createElement("div");
+    el.className = "person";
+    el.setAttribute("data-person-id", String(p.employee_id));
+    const metaBits = [];
+    if (p.username) metaBits.push(`@${p.username}`);
+    if (p.email) metaBits.push(p.email);
+    el.innerHTML = `
+      <div class="person__top">
+        <div>
+          <div class="person__name">${escapeHtml(p.full_name || "User")}</div>
+          <div class="person__meta">${escapeHtml(metaBits.join(" • "))}</div>
+          <div class="person__role">${escapeHtml(p.role_type || "")}</div>
+        </div>
+        <div class="person__actions">
+          <button class="btn ghost btn-small" type="button" data-action="person-edit" data-user-id="${p.employee_id}">Edit</button>
+          <button class="btn ghost btn-small" type="button" data-action="person-reset" data-user-id="${p.employee_id}">Reset</button>
+          <button class="btn ghost btn-small" type="button" data-action="person-delete" data-user-id="${p.employee_id}">Delete</button>
+        </div>
+      </div>
+      <div class="person__edit">
+        <label class="field">
+          <span>Username</span>
+          <input type="text" name="username" value="${escapeHtml(p.username || "")}" />
+        </label>
+        <label class="field">
+          <span>Email</span>
+          <input type="email" name="email" value="${escapeHtml(p.email || "")}" />
+        </label>
+        <label class="field">
+          <span>Contact number</span>
+          <input type="text" name="contact_number" value="${escapeHtml(p.contact_number || "")}" />
+        </label>
+        <label class="field">
+          <span>Address</span>
+          <input type="text" name="address" value="${escapeHtml(p.address || "")}" />
+        </label>
+        <label class="field">
+          <span>New passcode (optional)</span>
+          <input type="password" name="password" value="" />
+        </label>
+        <div class="row">
+          <div class="error" data-person-error></div>
+          <button class="btn primary btn-small" type="button" data-action="person-save" data-user-id="${p.employee_id}">Save</button>
+          <button class="btn outline btn-small" type="button" data-action="person-cancel" data-user-id="${p.employee_id}">Cancel</button>
+        </div>
+      </div>
+    `;
+    container.appendChild(el);
+  });
+}
+
+async function loadAdminTree(adminId) {
+  const tree = document.querySelector("[data-tree]");
+  const title = document.querySelector("[data-tree-title]");
+  const subtitle = document.querySelector("[data-tree-subtitle]");
+  const ownersEl = document.querySelector("[data-tree-owners]");
+  const staffEl = document.querySelector("[data-tree-staff]");
+  const treeError = document.querySelector("[data-tree-error]");
+  const refreshTreeBtn = document.querySelector("[data-action='tree-refresh']");
+
+  selectedAdminId = adminId;
+  if (refreshTreeBtn) refreshTreeBtn.disabled = !adminId;
+  setError(treeError, "");
+
+  if (!adminId) {
+    show(tree, false);
+    return;
+  }
+
+  show(tree, true);
+  if (title) title.textContent = "Loading…";
+  if (subtitle) subtitle.textContent = "";
+  if (ownersEl) ownersEl.innerHTML = "";
+  if (staffEl) staffEl.innerHTML = "";
+
+  try {
+    const data = await api(`/api/developer/admins/${adminId}/tree`, { method: "GET" });
+    if (title) title.textContent = "Account tree";
+    if (subtitle) subtitle.textContent = `Admin ID: ${adminId}`;
+    renderPeople(ownersEl, data.owners || [], "owners");
+    renderPeople(staffEl, data.staff || [], "staff");
+  } catch (e) {
+    if (title) title.textContent = "Account tree";
+    setError(treeError, e.message || "Failed to load tree");
+  }
+}
+
 document.addEventListener("click", async (event) => {
   // Show/hide passcode inputs
   const toggle = event.target && event.target.closest && event.target.closest("[data-toggle='passcode']");
@@ -245,6 +348,17 @@ document.addEventListener("click", async (event) => {
     input.type = input.type === "password" ? "text" : "password";
     toggle.textContent = input.type === "password" ? "Show" : "Hide";
     return;
+  }
+
+  // Select admin row (ignore clicks on action buttons)
+  const row = event.target && event.target.closest && event.target.closest("tr[data-admin-row='1']");
+  if (row) {
+    const isAction = event.target.closest && event.target.closest("[data-action][data-admin-id]");
+    if (!isAction) {
+      const adminId = Number(row.getAttribute("data-admin-id"));
+      await loadAdminTree(adminId);
+      return;
+    }
   }
 
   const btn = event.target && event.target.closest && event.target.closest("[data-action][data-admin-id]");
@@ -275,6 +389,72 @@ document.addEventListener("click", async (event) => {
       const trackError = document.querySelector("[data-track-error]");
       setError(trackError, e.message || "Failed to reset admin passcode");
     }
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const btn = event.target && event.target.closest && event.target.closest("[data-action][data-user-id]");
+  if (!btn) return;
+  const action = btn.getAttribute("data-action");
+  const userId = Number(btn.getAttribute("data-user-id"));
+  if (!userId) return;
+
+  const person = btn.closest(".person");
+  const personErr = person ? person.querySelector("[data-person-error]") : null;
+  const setPersonErr = (m) => { if (personErr) personErr.textContent = m || ""; };
+
+  if (action === "person-edit") {
+    if (person) person.classList.add("is-editing");
+    setPersonErr("");
+    return;
+  }
+  if (action === "person-cancel") {
+    if (person) person.classList.remove("is-editing");
+    setPersonErr("");
+    return;
+  }
+  if (action === "person-save") {
+    if (!person) return;
+    setPersonErr("");
+    const payload = {};
+    ["username", "email", "contact_number", "address", "password"].forEach((k) => {
+      const input = person.querySelector(`input[name='${k}']`);
+      if (input) payload[k] = String(input.value || "").trim();
+    });
+    if (!payload.password) delete payload.password;
+    try {
+      await api(`/api/developer/users/${userId}`, { method: "PUT", body: JSON.stringify(payload) });
+      person.classList.remove("is-editing");
+      await loadAdminTree(selectedAdminId);
+      await refreshTracking().catch(() => {});
+    } catch (e) {
+      setPersonErr(e.message || "Failed to save");
+    }
+    return;
+  }
+  if (action === "person-reset") {
+    const ok = window.confirm("Reset this user passcode? The new passcode will be shown once.");
+    if (!ok) return;
+    try {
+      const data = await api(`/api/developer/users/${userId}/reset-passcode`, { method: "POST", body: JSON.stringify({}) });
+      window.alert(`New passcode: ${data.new_passcode}`);
+      await loadAdminTree(selectedAdminId);
+    } catch (e) {
+      setPersonErr(e.message || "Failed to reset");
+    }
+    return;
+  }
+  if (action === "person-delete") {
+    const ok = window.confirm("Delete this user? This cannot be undone.");
+    if (!ok) return;
+    try {
+      await api(`/api/developer/users/${userId}`, { method: "DELETE" });
+      await loadAdminTree(selectedAdminId);
+      await refreshTracking().catch(() => {});
+    } catch (e) {
+      setPersonErr(e.message || "Failed to delete");
+    }
+    return;
   }
 });
 
@@ -437,6 +617,14 @@ if (refreshBtn) {
     const tab = getTab();
     if (tab === "tracking") await refreshTracking();
     else await loadCondominiums().catch(() => {});
+  });
+}
+
+const treeRefreshBtn = document.querySelector("[data-action='tree-refresh']");
+if (treeRefreshBtn) {
+  treeRefreshBtn.addEventListener("click", async () => {
+    if (!selectedAdminId) return;
+    await loadAdminTree(selectedAdminId);
   });
 }
 

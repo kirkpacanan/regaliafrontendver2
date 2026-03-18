@@ -175,6 +175,30 @@
               </tbody>
             </table>
           </div>
+          <div class="divider"></div>
+          <section class="tree" data-tree hidden>
+            <div class="tree__header">
+              <div>
+                <div class="tree__title" data-tree-title>Select an admin to view their tree</div>
+                <div class="tree__subtitle muted" data-tree-subtitle></div>
+              </div>
+              <div class="tree__header-actions">
+                <button class="btn outline" type="button" data-action="tree-refresh" disabled>Refresh tree</button>
+              </div>
+            </div>
+
+            <div class="tree__grid">
+              <div class="tree__group">
+                <h3 class="tree__group-title">Owners</h3>
+                <div class="tree__list" data-tree-owners></div>
+              </div>
+              <div class="tree__group">
+                <h3 class="tree__group-title">Staff</h3>
+                <div class="tree__list" data-tree-staff></div>
+              </div>
+            </div>
+            <div class="error" data-tree-error role="alert"></div>
+          </section>
           <div class="error" data-track-error role="alert"></div>
         </section>
 

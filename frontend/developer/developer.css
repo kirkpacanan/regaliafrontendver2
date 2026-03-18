@@ -26,6 +26,7 @@ body {
   margin-bottom: 14px;
   overflow: auto;
 }
+.devnav[hidden] { display: none !important; }
 .devtab {
   appearance: none;
   border: 1px solid rgba(255,255,255,0.10);
@@ -162,7 +163,45 @@ body {
 
 .table-actions {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  align-items: flex-end;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+  justify-content: flex-end;
 }
+
+.tree { display: grid; gap: 12px; }
+.tree__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.tree__title { font-weight: 600; font-size: 14px; color: rgba(231,233,238,0.95); }
+.tree__subtitle { margin-top: 2px; }
+.tree__header-actions { display: flex; gap: 10px; align-items: center; }
+
+.tree__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 980px) { .tree__grid { grid-template-columns: 1fr; } }
+
+.tree__group { border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); border-radius: 14px; padding: 12px; }
+.tree__group-title { margin: 0 0 10px; font-size: 13px; color: rgba(231,233,238,0.85); }
+.tree__list { display: grid; gap: 10px; }
+
+.person {
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(10, 13, 22, 0.55);
+  border-radius: 12px;
+  padding: 10px 12px;
+  display: grid;
+  gap: 8px;
+}
+.person__top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.person__name { font-size: 13px; font-weight: 600; color: rgba(231,233,238,0.95); }
+.person__meta { font-size: 12px; color: rgba(231,233,238,0.65); margin-top: 2px; }
+.person__role { font-size: 12px; color: rgba(231,233,238,0.75); }
+.person__actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+.person__edit {
+  display: none;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 6px;
+}
+@media (max-width: 680px) { .person__edit { grid-template-columns: 1fr; } }
+.person.is-editing .person__edit { display: grid; }
+.person.is-editing .person__meta { display: none; }

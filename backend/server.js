@@ -480,6 +480,158 @@ function generateTempPasscode(len = 10) {
   return out;
 }
 
+async function developerOwnsAdmin(db, developerId, adminId) {
+  const [[row]] = await db.promise().query(
+    `SELECT e.employee_id
+     FROM EMPLOYEE e
+     WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+       AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')`,
+    [adminId, developerId]
+  );
+  return !!row;
+}
+
+async function developerOwnsUserInAdminTree(db, developerId, userId) {
+  // Allowed targets:
+  // - Admin created by developer
+  // - Any employee created by an admin created by developer
+  const [[row]] = await db.promise().query(
+    `SELECT e.employee_id
+     FROM EMPLOYEE e
+     WHERE e.employee_id = ?
+       AND (
+         e.created_by_employee_id = ?
+         OR e.created_by_employee_id IN (
+           SELECT a.employee_id
+           FROM EMPLOYEE a
+           WHERE a.created_by_employee_id = ?
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = a.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')
+         )
+       )
+       AND NOT EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'DEVELOPER')
+     LIMIT 1`,
+    [userId, developerId, developerId]
+  );
+  return !!row;
+}
+
+app.get("/api/developer/admins/:id/tree", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const adminId = Number(req.params.id);
+    if (!adminId) return res.status(400).json({ error: "Invalid admin id" });
+    const ok = await developerOwnsAdmin(db, developerId, adminId);
+    if (!ok) return res.status(404).json({ error: "Admin not found" });
+
+    const [children] = await db.promise().query(
+      `SELECT
+         e.employee_id,
+         e.full_name,
+         e.username,
+         e.email,
+         e.contact_number,
+         e.address,
+         e.created_by_employee_id,
+         (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) AS role_type
+       FROM EMPLOYEE e
+       WHERE e.created_by_employee_id = ?
+       ORDER BY e.full_name`,
+      [adminId]
+    );
+
+    res.json({
+      admin_id: adminId,
+      owners: (children || []).filter((c) => String(c.role_type || "").toUpperCase() === "OWNER"),
+      staff: (children || []).filter((c) => {
+        const r = String(c.role_type || "").toUpperCase();
+        return r !== "OWNER" && r !== "ADMIN" && r !== "DEVELOPER";
+      }),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch admin tree" });
+  }
+});
+
+app.put("/api/developer/users/:id", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const userId = Number(req.params.id);
+    if (!userId) return res.status(400).json({ error: "Invalid user id" });
+    const ok = await developerOwnsUserInAdminTree(db, developerId, userId);
+    if (!ok) return res.status(404).json({ error: "User not found" });
+
+    const { full_name, username, email, contact_number, address, password } = req.body || {};
+    const updates = [];
+    const values = [];
+    if (full_name !== undefined) { updates.push("full_name = ?"); values.push(String(full_name).trim()); }
+    if (address !== undefined) { updates.push("address = ?"); values.push(address === "" || address == null ? null : String(address).trim()); }
+    if (contact_number !== undefined) { updates.push("contact_number = ?"); values.push(contact_number === "" || contact_number == null ? null : String(contact_number).trim()); }
+    if (email !== undefined) { updates.push("email = ?"); values.push(email === "" || email == null ? null : String(email).trim()); }
+    if (username !== undefined) { updates.push("username = ?"); values.push(String(username).trim()); }
+    if (password !== undefined && String(password).trim()) {
+      const hashed = await bcrypt.hash(String(password).trim(), 10);
+      updates.push("password = ?");
+      values.push(hashed);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
+
+    if (username !== undefined || email !== undefined) {
+      const u = username !== undefined ? String(username).trim() : null;
+      const em = email !== undefined ? String(email).trim() : null;
+      const [existing] = await db.promise().query(
+        "SELECT employee_id FROM EMPLOYEE WHERE employee_id <> ? AND (username = ? OR email = ?)",
+        [userId, u || "", em || ""]
+      );
+      if ((existing || []).length > 0) return res.status(400).json({ error: "Username or email already exists" });
+    }
+
+    values.push(userId);
+    await db.promise().query(`UPDATE EMPLOYEE SET ${updates.join(", ")} WHERE employee_id = ?`, values);
+    res.json({ message: "User updated", employee_id: userId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update user" });
+  }
+});
+
+app.post("/api/developer/users/:id/reset-passcode", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const userId = Number(req.params.id);
+    if (!userId) return res.status(400).json({ error: "Invalid user id" });
+    const ok = await developerOwnsUserInAdminTree(db, developerId, userId);
+    if (!ok) return res.status(404).json({ error: "User not found" });
+
+    const explicit = String(req.body && req.body.new_passcode || "").trim();
+    const newPasscode = explicit || generateTempPasscode(10);
+    const hashed = await bcrypt.hash(newPasscode, 10);
+    await db.promise().query("UPDATE EMPLOYEE SET password = ? WHERE employee_id = ?", [hashed, userId]);
+    res.json({ message: "Passcode reset", employee_id: userId, new_passcode: newPasscode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reset passcode" });
+  }
+});
+
+app.delete("/api/developer/users/:id", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const userId = Number(req.params.id);
+    if (!userId) return res.status(400).json({ error: "Invalid user id" });
+    const ok = await developerOwnsUserInAdminTree(db, developerId, userId);
+    if (!ok) return res.status(404).json({ error: "User not found" });
+
+    await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [userId]);
+    await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [userId]);
+    await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [userId]);
+    res.json({ message: "User deleted", employee_id: userId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
 app.post("/api/developer/admins/:id/reset-passcode", requireRole("DEVELOPER"), async (req, res) => {
   try {
     const developerId = req.user.employee_id;
@@ -489,13 +641,7 @@ app.post("/api/developer/admins/:id/reset-passcode", requireRole("DEVELOPER"), a
     const explicit = String(req.body && req.body.new_passcode || "").trim();
     const newPasscode = explicit || generateTempPasscode(10);
 
-    const [[row]] = await db.promise().query(
-      `SELECT e.employee_id
-       FROM EMPLOYEE e
-       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
-         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')`,
-      [adminId, developerId]
-    );
+    const row = await developerOwnsAdmin(db, developerId, adminId);
     if (!row) return res.status(404).json({ error: "Admin not found" });
 
     const hashed = await bcrypt.hash(newPasscode, 10);
