@@ -1295,8 +1295,14 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
       try {
         let unitIds = [];
         try {
-          const [mapRows] = await db.promise().query("SELECT unit_id FROM OWNER_UNIT WHERE owner_employee_id = ?", [req.user.employee_id]);
-          unitIds = (mapRows || []).map((r) => Number(r.unit_id)).filter((n) => n > 0);
+          const ownerId = await getOwnerIdForEmployee(req.user.employee_id);
+          if (ownerId != null) {
+            const [mapRows] = await db.promise().query(
+              "SELECT unit_id FROM OWNER_UNIT WHERE owner_id = ?",
+              [ownerId]
+            );
+            unitIds = (mapRows || []).map((r) => Number(r.unit_id)).filter((n) => n > 0);
+          }
         } catch (e) {
           const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
           const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
@@ -1469,11 +1475,14 @@ app.put("/api/owner/units/:id", optionalAuth, async (req, res) => {
     // Verify this unit is assigned to this owner (OWNER_UNIT) or fallback resident_unit_id.
     let allowed = false;
     try {
-      const [[m]] = await db.promise().query(
-        "SELECT 1 AS ok FROM OWNER_UNIT WHERE owner_employee_id = ? AND unit_id = ? LIMIT 1",
-        [req.user.employee_id, unitId]
-      );
-      allowed = !!m;
+      const ownerId = await getOwnerIdForEmployee(req.user.employee_id);
+      if (ownerId != null) {
+        const [[m]] = await db.promise().query(
+          "SELECT 1 AS ok FROM OWNER_UNIT WHERE owner_id = ? AND unit_id = ? LIMIT 1",
+          [ownerId, unitId]
+        );
+        allowed = !!m;
+      }
     } catch (e) {
       const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
       allowed = !!(emp && Number(emp.resident_unit_id) === unitId);
