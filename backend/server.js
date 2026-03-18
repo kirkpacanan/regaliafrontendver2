@@ -87,6 +87,54 @@ async function runStartupSchemaFixes() {
         console.log(`[schema] ${tbl}: added owner_employee_id`);
       }
     }
+    if (await tableExists("UNIT")) {
+      for (const [col, ddl] of [
+        ["check_in_time", "VARCHAR(16) NULL"],
+        ["check_out_time", "VARCHAR(16) NULL"],
+        ["max_pax", "INT NULL"],
+        ["early_checkin_rate_per_hour", "DECIMAL(10,2) NULL"],
+        ["early_checkout_rate_per_hour", "DECIMAL(10,2) NULL"],
+        ["extra_pax_rate_per_night", "DECIMAL(10,2) NULL"],
+      ]) {
+        if (!(await colExists("UNIT", col))) {
+          await db.promise().query(`ALTER TABLE \`UNIT\` ADD COLUMN \`${col}\` ${ddl}`);
+          console.log(`[schema] UNIT: added ${col}`);
+        }
+      }
+    }
+    if (await tableExists("UNIT")) {
+      await db.promise().query(`
+        CREATE TABLE IF NOT EXISTS BOOKING_INTENT (
+          intent_id INT NOT NULL AUTO_INCREMENT,
+          public_token VARCHAR(36) NOT NULL,
+          unit_id INT NOT NULL,
+          owner_employee_id INT NOT NULL,
+          primary_guest_name VARCHAR(255) NOT NULL,
+          num_pax INT NOT NULL,
+          check_in_date DATE NOT NULL,
+          check_out_date DATE NOT NULL,
+          early_checkin_hours DECIMAL(8,2) NOT NULL DEFAULT 0,
+          early_checkout_hours DECIMAL(8,2) NOT NULL DEFAULT 0,
+          rate_early_in_per_hour DECIMAL(10,2) NULL,
+          rate_early_out_per_hour DECIMAL(10,2) NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          expires_at DATETIME NOT NULL,
+          consumed_at DATETIME NULL,
+          PRIMARY KEY (intent_id),
+          UNIQUE KEY uk_booking_intent_token (public_token),
+          KEY idx_booking_intent_unit (unit_id)
+        )`);
+      console.log("[schema] BOOKING_INTENT table ensured");
+      for (const [col, ddl] of [
+        ["extra_pax", "INT NOT NULL DEFAULT 0"],
+        ["extra_pax_rate_per_night_snapshot", "DECIMAL(10,2) NULL"],
+      ]) {
+        if (!(await colExists("BOOKING_INTENT", col))) {
+          await db.promise().query(`ALTER TABLE \`BOOKING_INTENT\` ADD COLUMN \`${col}\` ${ddl}`);
+          console.log(`[schema] BOOKING_INTENT: added ${col}`);
+        }
+      }
+    }
   } catch (e) {
     console.error("[schema] startup fixes:", e.message || e);
   }
@@ -1314,7 +1362,8 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
         const placeholders = unitIds.map(() => "?").join(",");
         const [r] = await db.promise().query(
           `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-            u.image_urls, u.price, t.tower_name, t.number_floors
+            u.image_urls, u.price, u.check_in_time, u.check_out_time, u.max_pax,
+            u.early_checkin_rate_per_hour, u.early_checkout_rate_per_hour, u.extra_pax_rate_per_night, t.tower_name, t.number_floors
            FROM UNIT u
            LEFT JOIN TOWER t ON t.tower_id = u.tower_id
            WHERE u.unit_id IN (${placeholders})
@@ -1491,7 +1540,7 @@ app.put("/api/owner/units/:id", optionalAuth, async (req, res) => {
     }
     if (!allowed) return res.status(403).json({ error: "Not allowed to edit this unit" });
 
-    const { floor_number, unit_type, unit_size, description, image_urls, price } = req.body || {};
+    const { floor_number, unit_type, unit_size, description, image_urls, price, check_in_time, check_out_time, max_pax, early_checkin_rate_per_hour, early_checkout_rate_per_hour, extra_pax_rate_per_night } = req.body || {};
     const updates = [];
     const values = [];
     if (floor_number !== undefined) { updates.push("floor_number = ?"); values.push(floor_number === "" || floor_number == null ? null : String(floor_number).trim()); }
@@ -1500,6 +1549,30 @@ app.put("/api/owner/units/:id", optionalAuth, async (req, res) => {
     if (description !== undefined) { updates.push("description = ?"); values.push(description === "" || description == null ? null : String(description).trim()); }
     if (image_urls !== undefined) { updates.push("image_urls = ?"); values.push(image_urls === "" || image_urls == null ? null : (typeof image_urls === "string" ? image_urls : JSON.stringify(image_urls))); }
     if (price !== undefined) { updates.push("price = ?"); values.push(price === "" || price == null ? null : Number(price)); }
+    if (check_in_time !== undefined) {
+      const t = check_in_time == null || String(check_in_time).trim() === "" ? null : String(check_in_time).trim().slice(0, 16);
+      updates.push("check_in_time = ?"); values.push(t);
+    }
+    if (check_out_time !== undefined) {
+      const t = check_out_time == null || String(check_out_time).trim() === "" ? null : String(check_out_time).trim().slice(0, 16);
+      updates.push("check_out_time = ?"); values.push(t);
+    }
+    if (max_pax !== undefined) {
+      const mp = max_pax === "" || max_pax == null ? null : parseInt(String(max_pax), 10);
+      updates.push("max_pax = ?"); values.push(mp != null && !isNaN(mp) && mp >= 1 ? mp : null);
+    }
+    if (early_checkin_rate_per_hour !== undefined) {
+      const v = early_checkin_rate_per_hour === "" || early_checkin_rate_per_hour == null ? null : Number(early_checkin_rate_per_hour);
+      updates.push("early_checkin_rate_per_hour = ?"); values.push(v != null && !isNaN(v) && v >= 0 ? v : null);
+    }
+    if (early_checkout_rate_per_hour !== undefined) {
+      const v = early_checkout_rate_per_hour === "" || early_checkout_rate_per_hour == null ? null : Number(early_checkout_rate_per_hour);
+      updates.push("early_checkout_rate_per_hour = ?"); values.push(v != null && !isNaN(v) && v >= 0 ? v : null);
+    }
+    if (extra_pax_rate_per_night !== undefined) {
+      const v = extra_pax_rate_per_night === "" || extra_pax_rate_per_night == null ? null : Number(extra_pax_rate_per_night);
+      updates.push("extra_pax_rate_per_night = ?"); values.push(v != null && !isNaN(v) && v >= 0 ? v : null);
+    }
 
     if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
     values.push(unitId);
@@ -1508,6 +1581,263 @@ app.put("/api/owner/units/:id", optionalAuth, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to update unit" });
+  }
+});
+
+async function ownerEmployeeCanAccessUnit(employeeId, unitId) {
+  const uid = Number(unitId);
+  if (!uid) return false;
+  try {
+    const ownerId = await getOwnerIdForEmployee(employeeId);
+    if (ownerId != null) {
+      const [[m]] = await db.promise().query(
+        "SELECT 1 AS ok FROM OWNER_UNIT WHERE owner_id = ? AND unit_id = ? LIMIT 1",
+        [ownerId, uid]
+      );
+      return !!m;
+    }
+  } catch (e) { /* fall through */ }
+  const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [employeeId]);
+  return !!(emp && Number(emp.resident_unit_id) === uid);
+}
+
+app.post("/api/owner/booking-intents", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isResidentOwnerRole(req.user.role))
+      return res.status(403).json({ error: "Owners only" });
+    const {
+      unit_id,
+      primary_guest_name,
+      num_pax,
+      extra_pax,
+      check_in_date,
+      check_out_date,
+      early_checkin_hours,
+      early_checkout_hours,
+    } = req.body || {};
+    const uid = Number(unit_id);
+    if (!uid) return res.status(400).json({ error: "unit_id required" });
+    const name = String(primary_guest_name || "").trim();
+    if (!name) return res.status(400).json({ error: "primary_guest_name required" });
+    const cin = check_in_date ? String(check_in_date).slice(0, 10) : "";
+    const cout = check_out_date ? String(check_out_date).slice(0, 10) : "";
+    if (!cin || !cout) return res.status(400).json({ error: "check_in_date and check_out_date required" });
+    if (cout <= cin) return res.status(400).json({ error: "check-out must be after check-in" });
+
+    const ok = await ownerEmployeeCanAccessUnit(req.user.employee_id, uid);
+    if (!ok) return res.status(403).json({ error: "Not allowed for this unit" });
+
+    const [[unit]] = await db.promise().query(
+      "SELECT max_pax, check_in_time, check_out_time, early_checkin_rate_per_hour, early_checkout_rate_per_hour, extra_pax_rate_per_night FROM UNIT WHERE unit_id = ? LIMIT 1",
+      [uid]
+    );
+    if (!unit) return res.status(404).json({ error: "Unit not found" });
+
+    const maxP = unit.max_pax != null && Number(unit.max_pax) > 0 ? Number(unit.max_pax) : null;
+    const basePax = parseInt(String(req.body.base_pax != null ? req.body.base_pax : num_pax), 10);
+    if (isNaN(basePax) || basePax < 1) return res.status(400).json({ error: "Invalid guest count" });
+    let exBeyond = parseInt(String(extra_pax != null ? extra_pax : 0), 10);
+    if (isNaN(exBeyond) || exBeyond < 0) exBeyond = 0;
+
+    let totalPax;
+    if (maxP == null) {
+      totalPax = basePax;
+      exBeyond = 0;
+    } else {
+      if (basePax > maxP) {
+        return res.status(400).json({ error: "Guest count cannot exceed unit maximum (" + maxP + ")" });
+      }
+      if (basePax < maxP) exBeyond = 0;
+      totalPax = basePax + exBeyond;
+    }
+    const np = totalPax;
+
+    function timeToMinutes(t) {
+      const s = String(t || "00:00").trim();
+      const m = s.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return 0;
+      const h = Math.min(23, Math.max(0, parseInt(m[1], 10)));
+      const min = Math.min(59, Math.max(0, parseInt(m[2], 10)));
+      return h * 60 + min;
+    }
+    function hoursEarly(stdT, reqT) {
+      const std = timeToMinutes(stdT);
+      const req = timeToMinutes(reqT);
+      if (req >= std) return 0;
+      return Math.round(((std - req) / 60) * 100) / 100;
+    }
+    function hoursLate(stdT, reqT) {
+      const std = timeToMinutes(stdT);
+      const req = timeToMinutes(reqT);
+      if (req <= std) return 0;
+      return Math.round(((req - std) / 60) * 100) / 100;
+    }
+
+    const stdIn = unit.check_in_time || "15:00";
+    const stdOut = unit.check_out_time || "11:00";
+    const reqInT = req.body.requested_check_in_time != null ? String(req.body.requested_check_in_time).trim() : "";
+    const reqOutT = req.body.requested_check_out_time != null ? String(req.body.requested_check_out_time).trim() : "";
+    let ehIn = 0;
+    let ehOut = 0;
+    if (reqInT && /^\d{1,2}:\d{2}/.test(reqInT)) {
+      ehIn = hoursEarly(stdIn, reqInT);
+    } else {
+      ehIn = Math.max(0, Number(early_checkin_hours) || 0);
+    }
+    if (reqOutT && /^\d{1,2}:\d{2}/.test(reqOutT)) {
+      ehOut = hoursLate(stdOut, reqOutT);
+    } else {
+      ehOut = Math.max(0, Number(early_checkout_hours) || 0);
+    }
+    const rateIn = unit.early_checkin_rate_per_hour != null ? Number(unit.early_checkin_rate_per_hour) : null;
+    const rateOut = unit.early_checkout_rate_per_hour != null ? Number(unit.early_checkout_rate_per_hour) : null;
+    if (ehIn > 0 && (rateIn == null || isNaN(rateIn) || rateIn <= 0)) {
+      return res.status(400).json({ error: "Set early check-in hourly rate on the unit before requesting early check-in hours" });
+    }
+    if (ehOut > 0 && (rateOut == null || isNaN(rateOut) || rateOut <= 0)) {
+      return res.status(400).json({ error: "Set early checkout hourly rate on the unit before requesting late checkout hours" });
+    }
+    const rateExtraNight =
+      unit.extra_pax_rate_per_night != null ? Number(unit.extra_pax_rate_per_night) : null;
+    if (exBeyond > 0) {
+      if (maxP == null) {
+        return res.status(400).json({ error: "Set a maximum guest count on the unit before adding guests beyond capacity" });
+      }
+      if (basePax !== maxP) {
+        return res.status(400).json({ error: "Additional guests beyond max are only allowed when guest count equals the unit maximum" });
+      }
+      if (rateExtraNight == null || isNaN(rateExtraNight) || rateExtraNight <= 0) {
+        return res.status(400).json({
+          error: "Set extra guest rate (₱/night per extra pax) on the unit before adding guests beyond capacity",
+        });
+      }
+    }
+
+    const token = require("crypto").randomUUID();
+    const expires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
+    await db.promise().query(
+      `INSERT INTO BOOKING_INTENT (
+        public_token, unit_id, owner_employee_id, primary_guest_name, num_pax,
+        check_in_date, check_out_date, early_checkin_hours, early_checkout_hours,
+        rate_early_in_per_hour, rate_early_out_per_hour,
+        extra_pax, extra_pax_rate_per_night_snapshot, expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        token,
+        uid,
+        Number(req.user.employee_id),
+        name,
+        np,
+        cin,
+        cout,
+        ehIn,
+        ehOut,
+        ehIn > 0 ? rateIn : null,
+        ehOut > 0 ? rateOut : null,
+        exBeyond,
+        exBeyond > 0 ? rateExtraNight : null,
+        expires,
+      ]
+    );
+    const host = req.get("host") || "localhost:8080";
+    const proto = req.protocol === "https" || req.get("x-forwarded-proto") === "https" ? "https" : "http";
+    const booking_url = `${proto}://${host}/guest/booking.html?intent=${encodeURIComponent(token)}`;
+    res.status(201).json({ token, booking_url });
+  } catch (err) {
+    if (err.code === "ER_NO_SUCH_TABLE") {
+      return res.status(503).json({ error: "Booking intents not available yet; restart server to apply schema." });
+    }
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to create booking link" });
+  }
+});
+
+function bookingIntentStayNights(cin, cout) {
+  const p = (s) => {
+    const a = String(s || "").slice(0, 10).split("-").map(Number);
+    if (a.length < 3 || a.some((n) => Number.isNaN(n))) return null;
+    return Date.UTC(a[0], a[1] - 1, a[2]);
+  };
+  const t1 = p(cin);
+  const t2 = p(cout);
+  if (t1 == null || t2 == null) return 1;
+  const n = Math.round((t2 - t1) / 86400000);
+  return Math.max(1, n);
+}
+
+app.get("/api/booking-intents/:token", async (req, res) => {
+  try {
+    const token = String(req.params.token || "").trim();
+    if (!token || token.length > 40) return res.status(400).json({ error: "Invalid token" });
+    const [[intent]] = await db.promise().query(
+      `SELECT intent_id, unit_id, primary_guest_name, num_pax, check_in_date, check_out_date,
+        early_checkin_hours, early_checkout_hours, rate_early_in_per_hour, rate_early_out_per_hour,
+        extra_pax, extra_pax_rate_per_night_snapshot, expires_at
+       FROM BOOKING_INTENT WHERE public_token = ? AND consumed_at IS NULL AND expires_at > NOW() LIMIT 1`,
+      [token]
+    );
+    if (!intent) return res.status(404).json({ error: "Invalid or expired link" });
+
+    const [units] = await db.promise().query(
+      `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
+        u.image_urls, u.price, t.tower_name,
+        (SELECT o.full_name FROM OWNER o WHERE o.unit_id = u.unit_id LIMIT 1) AS owner_name,
+        (SELECT o.contact_number FROM OWNER o WHERE o.unit_id = u.unit_id LIMIT 1) AS owner_contact
+       FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE u.unit_id = ?`,
+      [intent.unit_id]
+    );
+    const unit = units && units[0] ? units[0] : null;
+    if (!unit) return res.status(404).json({ error: "Unit not found" });
+
+    const feeLines = [];
+    const ehIn = Number(intent.early_checkin_hours) || 0;
+    const ehOut = Number(intent.early_checkout_hours) || 0;
+    const rIn = intent.rate_early_in_per_hour != null ? Number(intent.rate_early_in_per_hour) : 0;
+    const rOut = intent.rate_early_out_per_hour != null ? Number(intent.rate_early_out_per_hour) : 0;
+    if (ehIn > 0 && rIn > 0) feeLines.push({ label: "Early check-in", hours: ehIn, rate: rIn, subtotal: ehIn * rIn });
+    if (ehOut > 0 && rOut > 0) feeLines.push({ label: "Late checkout", hours: ehOut, rate: rOut, subtotal: ehOut * rOut });
+    const exP = Number(intent.extra_pax) || 0;
+    const rEx =
+      intent.extra_pax_rate_per_night_snapshot != null
+        ? Number(intent.extra_pax_rate_per_night_snapshot)
+        : 0;
+    const nights = bookingIntentStayNights(intent.check_in_date, intent.check_out_date);
+    if (exP > 0 && rEx > 0) {
+      feeLines.push({
+        label: "Guests beyond unit maximum",
+        extra_pax: exP,
+        nights,
+        rate_per_night: rEx,
+        subtotal: exP * rEx * nights,
+      });
+    }
+
+    const feeSummaryParts = feeLines.map((f) => {
+      if (f.hours != null)
+        return `${f.label}: ${f.hours} h × ₱${f.rate}/h = ₱${Number(f.subtotal).toFixed(2)}`;
+      return `${f.label}: ${f.extra_pax} × ₱${f.rate_per_night}/night × ${f.nights} night(s) = ₱${Number(f.subtotal).toFixed(2)}`;
+    });
+    const additionalTotal = feeLines.reduce((s, f) => s + Number(f.subtotal || 0), 0);
+
+    res.json({
+      token,
+      unit_id: intent.unit_id,
+      unit,
+      primary_guest_name: intent.primary_guest_name,
+      num_pax: intent.num_pax,
+      extra_pax: exP,
+      check_in_date: intent.check_in_date,
+      check_out_date: intent.check_out_date,
+      fee_lines: feeLines,
+      additional_charges_total: Math.round(additionalTotal * 100) / 100,
+      fee_summary:
+        feeLines.length === 0
+          ? "No early check-in, late checkout, or extra-guest charges."
+          : feeSummaryParts.join(" · ") + (additionalTotal > 0 ? ` · Total: ₱${additionalTotal.toFixed(2)}` : ""),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to load booking link" });
   }
 });
 
@@ -2584,9 +2914,50 @@ app.post("/api/bookings", async (req, res) => {
       payment_proof,
       signature_data,
       guests,
+      booking_intent_token,
     } = req.body;
 
-    const guestsArr = Array.isArray(guests) ? guests : null;
+    let guestsArr = Array.isArray(guests) ? guests : null;
+    let effectiveCheckIn = check_in_date;
+    let effectiveCheckOut = check_out_date;
+    let effectiveInclusive = inclusive_dates;
+    let intentRow = null;
+
+    if (booking_intent_token) {
+      const tok = String(booking_intent_token).trim();
+      const [[intent]] = await db.promise().query(
+        "SELECT * FROM BOOKING_INTENT WHERE public_token = ? AND consumed_at IS NULL AND expires_at > NOW() LIMIT 1",
+        [tok]
+      );
+      if (!intent) return res.status(400).json({ error: "Invalid or expired booking link" });
+      if (!unit_id || Number(unit_id) !== Number(intent.unit_id)) {
+        return res.status(400).json({ error: "Unit mismatch for this booking link" });
+      }
+      intentRow = intent;
+      effectiveCheckIn = toYmd(intent.check_in_date);
+      effectiveCheckOut = toYmd(intent.check_out_date);
+      effectiveInclusive =
+        effectiveCheckIn && effectiveCheckOut ? `${effectiveCheckIn} – ${effectiveCheckOut}` : null;
+      const np = Number(intent.num_pax);
+      if (!guestsArr || guestsArr.length !== np) {
+        return res.status(400).json({ error: `This booking requires exactly ${np} guest(s).` });
+      }
+      const intentName = String(intent.primary_guest_name || "").trim().toLowerCase();
+      const g0name = String((guestsArr[0] && guestsArr[0].full_name) || "").trim().toLowerCase();
+      if (g0name !== intentName) {
+        return res.status(400).json({ error: "Primary guest name must match the name provided by the unit owner." });
+      }
+      for (let i = 0; i < guestsArr.length; i++) {
+        const idDoc = guestsArr[i] && guestsArr[i].id_document;
+        if (idDoc == null || String(idDoc).trim() === "") {
+          return res.status(400).json({ error: `Government ID is required for guest ${i + 1}.` });
+        }
+        if (!String((guestsArr[i] && guestsArr[i].full_name) || "").trim()) {
+          return res.status(400).json({ error: `Guest ${i + 1} full name is required.` });
+        }
+      }
+    }
+
     const primaryGuest = guestsArr && guestsArr[0] ? guestsArr[0] : null;
 
     const finalGuestName = (primaryGuest && primaryGuest.full_name ? primaryGuest.full_name : guest_name) || "";
@@ -2622,9 +2993,9 @@ app.post("/api/bookings", async (req, res) => {
         finalContact ? String(finalContact).trim() : null,
         owner_name ? String(owner_name).trim() : null,
         owner_contact ? String(owner_contact).trim() : null,
-        inclusive_dates ? String(inclusive_dates).trim() : null,
-        check_in_date || null,
-        check_out_date || null,
+        effectiveInclusive ? String(effectiveInclusive).trim() : null,
+        effectiveCheckIn || null,
+        effectiveCheckOut || null,
         purpose_of_stay ? String(purpose_of_stay).trim() : null,
         paid_yes_no ? String(paid_yes_no).trim() : null,
         amount_paid != null && amount_paid !== "" ? String(amount_paid).trim() : null,
@@ -2638,10 +3009,44 @@ app.post("/api/bookings", async (req, res) => {
     const [r] = await db.promise().query("SELECT LAST_INSERT_ID() AS id");
     const bookingId = r[0].id;
 
+    if (intentRow) {
+      await db.promise().query("UPDATE BOOKING_INTENT SET consumed_at = NOW() WHERE intent_id = ?", [
+        intentRow.intent_id,
+      ]);
+      const ehIn = Number(intentRow.early_checkin_hours) || 0;
+      const ehOut = Number(intentRow.early_checkout_hours) || 0;
+      const rIn = intentRow.rate_early_in_per_hour != null ? Number(intentRow.rate_early_in_per_hour) : 0;
+      const rOut = intentRow.rate_early_out_per_hour != null ? Number(intentRow.rate_early_out_per_hour) : 0;
+      if (ehIn > 0 && rIn > 0) {
+        await db.promise().query(
+          "INSERT INTO ADDITIONAL_CHARGE (booking_id, description, quantity, unit_price, added_by) VALUES (?, ?, ?, ?, NULL)",
+          [bookingId, "Early check-in (hours)", ehIn, rIn]
+        );
+      }
+      if (ehOut > 0 && rOut > 0) {
+        await db.promise().query(
+          "INSERT INTO ADDITIONAL_CHARGE (booking_id, description, quantity, unit_price, added_by) VALUES (?, ?, ?, ?, NULL)",
+          [bookingId, "Late checkout (hours)", ehOut, rOut]
+        );
+      }
+      const exP = Number(intentRow.extra_pax) || 0;
+      const rExN =
+        intentRow.extra_pax_rate_per_night_snapshot != null
+          ? Number(intentRow.extra_pax_rate_per_night_snapshot)
+          : 0;
+      if (exP > 0 && rExN > 0) {
+        const nts = bookingIntentStayNights(intentRow.check_in_date, intentRow.check_out_date);
+        await db.promise().query(
+          "INSERT INTO ADDITIONAL_CHARGE (booking_id, description, quantity, unit_price, added_by) VALUES (?, ?, ?, ?, NULL)",
+          [bookingId, "Extra guest(s) (per person × nights)", exP, rExN * nts]
+        );
+      }
+    }
+
     // Insert extra guests from the new `guests` array (Guest 2+).
     if (guestsArr && guestsArr.length > 1) {
-      const from = toYmd(check_in_date);
-      const to = toYmd(check_out_date);
+      const from = toYmd(effectiveCheckIn);
+      const to = toYmd(effectiveCheckOut);
       for (let i = 1; i < guestsArr.length; i++) {
         const g = guestsArr[i];
         if (!g) continue;

@@ -72,6 +72,18 @@
               <input type="text" class="owner-unit-detail-field" data-edit-unit-size readonly tabindex="-1" autocomplete="off" value="" aria-label="Unit size (sqm)" />
             </label>
             <label>Price <input type="number" step="0.01" name="price" data-edit-price placeholder="e.g. 50000" /></label>
+            <div class="owner-edit-times-row">
+              <label>Check-in time <input type="time" name="check_in_time" data-edit-check-in /></label>
+              <label>Check-out time <input type="time" name="check_out_time" data-edit-check-out /></label>
+            </div>
+            <label>Maximum guests (pax) <input type="number" name="max_pax" data-edit-max-pax min="1" max="999" step="1" placeholder="e.g. 4" /></label>
+            <p class="panel-subtitle muted" style="margin: -0.2rem 0 0.35rem; font-size: 0.78rem;">Hourly rates for early check-in / late checkout (used when creating guest booking links)</p>
+            <div class="owner-edit-times-row">
+              <label>Early check-in (₱/hr) <input type="number" name="early_checkin_rate_per_hour" data-edit-rate-early-in step="0.01" min="0" placeholder="e.g. 200" /></label>
+              <label>Late checkout (₱/hr) <input type="number" name="early_checkout_rate_per_hour" data-edit-rate-early-out step="0.01" min="0" placeholder="e.g. 200" /></label>
+            </div>
+            <label>Extra guest (₱/night per extra pax) <input type="number" name="extra_pax_rate_per_night" data-edit-rate-extra-pax-night step="0.01" min="0" placeholder="e.g. 500" /></label>
+            <p class="panel-subtitle muted" style="margin: -0.15rem 0 0.35rem; font-size: 0.78rem;">Charged when the owner adds extra pax in “Make a booking” (per extra person × nights).</p>
             <label>Description <textarea name="description" data-edit-description placeholder="Description"></textarea></label>
             <div class="owner-unit-images-section">
               <div class="owner-unit-images-title">Unit images</div>
@@ -97,21 +109,71 @@
                   <input type="file" accept="image/*" class="photo-input-hidden" data-edit-photo-input="3" />
                 </label>
               </div>
-            </div>
-            <label style="margin-top: 0.9rem;">
-              Guest registration link
-              <input type="text" data-edit-guest-link disabled />
-            </label>
-            <div style="display:flex;gap:0.6rem;flex-wrap:wrap;margin-top:0.4rem;">
-              <button type="button" class="submit-button ghost btn--sm" data-open-guest-link>Open</button>
-              <button type="button" class="submit-button ghost btn--sm" data-copy-guest-link>Copy</button>
+              <div class="step-actions owner-unit-edit-save">
+                <button class="submit-button" type="submit">Save changes</button>
+              </div>
             </div>
           </div>
           <div class="settings-msg" data-edit-msg></div>
-          <div class="step-actions">
-            <button class="submit-button" type="submit">Save changes</button>
-          </div>
         </form>
+      </div>
+    </div>
+
+    <div class="modal-overlay owner-unit-actions-overlay" data-unit-actions-overlay aria-hidden="true">
+      <div class="owner-unit-actions-card" role="dialog" aria-modal="true" aria-labelledby="unit-actions-title">
+        <h3 id="unit-actions-title" data-unit-actions-title>Unit</h3>
+        <p class="owner-unit-actions-sub" data-unit-actions-sub></p>
+        <button type="button" class="submit-button" data-unit-action-edit>Edit unit</button>
+        <button type="button" class="submit-button ghost" data-unit-action-booking>Make a booking</button>
+        <button type="button" class="owner-unit-actions-cancel" data-unit-actions-cancel>Cancel</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay owner-booking-setup-overlay" data-booking-setup-overlay aria-hidden="true">
+      <div class="owner-booking-setup-card">
+        <div data-booking-setup-step-form>
+          <h3 class="owner-booking-setup-title">Set up booking</h3>
+          <p class="owner-unit-actions-sub" data-booking-setup-unit-label></p>
+          <div class="owner-booking-setup-fields">
+            <div class="owner-bk-field-group">
+              <label class="owner-bk-label">Guest name (primary booker) <input type="text" data-bk-guest-name placeholder="Full name" autocomplete="name" /></label>
+            </div>
+            <div class="owner-bk-field-group owner-bk-field-group--pax">
+              <label class="owner-bk-label">Number of guests (pax) <input type="number" data-bk-pax min="1" step="1" value="1" /></label>
+              <p class="owner-bk-hint" data-bk-max-pax-hint></p>
+              <div class="owner-bk-extra-wrap is-disabled" data-bk-extra-wrap>
+                <label class="owner-bk-label">Additional guests beyond maximum <input type="number" data-bk-extra-pax min="0" max="30" step="1" value="0" disabled /></label>
+                <p class="owner-bk-hint owner-bk-hint--tight" data-bk-extra-pax-hint>Enabled only when pax equals the unit maximum. Fee applies per extra person × nights.</p>
+              </div>
+            </div>
+            <div class="owner-bk-field-group owner-bk-field-group--dates">
+              <div class="owner-edit-times-row owner-edit-times-row--booking">
+                <label class="owner-bk-label">Check-in date <input type="date" data-bk-cin /></label>
+                <label class="owner-bk-label">Check-out date <input type="date" data-bk-cout /></label>
+              </div>
+            </div>
+            <div class="owner-bk-field-group owner-bk-field-group--times">
+              <p class="owner-bk-time-hint muted" data-bk-std-cin-hint></p>
+              <label class="owner-bk-label">Arrival time on check-in date <input type="time" data-bk-req-cin-time step="300" /></label>
+              <p class="owner-bk-time-hint muted" data-bk-std-cout-hint></p>
+              <label class="owner-bk-label">Departure time on check-out date <input type="time" data-bk-req-cout-time step="300" /></label>
+            </div>
+            <div class="owner-bk-field-group owner-bk-field-group--fees">
+              <div class="owner-bk-fee-preview" data-bk-fee-preview></div>
+            </div>
+          </div>
+          <div class="settings-msg" data-bk-setup-msg style="margin-top: 0.5rem;"></div>
+          <button type="button" class="submit-button" style="width: 100%; margin-top: 0.65rem;" data-bk-setup-submit>Create guest booking link</button>
+          <button type="button" class="owner-unit-actions-cancel" data-bk-setup-cancel>Cancel</button>
+        </div>
+        <div data-booking-setup-step-success style="display: none">
+          <h3 class="owner-booking-setup-title">Guest booking link</h3>
+          <p class="owner-unit-actions-sub" style="margin-bottom: 0.75rem;">Share this with your guest. They will complete IDs for each person; stay dates are fixed.</p>
+          <input type="text" class="owner-bk-url-input" readonly data-bk-success-url />
+          <button type="button" class="submit-button" style="width: 100%; margin-top: 0.65rem;" data-bk-open-form>Open guest form</button>
+          <button type="button" class="submit-button ghost" style="width: 100%;" data-bk-copy-url>Copy link</button>
+          <button type="button" class="owner-unit-actions-cancel" data-bk-success-done>Done</button>
+        </div>
       </div>
     </div>
 
@@ -149,9 +211,70 @@
       var editMsg = document.querySelector("[data-edit-msg]");
       var editingUnitId = null;
       var editImageDataUrls = [null, null, null, null];
-      var guestLinkInput = document.querySelector("[data-edit-guest-link]");
-      var openGuestBtn = document.querySelector("[data-open-guest-link]");
-      var copyGuestBtn = document.querySelector("[data-copy-guest-link]");
+      var actionsOverlay = document.querySelector("[data-unit-actions-overlay]");
+      var pendingUnitForActions = null;
+      var OFFLINE_DEMO_UNIT_ID = 90001;
+      var OFFLINE_UNIT_STORAGE_KEY = "regalia_owner_offline_unit_v1";
+
+      function isOfflineOwnerDemo() {
+        try {
+          return localStorage.getItem("token") === "offline-token";
+        } catch (e) {
+          return false;
+        }
+      }
+
+      function getOfflineDemoUnits() {
+        var unit = {
+          unit_id: OFFLINE_DEMO_UNIT_ID,
+          tower_id: 1,
+          unit_number: "1201",
+          floor_number: "12",
+          unit_type: "Executive Loft",
+          unit_size: 85.5,
+          description: "Temporary demo unit for local testing (owner / owner123). Saves stay in this browser only.",
+          image_urls: null,
+          price: 0,
+          tower_name: "Tower A (demo)",
+          number_floors: 20,
+          check_in_time: "15:00",
+          check_out_time: "11:00",
+          max_pax: 4,
+          early_checkin_rate_per_hour: 200,
+          early_checkout_rate_per_hour: 200,
+          extra_pax_rate_per_night: 500
+        };
+        try {
+          var s = localStorage.getItem(OFFLINE_UNIT_STORAGE_KEY);
+          if (s) {
+            var o = JSON.parse(s);
+            if (o && typeof o === "object") {
+              if (o.description !== undefined) unit.description = o.description;
+              if (o.price !== undefined && o.price !== "") unit.price = o.price;
+              if (o.check_in_time !== undefined) unit.check_in_time = o.check_in_time || null;
+              if (o.check_out_time !== undefined) unit.check_out_time = o.check_out_time || null;
+              if (o.max_pax !== undefined) unit.max_pax = o.max_pax === "" || o.max_pax == null ? null : o.max_pax;
+              if (o.image_urls != null) unit.image_urls = o.image_urls;
+              if (o.early_checkin_rate_per_hour !== undefined) unit.early_checkin_rate_per_hour = o.early_checkin_rate_per_hour;
+              if (o.early_checkout_rate_per_hour !== undefined) unit.early_checkout_rate_per_hour = o.early_checkout_rate_per_hour;
+              if (o.extra_pax_rate_per_night !== undefined) unit.extra_pax_rate_per_night = o.extra_pax_rate_per_night;
+            }
+          }
+        } catch (e) {}
+        return [unit];
+      }
+
+      function toTimeInputValue(v) {
+        if (v == null || v === "") return "";
+        var parts = String(v).trim().split(":");
+        if (parts.length < 2) return "";
+        var h = parseInt(parts[0], 10);
+        var m = parseInt(parts[1], 10);
+        if (isNaN(h) || isNaN(m)) return "";
+        h = Math.min(23, Math.max(0, h));
+        m = Math.min(59, Math.max(0, m));
+        return (h < 10 ? "0" : "") + h + ":" + (m < 10 ? "0" : "") + m;
+      }
 
       function formatUnitSizeDisplay(v) {
         if (v == null || v === "") return "—";
@@ -180,6 +303,18 @@
         if (typeEl) typeEl.value = (unit.unit_type != null && String(unit.unit_type).trim() !== "") ? String(unit.unit_type).trim() : "—";
         if (sizeEl) sizeEl.value = formatUnitSizeDisplay(unit.unit_size);
         form.querySelector("[data-edit-price]").value = unit.price == null ? "" : unit.price;
+        var ci = form.querySelector("[data-edit-check-in]");
+        var co = form.querySelector("[data-edit-check-out]");
+        var mp = form.querySelector("[data-edit-max-pax]");
+        if (ci) ci.value = toTimeInputValue(unit.check_in_time);
+        if (co) co.value = toTimeInputValue(unit.check_out_time);
+        if (mp) mp.value = unit.max_pax != null && unit.max_pax !== "" ? String(unit.max_pax) : "";
+        var rin = form.querySelector("[data-edit-rate-early-in]");
+        var rout = form.querySelector("[data-edit-rate-early-out]");
+        if (rin) rin.value = unit.early_checkin_rate_per_hour != null && unit.early_checkin_rate_per_hour !== "" ? unit.early_checkin_rate_per_hour : "";
+        if (rout) rout.value = unit.early_checkout_rate_per_hour != null && unit.early_checkout_rate_per_hour !== "" ? unit.early_checkout_rate_per_hour : "";
+        var rEx = form.querySelector("[data-edit-rate-extra-pax-night]");
+        if (rEx) rEx.value = unit.extra_pax_rate_per_night != null && unit.extra_pax_rate_per_night !== "" ? unit.extra_pax_rate_per_night : "";
         form.querySelector("[data-edit-description]").value = unit.description || "";
 
         // Prefill 4 image slots (cover = slot 1).
@@ -216,7 +351,6 @@
         if (editMsg) editMsg.textContent = "";
         overlay.classList.add("is-open");
         overlay.setAttribute("aria-hidden", "false");
-        if (guestLinkInput) guestLinkInput.value = buildBookingLink(unit);
       }
       function closeEdit() {
         overlay.classList.remove("is-open");
@@ -225,7 +359,383 @@
       }
       closeBtn.addEventListener("click", closeEdit);
       overlay.addEventListener("click", function (e) { if (e.target === overlay) closeEdit(); });
-      document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeEdit(); });
+
+      function openUnitActions(u) {
+        pendingUnitForActions = u;
+        if (!actionsOverlay) return;
+        var h = actionsOverlay.querySelector("[data-unit-actions-title]");
+        var sub = actionsOverlay.querySelector("[data-unit-actions-sub]");
+        if (h) h.textContent = "Unit " + String(u.unit_number != null && u.unit_number !== "" ? u.unit_number : u.unit_id || "");
+        if (sub) {
+          var line = [u.tower_name || "—", [u.unit_type, u.unit_size != null && u.unit_size !== "" ? u.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—"].join(" · ");
+          sub.textContent = line;
+        }
+        actionsOverlay.classList.add("is-open");
+        actionsOverlay.setAttribute("aria-hidden", "false");
+      }
+      function closeUnitActions() {
+        pendingUnitForActions = null;
+        if (actionsOverlay) {
+          actionsOverlay.classList.remove("is-open");
+          actionsOverlay.setAttribute("aria-hidden", "true");
+        }
+      }
+
+      var setupOverlay = document.querySelector("[data-booking-setup-overlay]");
+      var setupUnit = null;
+      var lastBookingUrl = "";
+
+      function closeBookingSetup() {
+        setupUnit = null;
+        if (!setupOverlay) return;
+        setupOverlay.classList.remove("is-open");
+        setupOverlay.setAttribute("aria-hidden", "true");
+        var formStep = setupOverlay.querySelector("[data-booking-setup-step-form]");
+        var okStep = setupOverlay.querySelector("[data-booking-setup-step-success]");
+        if (formStep) formStep.style.display = "";
+        if (okStep) okStep.style.display = "none";
+      }
+
+      function bookingSetupNights() {
+        if (!setupOverlay) return 1;
+        var cin = (setupOverlay.querySelector("[data-bk-cin]") || {}).value;
+        var cout = (setupOverlay.querySelector("[data-bk-cout]") || {}).value;
+        if (!cin || !cout || cout <= cin) return 1;
+        var t1 = new Date(cin + "T12:00:00").getTime();
+        var t2 = new Date(cout + "T12:00:00").getTime();
+        var n = Math.round((t2 - t1) / 86400000);
+        return Math.max(1, n);
+      }
+
+      function bkTimeToMinutes(t) {
+        var s = String(t || "00:00").trim();
+        var p = s.split(":");
+        var h = parseInt(p[0], 10);
+        if (isNaN(h)) h = 0;
+        var m = parseInt(p[1], 10);
+        if (isNaN(m)) m = 0;
+        return Math.min(24 * 60, Math.max(0, h * 60 + m));
+      }
+      function bkHoursEarly(stdT, reqT) {
+        var std = bkTimeToMinutes(stdT);
+        var req = bkTimeToMinutes(reqT);
+        if (req >= std) return 0;
+        return Math.round(((std - req) / 60) * 100) / 100;
+      }
+      function bkHoursLate(stdT, reqT) {
+        var std = bkTimeToMinutes(stdT);
+        var req = bkTimeToMinutes(reqT);
+        if (req <= std) return 0;
+        return Math.round(((req - std) / 60) * 100) / 100;
+      }
+      function bkFormatStdTime(iso) {
+        var v = toTimeInputValue(iso);
+        if (!v) return "—";
+        var p = v.split(":");
+        var h = parseInt(p[0], 10);
+        var m = p[1];
+        var h12 = h % 12 || 12;
+        var am = h < 12;
+        return h12 + ":" + m + " " + (am ? "a.m." : "p.m.");
+      }
+
+      function updateExtraPaxAvailability() {
+        if (!setupOverlay || !setupUnit) return;
+        var wrap = setupOverlay.querySelector("[data-bk-extra-wrap]");
+        var exInp = setupOverlay.querySelector("[data-bk-extra-pax]");
+        var hint = setupOverlay.querySelector("[data-bk-extra-pax-hint]");
+        var maxP = setupUnit.max_pax != null && Number(setupUnit.max_pax) > 0 ? Number(setupUnit.max_pax) : 0;
+        var base = parseInt((setupOverlay.querySelector("[data-bk-pax]") || {}).value, 10) || 1;
+        if (!wrap || !exInp) return;
+        if (maxP < 1) {
+          wrap.classList.add("is-disabled");
+          exInp.disabled = true;
+          exInp.value = "0";
+          if (hint) hint.textContent = "Set maximum guests on the unit (Edit unit) to enable billing for guests above capacity.";
+          return;
+        }
+        if (base < maxP) {
+          wrap.classList.add("is-disabled");
+          exInp.disabled = true;
+          exInp.value = "0";
+          if (hint) hint.textContent = "When guest count reaches " + maxP + " (unit max), you can add more guests here — each incurs the nightly extra fee.";
+        } else {
+          wrap.classList.remove("is-disabled");
+          exInp.disabled = false;
+          if (hint) hint.textContent = "Each guest beyond " + maxP + " is charged ₱/night × " + bookingSetupNights() + " night(s) (preview updates with dates).";
+        }
+      }
+
+      function updateBookingFeePreview() {
+        if (!setupOverlay || !setupUnit) return;
+        var el = setupOverlay.querySelector("[data-bk-fee-preview]");
+        if (!el) return;
+        updateExtraPaxAvailability();
+        el.innerHTML = "";
+        var stdIn = toTimeInputValue(setupUnit.check_in_time) || "15:00";
+        var stdOut = toTimeInputValue(setupUnit.check_out_time) || "11:00";
+        var reqIn = (setupOverlay.querySelector("[data-bk-req-cin-time]") || {}).value || stdIn;
+        var reqOut = (setupOverlay.querySelector("[data-bk-req-cout-time]") || {}).value || stdOut;
+        var earlyH = bkHoursEarly(stdIn, reqIn);
+        var lateH = bkHoursLate(stdOut, reqOut);
+        var rIn = Number(setupUnit.early_checkin_rate_per_hour) || 0;
+        var rOut = Number(setupUnit.early_checkout_rate_per_hour) || 0;
+        var monetary = 0;
+        function addLine(text, isWarn) {
+          var d = document.createElement("div");
+          d.className = "owner-bk-fee-line" + (isWarn ? " owner-bk-fee-warn" : "");
+          d.textContent = text;
+          el.appendChild(d);
+        }
+        if (earlyH > 0) {
+          if (rIn > 0) {
+            var s1 = earlyH * rIn;
+            monetary += s1;
+            addLine("Early check-in: " + earlyH + " h before standard × ₱" + rIn + "/hr = ₱" + s1.toFixed(2));
+          } else addLine("Early check-in: " + earlyH + " h before standard — set early check-in ₱/hr in Edit unit to apply this charge.", true);
+        } else {
+          addLine("Early check-in: ₱0 (arrival at or after standard time).");
+        }
+        if (lateH > 0) {
+          if (rOut > 0) {
+            var s2 = lateH * rOut;
+            monetary += s2;
+            addLine("Late checkout: " + lateH + " h after standard × ₱" + rOut + "/hr = ₱" + s2.toFixed(2));
+          } else addLine("Late checkout: " + lateH + " h after standard — set late checkout ₱/hr in Edit unit to apply this charge.", true);
+        } else {
+          addLine("Late checkout: ₱0 (departure at or before standard time).");
+        }
+        var ex = 0;
+        var exInp = setupOverlay.querySelector("[data-bk-extra-pax]");
+        if (exInp && !exInp.disabled) ex = parseInt(exInp.value, 10) || 0;
+        var rEx = Number(setupUnit.extra_pax_rate_per_night) || 0;
+        var nights = bookingSetupNights();
+        if (ex > 0) {
+          if (rEx > 0) {
+            var s3 = ex * rEx * nights;
+            monetary += s3;
+            addLine("Beyond-max guests: " + ex + " × ₱" + rEx + "/night × " + nights + " night(s) = ₱" + s3.toFixed(2));
+          } else addLine("Beyond-max guests: set extra guest ₱/night in Edit unit to apply this charge.", true);
+        }
+        var tot = document.createElement("div");
+        tot.className = "owner-bk-fee-total";
+        tot.textContent =
+          monetary > 0
+            ? "Total additional charges: ₱" + monetary.toFixed(2)
+            : "Total additional charges: ₱0.00";
+        el.appendChild(tot);
+      }
+
+      function openBookingSetup(u) {
+        setupUnit = u;
+        if (!setupOverlay) return;
+        var label = setupOverlay.querySelector("[data-booking-setup-unit-label]");
+        if (label) label.textContent = (u.tower_name || "—") + " · Unit " + (u.unit_number || u.unit_id);
+        var paxInp = setupOverlay.querySelector("[data-bk-pax]");
+        var hint = setupOverlay.querySelector("[data-bk-max-pax-hint]");
+        var maxP = u.max_pax != null && Number(u.max_pax) > 0 ? Number(u.max_pax) : 999;
+        if (paxInp) {
+          paxInp.max = maxP;
+          paxInp.value = Math.min(Math.max(1, Number(paxInp.value) || 1), maxP);
+        }
+        if (hint) hint.textContent = u.max_pax != null && Number(u.max_pax) > 0 ? "Maximum for this unit: " + u.max_pax + " guests." : "Set maximum guests in Edit unit to cap occupancy and enable beyond-max guests.";
+        var gn = setupOverlay.querySelector("[data-bk-guest-name]");
+        if (gn) gn.value = "";
+        var cin = setupOverlay.querySelector("[data-bk-cin]");
+        var cout = setupOverlay.querySelector("[data-bk-cout]");
+        var t = new Date();
+        var y = t.getFullYear() + "-" + String(t.getMonth() + 1).padStart(2, "0") + "-" + String(t.getDate()).padStart(2, "0");
+        if (cin) cin.value = y;
+        if (cout) {
+          var t2 = new Date(t.getTime() + 86400000);
+          cout.value = t2.getFullYear() + "-" + String(t2.getMonth() + 1).padStart(2, "0") + "-" + String(t2.getDate()).padStart(2, "0");
+        }
+        var stdInStr = toTimeInputValue(u.check_in_time) || "15:00";
+        var stdOutStr = toTimeInputValue(u.check_out_time) || "11:00";
+        var hci = setupOverlay.querySelector("[data-bk-std-cin-hint]");
+        if (hci) hci.textContent = "Standard check-in: " + bkFormatStdTime(u.check_in_time) + " — arriving earlier may incur an hourly fee.";
+        var hco = setupOverlay.querySelector("[data-bk-std-cout-hint]");
+        if (hco) hco.textContent = "Standard checkout: " + bkFormatStdTime(u.check_out_time) + " — leaving later may incur an hourly fee.";
+        var rci = setupOverlay.querySelector("[data-bk-req-cin-time]");
+        var rco = setupOverlay.querySelector("[data-bk-req-cout-time]");
+        if (rci) rci.value = stdInStr;
+        if (rco) rco.value = stdOutStr;
+        var exP = setupOverlay.querySelector("[data-bk-extra-pax]");
+        if (exP) exP.value = "0";
+        var msg = setupOverlay.querySelector("[data-bk-setup-msg]");
+        if (msg) msg.textContent = "";
+        updateBookingFeePreview();
+        setupOverlay.classList.add("is-open");
+        setupOverlay.setAttribute("aria-hidden", "false");
+      }
+
+      if (setupOverlay) {
+        ["[data-bk-req-cin-time]", "[data-bk-req-cout-time]", "[data-bk-cin]", "[data-bk-cout]", "[data-bk-pax]", "[data-bk-extra-pax]"].forEach(function (sel) {
+          var n = setupOverlay.querySelector(sel);
+          if (n) n.addEventListener("input", updateBookingFeePreview);
+          if (n) n.addEventListener("change", updateBookingFeePreview);
+        });
+        setupOverlay.addEventListener("click", function (e) {
+          if (e.target === setupOverlay) closeBookingSetup();
+        });
+        setupOverlay.querySelector("[data-bk-setup-cancel]") &&
+          setupOverlay.querySelector("[data-bk-setup-cancel]").addEventListener("click", closeBookingSetup);
+        setupOverlay.querySelector("[data-bk-setup-submit]") &&
+          setupOverlay.querySelector("[data-bk-setup-submit]").addEventListener("click", function () {
+            if (isOfflineOwnerDemo()) {
+              var m = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m) m.textContent = "Booking links require the server. Log in with a real owner account.";
+              return;
+            }
+            var name = (setupOverlay.querySelector("[data-bk-guest-name]") || {}).value || "";
+            name = name.trim();
+            if (!name) {
+              var m2 = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m2) m2.textContent = "Enter the primary guest name.";
+              return;
+            }
+            var basePax = parseInt((setupOverlay.querySelector("[data-bk-pax]") || {}).value, 10);
+            if (isNaN(basePax) || basePax < 1) {
+              var m3 = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m3) m3.textContent = "Invalid number of guests.";
+              return;
+            }
+            var maxP = setupUnit.max_pax != null && Number(setupUnit.max_pax) > 0 ? Number(setupUnit.max_pax) : null;
+            if (maxP && basePax > maxP) {
+              var m3b = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m3b) m3b.textContent = "Guest count cannot exceed unit maximum (" + maxP + "). Use “Additional guests beyond maximum” when at max.";
+              return;
+            }
+            var cia = (setupOverlay.querySelector("[data-bk-cin]") || {}).value;
+            var coa = (setupOverlay.querySelector("[data-bk-cout]") || {}).value;
+            if (!cia || !coa || coa <= cia) {
+              var m4 = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m4) m4.textContent = "Check-out must be after check-in.";
+              return;
+            }
+            var stdIn = toTimeInputValue(setupUnit.check_in_time) || "15:00";
+            var stdOut = toTimeInputValue(setupUnit.check_out_time) || "11:00";
+            var reqInT = (setupOverlay.querySelector("[data-bk-req-cin-time]") || {}).value || stdIn;
+            var reqOutT = (setupOverlay.querySelector("[data-bk-req-cout-time]") || {}).value || stdOut;
+            var ehIn = bkHoursEarly(stdIn, reqInT);
+            var ehOut = bkHoursLate(stdOut, reqOutT);
+            var rIn = Number(setupUnit && setupUnit.early_checkin_rate_per_hour) || 0;
+            var rOut = Number(setupUnit && setupUnit.early_checkout_rate_per_hour) || 0;
+            if (ehIn > 0 && rIn <= 0) {
+              var m5 = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m5) m5.textContent = "Set early check-in ₱/hr in Edit unit, or choose standard arrival time or later.";
+              return;
+            }
+            if (ehOut > 0 && rOut <= 0) {
+              var m6 = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m6) m6.textContent = "Set late checkout ₱/hr in Edit unit, or choose standard departure time or earlier.";
+              return;
+            }
+            updateExtraPaxAvailability();
+            var exBeyond = 0;
+            if (maxP && basePax === maxP) {
+              exBeyond = parseInt((setupOverlay.querySelector("[data-bk-extra-pax]") || {}).value, 10) || 0;
+            }
+            var rEx = Number(setupUnit && setupUnit.extra_pax_rate_per_night) || 0;
+            if (exBeyond > 0 && rEx <= 0) {
+              var m6b = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m6b) m6b.textContent = "Set extra guest ₱/night in Edit unit before adding guests beyond maximum.";
+              return;
+            }
+            var m7 = setupOverlay.querySelector("[data-bk-setup-msg]");
+            if (m7) m7.textContent = "Creating link…";
+            fetch("/api/owner/booking-intents", {
+              method: "POST",
+              headers: getH(true),
+              body: JSON.stringify({
+                unit_id: setupUnit.unit_id,
+                primary_guest_name: name,
+                base_pax: basePax,
+                extra_pax: exBeyond,
+                check_in_date: cia,
+                check_out_date: coa,
+                requested_check_in_time: reqInT,
+                requested_check_out_time: reqOutT,
+                early_checkin_hours: ehIn,
+                early_checkout_hours: ehOut
+              })
+            })
+              .then(function (r) {
+                return r.json().then(function (d) {
+                  return { ok: r.ok, d: d };
+                });
+              })
+              .then(function (res) {
+                if (!res.ok) {
+                  if (m7) m7.textContent = res.d.error || "Failed";
+                  return;
+                }
+                lastBookingUrl = res.d.booking_url || "";
+                var formStep = setupOverlay.querySelector("[data-booking-setup-step-form]");
+                var okStep = setupOverlay.querySelector("[data-booking-setup-step-success]");
+                var urlInp = setupOverlay.querySelector("[data-bk-success-url]");
+                if (formStep) formStep.style.display = "none";
+                if (okStep) okStep.style.display = "";
+                if (urlInp) urlInp.value = lastBookingUrl;
+                if (m7) m7.textContent = "";
+              })
+              .catch(function () {
+                if (m7) m7.textContent = "Network error";
+              });
+          });
+        var openFormBtn = setupOverlay.querySelector("[data-bk-open-form]");
+        if (openFormBtn) {
+          openFormBtn.addEventListener("click", function () {
+            if (lastBookingUrl) window.open(lastBookingUrl, "_blank");
+          });
+        }
+        var copyBtn = setupOverlay.querySelector("[data-bk-copy-url]");
+        if (copyBtn) {
+          copyBtn.addEventListener("click", function () {
+            if (!lastBookingUrl) return;
+            if (navigator.clipboard) navigator.clipboard.writeText(lastBookingUrl).catch(function () {});
+          });
+        }
+        setupOverlay.querySelector("[data-bk-success-done]") &&
+          setupOverlay.querySelector("[data-bk-success-done]").addEventListener("click", closeBookingSetup);
+      }
+
+      if (actionsOverlay) {
+        actionsOverlay.addEventListener("click", function (e) {
+          if (e.target === actionsOverlay) closeUnitActions();
+        });
+        var btnEdit = actionsOverlay.querySelector("[data-unit-action-edit]");
+        var btnBook = actionsOverlay.querySelector("[data-unit-action-booking]");
+        var btnCancel = actionsOverlay.querySelector("[data-unit-actions-cancel]");
+        if (btnEdit) {
+          btnEdit.addEventListener("click", function () {
+            var u = pendingUnitForActions;
+            closeUnitActions();
+            if (u) openEdit(u);
+          });
+        }
+        if (btnBook) {
+          btnBook.addEventListener("click", function () {
+            var u = pendingUnitForActions;
+            closeUnitActions();
+            if (u) openBookingSetup(u);
+          });
+        }
+        if (btnCancel) btnCancel.addEventListener("click", closeUnitActions);
+      }
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+        if (setupOverlay && setupOverlay.classList.contains("is-open")) {
+          closeBookingSetup();
+          return;
+        }
+        if (actionsOverlay && actionsOverlay.classList.contains("is-open")) {
+          closeUnitActions();
+          return;
+        }
+        closeEdit();
+      });
 
       function render(units) {
         if (!listEl) return;
@@ -274,17 +784,6 @@
             thumbsHtml += "</div>";
           }
 
-          var bookingLink = buildBookingLink(u);
-          var bookingLine =
-            "<div style=\"margin-top:10px;display:flex;flex-direction:column;gap:6px;\">" +
-            "<div style=\"font-size:0.75rem;text-transform:uppercase;letter-spacing:0.04em;color:rgba(255,255,255,0.7);font-weight:600;\">Booking link</div>" +
-            "<div style=\"display:flex;gap:8px;align-items:center;flex-wrap:wrap;\">" +
-            "<input type=\"text\" value=\"" + esc(bookingLink) + "\" readonly data-card-action=\"1\" style=\"flex:1;min-width:180px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);border-radius:12px;padding:0.55rem 0.7rem;color:#fff;\" />" +
-            "<button type=\"button\" class=\"submit-button ghost btn--sm\" data-card-action=\"1\" data-open-guest-booking>Open</button>" +
-            "<button type=\"button\" class=\"submit-button ghost btn--sm\" data-card-action=\"1\" data-copy-guest-booking>Copy</button>" +
-            "</div>" +
-            "</div>";
-
           card.innerHTML =
             media +
             "<div class=\"property-card__body\">" +
@@ -292,36 +791,23 @@
               "<p class=\"property-card__role\">" + esc(u.tower_name || "—") + "</p>" +
               "<div class=\"property-card__meta\"><span>" + esc(meta) + "</span></div>" +
               thumbsHtml +
-              bookingLine +
             "</div>";
 
-          // Card click opens the edit modal; buttons inside should not trigger it.
-          card.addEventListener("click", function (ev) {
-            var t = ev.target;
-            if (t && t.closest && t.closest("[data-card-action=\"1\"]")) return;
-            openEdit(u);
+          card.addEventListener("click", function () {
+            openUnitActions(u);
           });
-
-          var openBtn = card.querySelector("[data-open-guest-booking]");
-          var copyBtn = card.querySelector("[data-copy-guest-booking]");
-          if (openBtn) {
-            openBtn.addEventListener("click", function (ev) {
-              ev.stopPropagation();
-              window.open(bookingLink, "_blank");
-            });
-          }
-          if (copyBtn) {
-            copyBtn.addEventListener("click", function (ev) {
-              ev.stopPropagation();
-              navigator.clipboard && navigator.clipboard.writeText(bookingLink).catch(function () {});
-            });
-          }
           listEl.appendChild(card);
         });
       }
 
       function load() {
         if (loadMsg) loadMsg.textContent = "Loading…";
+        if (isOfflineOwnerDemo()) {
+          render(getOfflineDemoUnits());
+          if (loadMsg)
+            loadMsg.textContent = "Offline demo: sample unit below — open it to edit details (saved in this browser only).";
+          return Promise.resolve();
+        }
         return fetch("/api/properties", { headers: getH(false) })
           .then(function (r) { return r.ok ? r.json() : []; })
           .then(function (rows) { render(rows || []); if (loadMsg) loadMsg.textContent = ""; })
@@ -336,8 +822,25 @@
         var payload = {
           price: fd.get("price"),
           description: fd.get("description"),
+          check_in_time: fd.get("check_in_time") || "",
+          check_out_time: fd.get("check_out_time") || "",
+          max_pax: fd.get("max_pax"),
+          early_checkin_rate_per_hour: fd.get("early_checkin_rate_per_hour"),
+          early_checkout_rate_per_hour: fd.get("early_checkout_rate_per_hour"),
+          extra_pax_rate_per_night: fd.get("extra_pax_rate_per_night"),
           image_urls: JSON.stringify(editImageDataUrls.map(function (x) { return x || ""; }))
         };
+        if (isOfflineOwnerDemo() && editingUnitId === OFFLINE_DEMO_UNIT_ID) {
+          try {
+            localStorage.setItem(OFFLINE_UNIT_STORAGE_KEY, JSON.stringify(payload));
+          } catch (e2) {}
+          if (editMsg) editMsg.textContent = "Saved locally (offline demo).";
+          setTimeout(function () {
+            closeEdit();
+            load();
+          }, 450);
+          return;
+        }
         fetch("/api/owner/units/" + editingUnitId, { method: "PUT", headers: getH(true), body: JSON.stringify(payload) })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
           .then(function (res) {
@@ -356,12 +859,6 @@
         document.querySelector("[data-profile-initials-lg]").textContent = ini;
         document.querySelector("[data-profile-name]").textContent = name;
       } catch (e) {}
-
-      function buildBookingLink(unit) {
-        var base = window.location.origin + "/guest/booking.html";
-        var uid = unit && (unit.unit_id || unit.unit_number);
-        return base + "?unit_id=" + (uid != null ? uid : "");
-      }
 
       // Photo slot handlers (4 images, cover is slot 1)
       if (form) {
@@ -385,22 +882,6 @@
         });
       }
 
-      if (openGuestBtn) {
-        openGuestBtn.addEventListener("click", function () {
-          if (!guestLinkInput || !guestLinkInput.value) return;
-          window.open(guestLinkInput.value, "_blank");
-        });
-      }
-
-      if (copyGuestBtn) {
-        copyGuestBtn.addEventListener("click", function () {
-          if (!guestLinkInput || !guestLinkInput.value) return;
-          navigator.clipboard.writeText(guestLinkInput.value).catch(function () {
-            guestLinkInput.select();
-            document.execCommand("copy");
-          });
-        });
-      }
       document.querySelector("[data-profile-btn]").addEventListener("click", function (e) { e.stopPropagation(); document.querySelector("[data-profile-dropdown]").classList.toggle("is-open"); });
       document.addEventListener("click", function () { document.querySelector("[data-profile-dropdown]").classList.remove("is-open"); });
       document.querySelector("[data-logout-link]").addEventListener("click", function () { localStorage.clear(); });

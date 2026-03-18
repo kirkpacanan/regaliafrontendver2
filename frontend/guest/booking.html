@@ -550,6 +550,84 @@
       var urlParams = new URLSearchParams(window.location.search);
       var walkin = urlParams.get("walkin") === "1";
       var walkinToken = urlParams.get("token") || "";
+      var intentToken = (urlParams.get("intent") || "").trim();
+
+      function buildIntentGuestPanels(numPax, primaryGuestName) {
+        var selector = document.querySelector("[data-guest-selector]");
+        var panelsWrap = document.querySelector("[data-guest-panels]");
+        if (!selector || !panelsWrap) return;
+        panelsWrap.innerHTML = "";
+        selector.innerHTML = "";
+        var np = Math.min(Math.max(1, parseInt(String(numPax), 10) || 1), 20);
+        for (var idx = 0; idx < np; idx++) {
+          var opt = document.createElement("option");
+          opt.value = String(idx);
+          opt.textContent = "Guest " + (idx + 1);
+          selector.appendChild(opt);
+          var panel = document.createElement("div");
+          panel.className = "guest-panel" + (idx === 0 ? " is-active" : "");
+          panel.setAttribute("data-guest-panel", String(idx));
+          var emReq = idx === 0 ? " required" : "";
+          panel.innerHTML =
+            '<div class="field-row">' +
+            '<input type="text" name="guest_name_' +
+            idx +
+            '" placeholder="Name" required' +
+            (idx === 0 ? " readonly" : "") +
+            " />" +
+            '<input type="text" name="permanent_address_' +
+            idx +
+            '" placeholder="Permanent Address" />' +
+            "</div>" +
+            '<div class="field-row">' +
+            '<input type="text" name="age_' +
+            idx +
+            '" placeholder="Age" />' +
+            '<input type="text" name="nationality_' +
+            idx +
+            '" placeholder="Nationality" />' +
+            "</div>" +
+            '<div class="field-row">' +
+            '<input type="text" name="relation_to_owner_' +
+            idx +
+            '" placeholder="Relation to the Unit Owner" />' +
+            '<input type="text" name="occupation_' +
+            idx +
+            '" placeholder="Occupation" />' +
+            "</div>" +
+            '<div class="field-row">' +
+            '<input type="email" name="email_' +
+            idx +
+            '" placeholder="E-mail Address"' +
+            emReq +
+            " />" +
+            '<input type="text" name="contact_number_' +
+            idx +
+            '" placeholder="Contact Number" />' +
+            "</div>" +
+            '<div class="field-note">Government-issued ID (required)</div>' +
+            '<div class="field-row">' +
+            '<input type="file" name="id_document_' +
+            idx +
+            '" data-guest-id-document accept="image/*" data-guest-id-document-idx="' +
+            idx +
+            '" required />' +
+            "</div>";
+          panelsWrap.appendChild(panel);
+          if (idx === 0 && primaryGuestName) {
+            var nameInp = panel.querySelector('[name="guest_name_0"]');
+            if (nameInp) nameInp.value = String(primaryGuestName).trim();
+          }
+        }
+        selector.addEventListener("change", function () {
+          var v = Number(selector.value);
+          if (isNaN(v)) return;
+          panelsWrap.querySelectorAll("[data-guest-panel]").forEach(function (p) {
+            p.classList.toggle("is-active", Number(p.getAttribute("data-guest-panel")) === v);
+          });
+        });
+      }
+
       (function () {
         const unitId = urlParams.get("unit_id");
 
@@ -570,16 +648,48 @@
           if (el) el.textContent = value || "—";
         }
 
+        function fillImages(unit) {
+          if (!imagesEl) return;
+          imagesEl.innerHTML = "";
+          var urls = [];
+          try {
+            if (unit.image_urls) {
+              var arr = typeof unit.image_urls === "string" ? JSON.parse(unit.image_urls) : unit.image_urls;
+              if (Array.isArray(arr))
+                urls = arr
+                  .filter(function (s) {
+                    return s && (typeof s === "string" ? s : s.url || s.src);
+                  })
+                  .map(function (s) {
+                    return typeof s === "string" ? s : s.url || s.src;
+                  });
+            }
+          } catch (e) {}
+          if (urls.length === 0) {
+            imagesEl.innerHTML = "<div style='color: rgba(255,255,255,0.7)'>No images</div>";
+          } else {
+            urls.forEach(function (src) {
+              var img = document.createElement("img");
+              img.src = src;
+              img.alt = unit.unit_number || "Unit";
+              imagesEl.appendChild(img);
+            });
+          }
+        }
+
         function showContent() {
           if (loadingEl) loadingEl.style.display = "none";
           if (errorEl) errorEl.style.display = "none";
           if (contentEl) contentEl.style.display = "";
         }
 
-        function showError() {
+        function showError(msg) {
           if (loadingEl) loadingEl.style.display = "none";
           if (contentEl) contentEl.style.display = "none";
-          if (errorEl) errorEl.style.display = "block";
+          if (errorEl) {
+            errorEl.style.display = "block";
+            if (msg) errorEl.textContent = msg;
+          }
         }
 
         if (toggleUnitMediaBtn && unitMediaEl) {
@@ -602,6 +712,88 @@
           });
         }
 
+        if (intentToken) {
+          fetch("/api/booking-intents/" + encodeURIComponent(intentToken))
+            .then(function (r) {
+              if (!r.ok) throw new Error("bad");
+              return r.json();
+            })
+            .then(function (payload) {
+              window.__bookingIntentMode = true;
+              var unit = payload.unit;
+              showContent();
+              setText("[data-unit]", unit.unit_number ? "Unit " + unit.unit_number : "Unit");
+              setText("[data-location]", unit.tower_name || "");
+              setText("[data-price]", unit.price != null && unit.price !== "" ? "₱ " + unit.price : "—");
+              setText("[data-room]", unit.unit_type || "");
+              setText("[data-size]", unit.unit_size != null ? unit.unit_size + " sqm" : "—");
+              setText("[data-description]", unit.description || "");
+              fillImages(unit);
+              var heroP = document.querySelector(".hero p");
+              if (heroP) heroP.textContent = "Guest Booking Form · Stay dates set by your host";
+
+              var formEl = document.querySelector("[data-booking-form]");
+              if (formEl) {
+                formEl.dataset.unitId = String(payload.unit_id);
+                formEl.setAttribute("data-booking-intent-token", intentToken);
+              }
+              var cinStr = String(payload.check_in_date).slice(0, 10);
+              var coutStr = String(payload.check_out_date).slice(0, 10);
+              var cinEl = formEl && formEl.querySelector('[name="check_in_date"]');
+              var coutEl = formEl && formEl.querySelector('[name="check_out_date"]');
+              if (cinEl) {
+                cinEl.value = cinStr;
+                cinEl.readOnly = true;
+              }
+              if (coutEl) {
+                coutEl.value = coutStr;
+                coutEl.readOnly = true;
+              }
+              var incEl = formEl && formEl.querySelector('[name="inclusive_dates"]');
+              if (incEl) {
+                incEl.value = cinStr + " – " + coutStr;
+                incEl.readOnly = true;
+              }
+              var ownerNameEl = formEl && formEl.querySelector('[name="owner_name"]');
+              var ownerContactEl = formEl && formEl.querySelector('[name="owner_contact"]');
+              if (ownerNameEl) {
+                ownerNameEl.value = unit.owner_name || "";
+                ownerNameEl.readOnly = true;
+              }
+              if (ownerContactEl) {
+                ownerContactEl.value = unit.owner_contact || "";
+                ownerContactEl.readOnly = true;
+              }
+              if (prefillUnit) prefillUnit.value = (unit.unit_number || "") + (unit.tower_name ? " · " + unit.tower_name : "");
+              if (unitBookingLinkInput) unitBookingLinkInput.value = window.location.href.split("?")[0] + "?intent=" + encodeURIComponent(intentToken);
+
+              var gs = formEl && formEl.querySelector("[data-guest-section]");
+              if (gs && gs.parentNode) {
+                var prev = gs.previousElementSibling;
+                if (!prev || !prev.getAttribute || prev.getAttribute("data-intent-banner") !== "1") {
+                  var banner = document.createElement("div");
+                  banner.setAttribute("data-intent-banner", "1");
+                  banner.className = "undertaking";
+                  banner.style.marginBottom = "0.85rem";
+                  banner.textContent =
+                    "Stay: " +
+                    cinStr +
+                    " → " +
+                    coutStr +
+                    " (cannot be changed). " +
+                    (payload.fee_summary || "") +
+                    " Complete details and upload one valid ID per guest.";
+                  gs.parentNode.insertBefore(banner, gs);
+                }
+              }
+              buildIntentGuestPanels(payload.num_pax, payload.primary_guest_name);
+            })
+            .catch(function () {
+              showError("This booking link is invalid or has expired. Ask your host for a new link.");
+            });
+          return;
+        }
+
         if (!unitId) {
           showError();
         } else {
@@ -619,7 +811,6 @@
               setText("[data-size]", unit.unit_size != null ? unit.unit_size + " sqm" : "—");
               setText("[data-description]", unit.description || "");
 
-              // Prefill the booking form owner details from the backend.
               var formElForPrefill = document.querySelector("[data-booking-form]");
               var ownerNameEl = formElForPrefill && formElForPrefill.querySelector('[name="owner_name"]');
               var ownerContactEl = formElForPrefill && formElForPrefill.querySelector('[name="owner_contact"]');
@@ -632,26 +823,7 @@
                 ownerContactEl.readOnly = true;
               }
 
-              if (imagesEl) {
-                imagesEl.innerHTML = "";
-                var urls = [];
-                try {
-                  if (unit.image_urls) {
-                    var arr = typeof unit.image_urls === "string" ? JSON.parse(unit.image_urls) : unit.image_urls;
-                    if (Array.isArray(arr)) urls = arr.filter(function (s) { return s && (typeof s === "string" ? s : s.url || s.src); }).map(function (s) { return typeof s === "string" ? s : (s.url || s.src); });
-                  }
-                } catch (e) {}
-                if (urls.length === 0) {
-                  imagesEl.innerHTML = "<div style='color: rgba(255,255,255,0.7)'>No images</div>";
-                } else {
-                  urls.forEach(function (src) {
-                    var img = document.createElement("img");
-                    img.src = src;
-                    img.alt = unit.unit_number || "Unit";
-                    imagesEl.appendChild(img);
-                  });
-                }
-              }
+              fillImages(unit);
 
               if (unitBookingLinkInput) {
                 unitBookingLinkInput.value =
@@ -671,6 +843,7 @@
       })();
 
       (function initGuests() {
+        if (intentToken) return;
         var selector = document.querySelector("[data-guest-selector]");
         var panelsWrap = document.querySelector("[data-guest-panels]");
         if (!selector || !panelsWrap) return;
@@ -811,8 +984,12 @@
         });
         var primary = guests && guests[0] ? guests[0] : {};
 
+        var intentTok =
+          form &&
+          (form.getAttribute("data-booking-intent-token") || (form.dataset && form.dataset.bookingIntentToken));
         var data = {
           unit_id: unitId || null,
+          booking_intent_token: intentTok || undefined,
           guests: guests && guests.length ? guests : null,
           // Legacy fields: keep the backend-compatible shape for guest #1.
           guest_name: primary.full_name || "",
@@ -869,6 +1046,19 @@
           var paymentFile = form && form.querySelector("[data-payment-upload]");
           var isWalkin = walkin && walkinToken;
           if (isWalkin) data.token = walkinToken;
+          var guestIdInputsArr = Array.prototype.slice.call(idInputs || []);
+          guestIdInputsArr.sort(function (a, b) {
+            return Number(a.getAttribute("data-guest-id-document-idx")) - Number(b.getAttribute("data-guest-id-document-idx"));
+          });
+          if (window.__bookingIntentMode) {
+            for (var gi = 0; gi < guestIdInputsArr.length; gi++) {
+              var gin = guestIdInputsArr[gi];
+              if (!gin.files || !gin.files[0]) {
+                alert("Please upload a government-issued ID for every guest.");
+                return;
+              }
+            }
+          }
           var done = function () {
             var url = isWalkin ? "/api/guest-register" : "/api/bookings";
             fetch(url, {
@@ -903,10 +1093,6 @@
                 alert(err.message || "Failed to submit.");
               });
           };
-          var guestIdInputsArr = Array.prototype.slice.call(idInputs || []);
-          guestIdInputsArr.sort(function (a, b) {
-            return Number(a.getAttribute("data-guest-id-document-idx")) - Number(b.getAttribute("data-guest-id-document-idx"));
-          });
 
           function readGuestIdDocs(i) {
             if (i >= guestIdInputsArr.length) {
