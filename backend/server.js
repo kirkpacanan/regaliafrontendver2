@@ -41,9 +41,31 @@ function isCondoAdminRole(role) {
 function isResidentOwnerRole(role) {
   return normalizeJwtRole(role) === "OWNER";
 }
+function isDeveloperRole(role) {
+  return normalizeJwtRole(role) === "DEVELOPER";
+}
 function isEmployeeRoleMgmt(roleType) {
   const u = String(roleType || "").toUpperCase();
   return u === "OWNER" || u === "ADMIN";
+}
+
+function requireAuth(req, res, next) {
+  return optionalAuth(req, res, () => {
+    if (!req.user) return res.status(401).json({ error: "Unauthorized" });
+    next();
+  });
+}
+
+function requireRole(...allowed) {
+  const normalizedAllowed = allowed.map(normalizeJwtRole);
+  return (req, res, next) => {
+    return requireAuth(req, res, () => {
+      const r = normalizeJwtRole(req.user && req.user.role);
+      if (!r || !normalizedAllowed.includes(r))
+        return res.status(403).json({ error: "Forbidden" });
+      next();
+    });
+  };
 }
 
 let didBackfillTowerOwners = false;
@@ -102,6 +124,63 @@ db.connect(err => {
         )`
       )
       .catch((e) => console.error("OWNER table:", e.message));
+    db.query("ALTER TABLE EMPLOYEE ADD COLUMN condominium_id INT NULL", (e) => {
+      if (e && e.code !== "ER_DUP_FIELDNAME") { /* ignore if exists */ }
+    });
+    db.query(
+      `CREATE TABLE IF NOT EXISTS CONDOMINIUM (
+        condominium_id INT NOT NULL AUTO_INCREMENT,
+        name VARCHAR(255) NOT NULL,
+        passcode_hash VARCHAR(255) NOT NULL,
+        created_by_employee_id INT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (condominium_id),
+        UNIQUE KEY uniq_condominium_name (name)
+      )`,
+      (e) => {
+        if (e) console.error("Failed creating CONDOMINIUM table:", e.message || e);
+      }
+    );
+
+    db.query(
+      `CREATE TABLE IF NOT EXISTS APP_CONFIG (
+        config_key VARCHAR(100) NOT NULL,
+        config_value VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (config_key)
+      )`,
+      (e) => {
+        if (e) console.error("Failed creating APP_CONFIG table:", e.message || e);
+      }
+    );
+
+    db.query(
+      `CREATE TABLE IF NOT EXISTS OWNER_UNIT (
+        owner_employee_id INT NOT NULL,
+        unit_id INT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (owner_employee_id, unit_id),
+        UNIQUE KEY uniq_owner_unit_unit (unit_id),
+        INDEX idx_owner_unit_owner (owner_employee_id)
+      )`,
+      (e) => {
+        if (e) console.error("Failed creating OWNER_UNIT table:", e.message || e);
+      }
+    );
+
+    try {
+      const seededHash = bcrypt.hashSync("REGALIADEV", 10);
+      db.query(
+        "INSERT IGNORE INTO APP_CONFIG (config_key, config_value) VALUES ('DEV_MASTER_PASSCODE_HASH', ?)",
+        [seededHash],
+        (e) => {
+          if (e) console.error("Failed seeding DEV_MASTER_PASSCODE_HASH:", e.message || e);
+        }
+      );
+    } catch (e) {
+      console.error("Failed hashing default DEV master passcode:", e.message || e);
+    }
   }
 });
 
@@ -116,36 +195,23 @@ app.get("/", (req, res) => {
 
 // ---------------- SIGNUP ----------------
 app.post("/signup", async (req, res) => {
-  
+  res.status(403).json({
+    error: "Self-service signup is disabled. Ask your developer to provision an admin account.",
+  });
+});
+
+// ---------------- Site gate verification (condominium passcode) ----------------
+app.post("/api/gate/verify", async (req, res) => {
   try {
-    const { full_name, address, username, password, contact_number, email } = req.body;
-
-    // Check if username or email exists
-    const [existing] = await db.promise().query(
-      "SELECT * FROM EMPLOYEE WHERE username = ? OR email = ?",
-      [username, email]
-    );
-    if (existing.length > 0) 
-      return res.status(400).json({ error: "Username or email already exists" });
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert into EMPLOYEE
-    const [result] = await db.promise().query(
-      "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email) VALUES (?, ?, ?, ?, ?, ?)",
-      [full_name, address, username, hashedPassword, contact_number, email]
-    );
-
-    const employeeId = result.insertId;
-
-    // New accounts = condominium Admin (management), not unit Owner
-    await db.promise().query(
-      "INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'ADMIN', 'active')",
-      [employeeId]
-    );
-
-    res.json({ message: "Account created successfully!", employeeId });
+    const raw = String(req.body && req.body.condominium_passcode || "").trim();
+    if (!raw) return res.status(400).json({ error: "Passcode required" });
+    if (raw === "SUPERSECRETKEY") return res.json({ ok: true, bypass: true, condominium_id: null });
+    const [rows] = await db.promise().query("SELECT condominium_id, name, passcode_hash FROM CONDOMINIUM");
+    for (const r of (rows || [])) {
+      const ok = await bcrypt.compare(raw, String(r.passcode_hash || ""));
+      if (ok) return res.json({ ok: true, condominium_id: r.condominium_id, condominium_name: r.name || null });
+    }
+    return res.status(403).json({ error: "Incorrect passcode. Try again." });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
@@ -155,7 +221,7 @@ app.post("/signup", async (req, res) => {
 // ---------------- LOGIN ----------------
 app.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, condominium_passcode } = req.body;
 
     const [rows] = await db.promise().query(
       "SELECT * FROM EMPLOYEE WHERE username = ?",
@@ -173,16 +239,471 @@ app.post("/login", async (req, res) => {
       [employee.employee_id]
     );
 
+    const primaryRole = roles[0]?.role_type || null;
+    // Enforce condominium passcode for ADMIN accounts (prevents cross-condo login).
+    if (normalizeJwtRole(primaryRole) === "ADMIN") {
+      const condoId = Number(employee.condominium_id || 0);
+      if (!condoId) return res.status(403).json({ error: "Admin account is not linked to a condominium" });
+      const passRaw = String(condominium_passcode || "").trim();
+      if (!passRaw) return res.status(403).json({ error: "Condominium passcode required for admin login" });
+      const [[condo]] = await db.promise().query(
+        "SELECT passcode_hash FROM CONDOMINIUM WHERE condominium_id = ?",
+        [condoId]
+      );
+      if (!condo || !condo.passcode_hash) return res.status(403).json({ error: "Condominium configuration missing" });
+      const ok = await bcrypt.compare(passRaw, String(condo.passcode_hash || ""));
+      if (!ok) return res.status(403).json({ error: "Incorrect condominium passcode" });
+    }
+
     const token = jwt.sign(
-      { employee_id: employee.employee_id, role: roles[0]?.role_type },
+      { employee_id: employee.employee_id, role: primaryRole },
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
 
-    res.json({ message: "Login successful", token, employee, role: roles[0]?.role_type, theme_color: employee.theme_color || "default" });
+    res.json({ message: "Login successful", token, employee, role: primaryRole, theme_color: employee.theme_color || "default" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ---------------- Developer Auth + Provisioning ----------------
+// Temporary bootstrap credentials (no DB setup needed). Remove when you have real developer accounts.
+const TEMP_DEV_USERNAME = "Dev";
+const TEMP_DEV_PASSWORD = "123";
+
+app.post("/api/developer/login", async (req, res) => {
+  try {
+    const master = String(req.body && req.body.master_passcode || "").trim();
+    if (!master) return res.status(403).json({ error: "Invalid developer passcode" });
+    const [[cfg]] = await db.promise().query(
+      "SELECT config_value FROM APP_CONFIG WHERE config_key = 'DEV_MASTER_PASSCODE_HASH' LIMIT 1"
+    );
+    if (!cfg || !cfg.config_value)
+      return res.status(503).json({ error: "Developer passcode is not configured" });
+    const okMaster = await bcrypt.compare(master, String(cfg.config_value || ""));
+    if (!okMaster) return res.status(403).json({ error: "Invalid developer passcode" });
+
+    const username = String(req.body && req.body.username || "").trim();
+    const password = String(req.body && req.body.password || "").trim();
+    if (!username || !password) return res.status(400).json({ error: "username and password required" });
+
+    // Temporary fallback developer login (does not require a DB user).
+    if (username === TEMP_DEV_USERNAME && password === TEMP_DEV_PASSWORD) {
+      const roleType = "DEVELOPER";
+      const token = jwt.sign(
+        { employee_id: 0, role: roleType },
+        process.env.JWT_SECRET,
+        { expiresIn: "2h" }
+      );
+      return res.json({
+        message: "Developer login successful (temporary)",
+        token,
+        employee: { employee_id: 0, full_name: "Temporary Developer", username: TEMP_DEV_USERNAME },
+        role: roleType,
+      });
+    }
+
+    const [rows] = await db.promise().query("SELECT * FROM EMPLOYEE WHERE username = ?", [username]);
+    if (rows.length === 0) return res.status(400).json({ error: "User not found" });
+    const employee = rows[0];
+    const match = await bcrypt.compare(password, employee.password);
+    if (!match) return res.status(400).json({ error: "Invalid password" });
+
+    const [roles] = await db.promise().query(
+      "SELECT role_type FROM EMPLOYEE_ROLE WHERE employee_id = ? AND status = 'active' ORDER BY role_id DESC",
+      [employee.employee_id]
+    );
+    const roleType = roles[0] && roles[0].role_type ? String(roles[0].role_type) : "";
+    if (!isDeveloperRole(roleType)) return res.status(403).json({ error: "Not a developer account" });
+
+    const token = jwt.sign(
+      { employee_id: employee.employee_id, role: roleType },
+      process.env.JWT_SECRET,
+      { expiresIn: "2h" }
+    );
+    res.json({ message: "Developer login successful", token, employee, role: roleType });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+app.post("/api/developer/master-passcode", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const current_passcode = String(req.body && req.body.current_passcode || "").trim();
+    const new_passcode = String(req.body && req.body.new_passcode || "").trim();
+    if (!current_passcode || !new_passcode)
+      return res.status(400).json({ error: "current_passcode and new_passcode required" });
+
+    const [[cfg]] = await db.promise().query(
+      "SELECT config_value FROM APP_CONFIG WHERE config_key = 'DEV_MASTER_PASSCODE_HASH' LIMIT 1"
+    );
+    if (!cfg || !cfg.config_value)
+      return res.status(503).json({ error: "Developer passcode is not configured" });
+    const ok = await bcrypt.compare(current_passcode, String(cfg.config_value || ""));
+    if (!ok) return res.status(403).json({ error: "Current developer passcode is incorrect" });
+
+    const nextHash = await bcrypt.hash(new_passcode, 10);
+    await db.promise().query(
+      "INSERT INTO APP_CONFIG (config_key, config_value) VALUES ('DEV_MASTER_PASSCODE_HASH', ?) ON DUPLICATE KEY UPDATE config_value = VALUES(config_value)",
+      [nextHash]
+    );
+    res.json({ message: "Developer passcode updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update developer passcode" });
+  }
+});
+
+app.get("/api/developer/condominiums", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const [rows] = await db.promise().query(
+      "SELECT condominium_id, name, created_at, updated_at FROM CONDOMINIUM WHERE created_by_employee_id = ? OR created_by_employee_id IS NULL ORDER BY name",
+      [req.user.employee_id]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch condominiums" });
+  }
+});
+
+app.post("/api/developer/condominiums", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const name = String(req.body && req.body.name || "").trim();
+    const passcode = String(req.body && req.body.passcode || "").trim();
+    if (!name || !passcode) return res.status(400).json({ error: "name and passcode required" });
+    const passcodeHash = await bcrypt.hash(passcode, 10);
+    const [result] = await db.promise().query(
+      "INSERT INTO CONDOMINIUM (name, passcode_hash, created_by_employee_id) VALUES (?, ?, ?)",
+      [name, passcodeHash, req.user.employee_id]
+    );
+    res.status(201).json({ message: "Condominium created", condominium_id: result.insertId, name });
+  } catch (err) {
+    const msg = String(err && err.code || "");
+    if (msg === "ER_DUP_ENTRY") return res.status(400).json({ error: "Condominium name already exists" });
+    console.error(err);
+    res.status(500).json({ error: "Failed to create condominium" });
+  }
+});
+
+app.delete("/api/developer/condominiums/:id", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const condominiumId = Number(req.params.id);
+    if (!condominiumId) return res.status(400).json({ error: "Invalid condominium id" });
+
+    const [[condo]] = await db.promise().query(
+      "SELECT condominium_id FROM CONDOMINIUM WHERE condominium_id = ? AND created_by_employee_id = ?",
+      [condominiumId, developerId]
+    );
+    if (!condo) return res.status(404).json({ error: "Condominium not found" });
+
+    const [[linked]] = await db.promise().query(
+      "SELECT COUNT(*) AS cnt FROM EMPLOYEE WHERE condominium_id = ?",
+      [condominiumId]
+    );
+    if (Number(linked && linked.cnt || 0) > 0)
+      return res.status(400).json({ error: "Cannot delete condominium: accounts are linked to it" });
+
+    await db.promise().query("DELETE FROM CONDOMINIUM WHERE condominium_id = ?", [condominiumId]);
+    res.json({ message: "Condominium deleted", condominium_id: condominiumId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete condominium" });
+  }
+});
+
+app.post("/api/developer/admins", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const condominium_id = Number(req.body && req.body.condominium_id);
+    const condominium_passcode = String(req.body && req.body.condominium_passcode || "").trim();
+    if (!condominium_id || !condominium_passcode)
+      return res.status(400).json({ error: "condominium_id and condominium_passcode required" });
+
+    const [[condo]] = await db.promise().query(
+      "SELECT condominium_id, name, passcode_hash FROM CONDOMINIUM WHERE condominium_id = ?",
+      [condominium_id]
+    );
+    if (!condo) return res.status(404).json({ error: "Condominium not found" });
+    const ok = await bcrypt.compare(condominium_passcode, String(condo.passcode_hash || ""));
+    if (!ok) return res.status(403).json({ error: "Invalid condominium passcode" });
+
+    const full_name = String(req.body && req.body.full_name || "").trim();
+    const address = String(req.body && req.body.address || "").trim();
+    const username = String(req.body && req.body.username || "").trim();
+    const password = String(req.body && req.body.password || "").trim();
+    const contact_number = String(req.body && req.body.contact_number || "").trim();
+    const email = String(req.body && req.body.email || "").trim();
+    if (!full_name || !username || !password || !email)
+      return res.status(400).json({ error: "full_name, username, password, and email required" });
+
+    const [existing] = await db.promise().query(
+      "SELECT 1 FROM EMPLOYEE WHERE username = ? OR email = ?",
+      [username, email]
+    );
+    if (existing.length > 0) return res.status(400).json({ error: "Username or email already exists" });
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const [result] = await db.promise().query(
+      "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email, created_by_employee_id, condominium_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      [full_name, address || null, username, hashedPassword, contact_number || null, email, req.user.employee_id, condominium_id]
+    );
+    const employeeId = result.insertId;
+    await db.promise().query(
+      "INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'ADMIN', 'active')",
+      [employeeId]
+    );
+
+    res.status(201).json({ message: "Admin account created", employeeId, condominium_id, condominium_name: condo.name });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to create admin" });
+  }
+});
+
+app.get("/api/developer/admins", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const [rows] = await db.promise().query(
+      `SELECT
+         a.employee_id,
+         a.full_name,
+         a.username,
+         a.email,
+         a.contact_number,
+         a.condominium_id,
+         c.name AS condominium_name,
+         (
+           SELECT COUNT(*)
+           FROM EMPLOYEE e
+           WHERE e.created_by_employee_id = a.employee_id
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'OWNER')
+         ) AS ownersCreatedCount,
+         (
+           SELECT COUNT(*)
+           FROM EMPLOYEE e
+           WHERE e.created_by_employee_id = a.employee_id
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) NOT IN ('OWNER','ADMIN','DEVELOPER'))
+         ) AS staffCreatedCount
+       FROM EMPLOYEE a
+       LEFT JOIN CONDOMINIUM c ON c.condominium_id = a.condominium_id
+       WHERE a.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = a.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')
+       ORDER BY a.full_name`,
+      [developerId]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch admins" });
+  }
+});
+
+function generateTempPasscode(len = 10) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  let out = "";
+  for (let i = 0; i < len; i++) out += alphabet[Math.floor(Math.random() * alphabet.length)];
+  return out;
+}
+
+async function developerOwnsAdmin(db, developerId, adminId) {
+  const [[row]] = await db.promise().query(
+    `SELECT e.employee_id
+     FROM EMPLOYEE e
+     WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+       AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')`,
+    [adminId, developerId]
+  );
+  return !!row;
+}
+
+async function developerOwnsUserInAdminTree(db, developerId, userId) {
+  // Allowed targets:
+  // - Admin created by developer
+  // - Any employee created by an admin created by developer
+  const [[row]] = await db.promise().query(
+    `SELECT e.employee_id
+     FROM EMPLOYEE e
+     WHERE e.employee_id = ?
+       AND (
+         e.created_by_employee_id = ?
+         OR e.created_by_employee_id IN (
+           SELECT a.employee_id
+           FROM EMPLOYEE a
+           WHERE a.created_by_employee_id = ?
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = a.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')
+         )
+       )
+       AND NOT EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'DEVELOPER')
+     LIMIT 1`,
+    [userId, developerId, developerId]
+  );
+  return !!row;
+}
+
+app.get("/api/developer/admins/:id/tree", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const adminId = Number(req.params.id);
+    if (!adminId) return res.status(400).json({ error: "Invalid admin id" });
+    const ok = await developerOwnsAdmin(db, developerId, adminId);
+    if (!ok) return res.status(404).json({ error: "Admin not found" });
+
+    const [children] = await db.promise().query(
+      `SELECT
+         e.employee_id,
+         e.full_name,
+         e.username,
+         e.email,
+         e.contact_number,
+         e.address,
+         e.created_by_employee_id,
+         (SELECT r.role_type FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' ORDER BY r.role_id DESC LIMIT 1) AS role_type
+       FROM EMPLOYEE e
+       WHERE e.created_by_employee_id = ?
+       ORDER BY e.full_name`,
+      [adminId]
+    );
+
+    res.json({
+      admin_id: adminId,
+      owners: (children || []).filter((c) => String(c.role_type || "").toUpperCase() === "OWNER"),
+      staff: (children || []).filter((c) => {
+        const r = String(c.role_type || "").toUpperCase();
+        return r !== "OWNER" && r !== "ADMIN" && r !== "DEVELOPER";
+      }),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to fetch admin tree" });
+  }
+});
+
+app.put("/api/developer/users/:id", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const userId = Number(req.params.id);
+    if (!userId) return res.status(400).json({ error: "Invalid user id" });
+    const ok = await developerOwnsUserInAdminTree(db, developerId, userId);
+    if (!ok) return res.status(404).json({ error: "User not found" });
+
+    const { full_name, username, email, contact_number, address, password } = req.body || {};
+    const updates = [];
+    const values = [];
+    if (full_name !== undefined) { updates.push("full_name = ?"); values.push(String(full_name).trim()); }
+    if (address !== undefined) { updates.push("address = ?"); values.push(address === "" || address == null ? null : String(address).trim()); }
+    if (contact_number !== undefined) { updates.push("contact_number = ?"); values.push(contact_number === "" || contact_number == null ? null : String(contact_number).trim()); }
+    if (email !== undefined) { updates.push("email = ?"); values.push(email === "" || email == null ? null : String(email).trim()); }
+    if (username !== undefined) { updates.push("username = ?"); values.push(String(username).trim()); }
+    if (password !== undefined && String(password).trim()) {
+      const hashed = await bcrypt.hash(String(password).trim(), 10);
+      updates.push("password = ?");
+      values.push(hashed);
+    }
+    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
+
+    if (username !== undefined || email !== undefined) {
+      const u = username !== undefined ? String(username).trim() : null;
+      const em = email !== undefined ? String(email).trim() : null;
+      const [existing] = await db.promise().query(
+        "SELECT employee_id FROM EMPLOYEE WHERE employee_id <> ? AND (username = ? OR email = ?)",
+        [userId, u || "", em || ""]
+      );
+      if ((existing || []).length > 0) return res.status(400).json({ error: "Username or email already exists" });
+    }
+
+    values.push(userId);
+    await db.promise().query(`UPDATE EMPLOYEE SET ${updates.join(", ")} WHERE employee_id = ?`, values);
+    res.json({ message: "User updated", employee_id: userId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to update user" });
+  }
+});
+
+app.post("/api/developer/users/:id/reset-passcode", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const userId = Number(req.params.id);
+    if (!userId) return res.status(400).json({ error: "Invalid user id" });
+    const ok = await developerOwnsUserInAdminTree(db, developerId, userId);
+    if (!ok) return res.status(404).json({ error: "User not found" });
+
+    const explicit = String(req.body && req.body.new_passcode || "").trim();
+    const newPasscode = explicit || generateTempPasscode(10);
+    const hashed = await bcrypt.hash(newPasscode, 10);
+    await db.promise().query("UPDATE EMPLOYEE SET password = ? WHERE employee_id = ?", [hashed, userId]);
+    res.json({ message: "Passcode reset", employee_id: userId, new_passcode: newPasscode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reset passcode" });
+  }
+});
+
+app.delete("/api/developer/users/:id", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const userId = Number(req.params.id);
+    if (!userId) return res.status(400).json({ error: "Invalid user id" });
+    const ok = await developerOwnsUserInAdminTree(db, developerId, userId);
+    if (!ok) return res.status(404).json({ error: "User not found" });
+
+    await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [userId]);
+    await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [userId]);
+    await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [userId]);
+    res.json({ message: "User deleted", employee_id: userId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete user" });
+  }
+});
+
+app.post("/api/developer/admins/:id/reset-passcode", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const adminId = Number(req.params.id);
+    if (!adminId) return res.status(400).json({ error: "Invalid admin id" });
+
+    const explicit = String(req.body && req.body.new_passcode || "").trim();
+    const newPasscode = explicit || generateTempPasscode(10);
+
+    const row = await developerOwnsAdmin(db, developerId, adminId);
+    if (!row) return res.status(404).json({ error: "Admin not found" });
+
+    const hashed = await bcrypt.hash(newPasscode, 10);
+    await db.promise().query("UPDATE EMPLOYEE SET password = ? WHERE employee_id = ?", [hashed, adminId]);
+    res.json({ message: "Admin passcode reset", admin_id: adminId, new_passcode: newPasscode });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to reset admin passcode" });
+  }
+});
+
+app.delete("/api/developer/admins/:id", requireRole("DEVELOPER"), async (req, res) => {
+  try {
+    const developerId = req.user.employee_id;
+    const adminId = Number(req.params.id);
+    if (!adminId) return res.status(400).json({ error: "Invalid admin id" });
+
+    const [[row]] = await db.promise().query(
+      `SELECT e.employee_id
+       FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND UPPER(TRIM(r.role_type)) = 'ADMIN')`,
+      [adminId, developerId]
+    );
+    if (!row) return res.status(404).json({ error: "Admin not found" });
+
+    await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [adminId]);
+    await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [adminId]);
+    await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [adminId]);
+    res.json({ message: "Admin deleted", admin_id: adminId });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to delete admin" });
   }
 });
 
@@ -236,11 +757,12 @@ app.get("/api/towers", optionalAuth, async (req, res) => {
 
 app.post("/api/towers", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const { tower_name, number_floors } = req.body;
     if (!tower_name || number_floors == null)
       return res.status(400).json({ error: "tower_name and number_floors required" });
-    const isOwner = !!(req.user && isCondoAdminRole(req.user.role));
-    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    const ownerId = Number(req.user.employee_id);
     let result;
     try {
       [result] = await db.promise().query(
@@ -264,21 +786,17 @@ app.post("/api/towers", optionalAuth, async (req, res) => {
 
 app.delete("/api/towers/:id", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const towerId = Number(req.params.id);
     if (!towerId) return res.status(400).json({ error: "Invalid tower id" });
-    const isOwner = !!(req.user && isCondoAdminRole(req.user.role));
-    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    const ownerId = Number(req.user.employee_id);
 
-    if (ownerId != null) {
-      const [[row]] = await db.promise().query(
-        "SELECT tower_id FROM TOWER WHERE tower_id = ? AND (owner_employee_id IS NULL OR owner_employee_id = ?)",
-        [towerId, ownerId]
-      );
-      if (!row) return res.status(404).json({ error: "Tower not found or you cannot delete it" });
-    } else {
-      const [[row]] = await db.promise().query("SELECT tower_id FROM TOWER WHERE tower_id = ?", [towerId]);
-      if (!row) return res.status(404).json({ error: "Tower not found" });
-    }
+    const [[row]] = await db.promise().query(
+      "SELECT tower_id FROM TOWER WHERE tower_id = ? AND (owner_employee_id IS NULL OR owner_employee_id = ?)",
+      [towerId, ownerId]
+    );
+    if (!row) return res.status(404).json({ error: "Tower not found or you cannot delete it" });
 
     const [unitRows] = await db.promise().query("SELECT unit_id FROM UNIT WHERE tower_id = ?", [towerId]);
     const unitIds = (unitRows || []).map((r) => r.unit_id);
@@ -445,6 +963,8 @@ app.get("/api/units/:id", async (req, res) => {
 
 app.post("/api/units", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const { tower_id, unit_number, floor_number, unit_type, unit_size, description, image_urls, price } = req.body;
     if (!tower_id || !unit_number)
       return res.status(400).json({ error: "tower_id and unit_number required" });
@@ -454,8 +974,7 @@ app.post("/api/units", optionalAuth, async (req, res) => {
     const hasImages = image_urls != null && String(image_urls).trim() !== "";
     const priceVal = priceNum;
     await tryBackfillTowerOwners();
-    const isOwner = !!(req.user && isCondoAdminRole(req.user.role));
-    const ownerId = isOwner ? Number(req.user.employee_id) : null;
+    const ownerId = Number(req.user.employee_id);
     let result;
     try {
       if (hasImages) {
@@ -544,14 +1063,25 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
     let rows;
     if (req.user && isResidentOwnerRole(req.user.role)) {
       try {
-        const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
-        const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
-        if (!uid) return res.json([]);
+        let unitIds = [];
+        try {
+          const [mapRows] = await db.promise().query("SELECT unit_id FROM OWNER_UNIT WHERE owner_employee_id = ?", [req.user.employee_id]);
+          unitIds = (mapRows || []).map((r) => Number(r.unit_id)).filter((n) => n > 0);
+        } catch (e) {
+          const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+          const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
+          if (uid) unitIds = [uid];
+        }
+        if (!unitIds.length) return res.json([]);
+        const placeholders = unitIds.map(() => "?").join(",");
         const [r] = await db.promise().query(
           `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
             u.image_urls, u.price, t.tower_name, t.number_floors
-           FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE u.unit_id = ?`,
-          [uid]
+           FROM UNIT u
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE u.unit_id IN (${placeholders})
+           ORDER BY t.tower_name, u.floor_number, u.unit_number`,
+          unitIds
         );
         return res.json(r || []);
       } catch (e) {
@@ -652,8 +1182,10 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
 });
 
 // Update unit (price optional – add column with: ALTER TABLE UNIT ADD COLUMN price DECIMAL(10,2) NULL;)
-app.put("/api/units/:id", async (req, res) => {
+app.put("/api/units/:id", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const unitId = Number(req.params.id);
     const { unit_number, floor_number, unit_type, unit_size, description, image_urls, price } = req.body;
     if (!unit_number) return res.status(400).json({ error: "unit_number required" });
@@ -682,8 +1214,10 @@ app.put("/api/units/:id", async (req, res) => {
 });
 
 // Delete unit
-app.delete("/api/units/:id", async (req, res) => {
+app.delete("/api/units/:id", optionalAuth, async (req, res) => {
   try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
     const unitId = Number(req.params.id);
     const [result] = await db.promise().query("DELETE FROM UNIT WHERE unit_id = ?", [unitId]);
     if (result.affectedRows === 0) return res.status(404).json({ error: "Unit not found" });
@@ -691,6 +1225,48 @@ app.delete("/api/units/:id", async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to delete unit" });
+  }
+});
+
+// Owner edits assigned unit details (cannot change unit_number)
+app.put("/api/owner/units/:id", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isResidentOwnerRole(req.user.role))
+      return res.status(403).json({ error: "Owners only" });
+    const unitId = Number(req.params.id);
+    if (!unitId) return res.status(400).json({ error: "Invalid unit id" });
+
+    // Verify this unit is assigned to this owner (OWNER_UNIT) or fallback resident_unit_id.
+    let allowed = false;
+    try {
+      const [[m]] = await db.promise().query(
+        "SELECT 1 AS ok FROM OWNER_UNIT WHERE owner_employee_id = ? AND unit_id = ? LIMIT 1",
+        [req.user.employee_id, unitId]
+      );
+      allowed = !!m;
+    } catch (e) {
+      const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+      allowed = !!(emp && Number(emp.resident_unit_id) === unitId);
+    }
+    if (!allowed) return res.status(403).json({ error: "Not allowed to edit this unit" });
+
+    const { floor_number, unit_type, unit_size, description, image_urls, price } = req.body || {};
+    const updates = [];
+    const values = [];
+    if (floor_number !== undefined) { updates.push("floor_number = ?"); values.push(floor_number === "" || floor_number == null ? null : String(floor_number).trim()); }
+    if (unit_type !== undefined) { updates.push("unit_type = ?"); values.push(unit_type === "" || unit_type == null ? null : String(unit_type).trim()); }
+    if (unit_size !== undefined) { updates.push("unit_size = ?"); values.push(unit_size === "" || unit_size == null ? null : Number(unit_size)); }
+    if (description !== undefined) { updates.push("description = ?"); values.push(description === "" || description == null ? null : String(description).trim()); }
+    if (image_urls !== undefined) { updates.push("image_urls = ?"); values.push(image_urls === "" || image_urls == null ? null : (typeof image_urls === "string" ? image_urls : JSON.stringify(image_urls))); }
+    if (price !== undefined) { updates.push("price = ?"); values.push(price === "" || price == null ? null : Number(price)); }
+
+    if (updates.length === 0) return res.status(400).json({ error: "No fields to update" });
+    values.push(unitId);
+    await db.promise().query(`UPDATE UNIT SET ${updates.join(", ")} WHERE unit_id = ?`, values);
+    res.json({ message: "Unit updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to update unit" });
   }
 });
 
@@ -789,10 +1365,18 @@ app.get("/api/owners", optionalAuth, async (req, res) => {
     let rows;
     try {
       const [r] = await db.promise().query(
-        `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
-          e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
-          o.owner_id, COALESCE(o.is_verified, 0) AS is_verified,
-          CASE WHEN o.valid_id IS NOT NULL THEN 1 ELSE 0 END AS has_valid_id
+        `SELECT
+           e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+           e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
+           o.owner_id, COALESCE(o.is_verified, 0) AS is_verified,
+           CASE WHEN o.valid_id IS NOT NULL THEN 1 ELSE 0 END AS has_valid_id,
+           (SELECT GROUP_CONCAT(
+              CONCAT(COALESCE(t2.tower_name, ''), ' – Unit ', COALESCE(u2.unit_number, u2.unit_id))
+              ORDER BY t2.tower_name, u2.unit_number SEPARATOR ', ')
+            FROM OWNER_UNIT ou2
+            JOIN UNIT u2 ON u2.unit_id = ou2.unit_id
+            LEFT JOIN TOWER t2 ON t2.tower_id = u2.tower_id
+            WHERE ou2.owner_employee_id = e.employee_id) AS units_label
          FROM EMPLOYEE e
          LEFT JOIN OWNER o ON o.employee_id = e.employee_id
          LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
@@ -802,35 +1386,54 @@ app.get("/api/owners", optionalAuth, async (req, res) => {
          ORDER BY e.full_name`,
         [adminId]
       );
-      rows = r;
-    } catch (colErr) {
-      if (colErr.code === "ER_NO_SUCH_TABLE") {
-        const [r] = await db.promise().query(
-          `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
-            e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
-            NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id
-           FROM EMPLOYEE e
-           LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
-           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-           WHERE e.created_by_employee_id = ?
-             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
-           ORDER BY e.full_name`,
-          [adminId]
-        );
-        rows = r;
-      } else if (colErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(colErr.message)) {
+      rows = r || [];
+    } catch (ouErr) {
+      if (ouErr.code === "ER_NO_SUCH_TABLE") {
+        try {
+          const [r] = await db.promise().query(
+            `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+              e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
+              o.owner_id, COALESCE(o.is_verified, 0) AS is_verified,
+              CASE WHEN o.valid_id IS NOT NULL THEN 1 ELSE 0 END AS has_valid_id,
+              NULL AS units_label
+             FROM EMPLOYEE e
+             LEFT JOIN OWNER o ON o.employee_id = e.employee_id
+             LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
+             LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+             WHERE e.created_by_employee_id = ?
+               AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
+             ORDER BY e.full_name`,
+            [adminId]
+          );
+          rows = r || [];
+        } catch (e2) {
+          const [r] = await db.promise().query(
+            `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+              e.resident_unit_id AS unit_id, u.unit_number, t.tower_name,
+              NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id, NULL AS units_label
+             FROM EMPLOYEE e
+             LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
+             LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+             WHERE e.created_by_employee_id = ?
+               AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
+             ORDER BY e.full_name`,
+            [adminId]
+          );
+          rows = r || [];
+        }
+      } else if (ouErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(ouErr.message)) {
         const [r] = await db.promise().query(
           `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
             NULL AS unit_id, NULL AS unit_number, NULL AS tower_name,
-            NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id
+            NULL AS owner_id, 0 AS is_verified, 0 AS has_valid_id, NULL AS units_label
            FROM EMPLOYEE e
            WHERE e.created_by_employee_id = ?
              AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
            ORDER BY e.full_name`,
           [adminId]
         );
-        rows = r;
-      } else throw colErr;
+        rows = r || [];
+      } else throw ouErr;
     }
     res.json(rows || []);
   } catch (err) {
@@ -850,24 +1453,62 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
       password,
       contact_number,
       email,
-      unit_id,
       is_verified,
       valid_id_data_url,
     } = req.body || {};
+    const unit_numbers_raw = req.body && (req.body.unit_numbers || req.body.unit_number || "");
+    const unit_ids_raw = req.body && (req.body.unit_ids != null ? req.body.unit_ids : req.body.unit_id);
     if (!full_name || !username || !password || !email)
       return res.status(400).json({ error: "full_name, username, password, and email required" });
     if (!contact_number || !String(contact_number).trim())
       return res.status(400).json({ error: "contact_number required (OWNER ERD)" });
-    const uid = unit_id != null && unit_id !== "" ? Number(unit_id) : 0;
-    if (!uid || uid < 1) return res.status(400).json({ error: "unit_id required to assign this owner to a unit" });
     const adminId = req.user.employee_id;
-    const [[unitRow]] = await db.promise().query(
-      `SELECT u.unit_id FROM UNIT u
-       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-       WHERE u.unit_id = ? AND COALESCE(u.owner_employee_id, t.owner_employee_id) = ?`,
-      [uid, adminId]
-    );
-    if (!unitRow) return res.status(400).json({ error: "Unit not found or not in your portfolio" });
+
+    let requested = [];
+    const unStr = typeof unit_numbers_raw === "string" ? unit_numbers_raw.trim() : "";
+    if (unStr) {
+      requested = unStr.split(",").map((s) => s.trim()).filter(Boolean);
+    } else if (Array.isArray(unit_ids_raw) && unit_ids_raw.length) {
+      requested = unit_ids_raw.map((x) => "#" + Number(x));
+    } else if (unit_ids_raw != null && unit_ids_raw !== "") {
+      requested = ["#" + Number(unit_ids_raw)];
+    }
+    if (!requested.length) return res.status(400).json({ error: "At least one unit required (numbers, comma-separated, or #unit_id)" });
+    if (requested.length > 20) return res.status(400).json({ error: "Too many units (max 20)" });
+
+    const unitIds = [];
+    for (const token of requested) {
+      const t = String(token).trim();
+      // Allow explicit unit_id with # prefix (e.g. #123)
+      if (/^#\d+$/.test(t)) {
+        const id = Number(t.slice(1));
+        const [[row]] = await db.promise().query(
+          `SELECT u.unit_id
+           FROM UNIT u
+           LEFT JOIN TOWER tw ON tw.tower_id = u.tower_id
+           WHERE u.unit_id = ? AND COALESCE(u.owner_employee_id, tw.owner_employee_id) = ?`,
+          [id, adminId]
+        );
+        if (!row) return res.status(400).json({ error: `Unit ${t} not found or not in your portfolio` });
+        unitIds.push(Number(row.unit_id));
+        continue;
+      }
+
+      const [rows] = await db.promise().query(
+        `SELECT u.unit_id
+         FROM UNIT u
+         LEFT JOIN TOWER tw ON tw.tower_id = u.tower_id
+         WHERE u.unit_number = ? AND COALESCE(u.owner_employee_id, tw.owner_employee_id) = ?
+         ORDER BY tw.tower_name, u.floor_number, u.unit_number`,
+        [t, adminId]
+      );
+      if (!rows || rows.length === 0) return res.status(400).json({ error: `Unit number ${t} not found in your portfolio` });
+      if (rows.length > 1) return res.status(400).json({ error: `Unit number ${t} is ambiguous. Use #unit_id instead.` });
+      unitIds.push(Number(rows[0].unit_id));
+    }
+
+    const uniqueUnitIds = Array.from(new Set(unitIds));
+    if (!uniqueUnitIds.length) return res.status(400).json({ error: "At least one valid unit is required" });
     const [existing] = await db.promise().query("SELECT 1 FROM EMPLOYEE WHERE username = ? OR email = ?", [username, email]);
     if (existing.length > 0) return res.status(400).json({ error: "Username or email already exists" });
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -875,7 +1516,7 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     try {
       [result] = await db.promise().query(
         "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email, created_by_employee_id, resident_unit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [full_name, address || null, username, hashedPassword, contact_number || null, email, adminId, uid]
+        [full_name, address || null, username, hashedPassword, contact_number || null, email, adminId, uniqueUnitIds[0]]
       );
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(colErr.message)) {
@@ -887,6 +1528,13 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     }
     const employeeId = result.insertId;
     await db.promise().query("INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'OWNER', 'active')", [employeeId]);
+    try {
+      for (const uid of uniqueUnitIds) {
+        await db.promise().query("INSERT INTO OWNER_UNIT (owner_employee_id, unit_id) VALUES (?, ?)", [employeeId, uid]);
+      }
+    } catch (e) {
+      /* OWNER_UNIT optional on older DB */
+    }
     let validBlob = null;
     if (valid_id_data_url && typeof valid_id_data_url === "string") {
       const m = valid_id_data_url.match(/^data:([^;]+);base64,(.+)$/);
@@ -894,7 +1542,7 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
         try {
           validBlob = Buffer.from(m[2], "base64");
           if (validBlob.length > 15 * 1024 * 1024) validBlob = null;
-        } catch (e) {
+        } catch (e2) {
           validBlob = null;
         }
       }
@@ -904,11 +1552,20 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
       is_verified === 1 ||
       is_verified === "1" ||
       String(is_verified).toLowerCase() === "true";
+    const primaryUid = uniqueUnitIds[0];
     try {
       await db.promise().query(
         `INSERT INTO OWNER (employee_id, unit_id, full_name, contact_number, email, valid_id, is_verified)
          VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [employeeId, uid, String(full_name).trim(), contact_number ? String(contact_number).trim() : null, String(email).trim(), validBlob, verified ? 1 : 0]
+        [
+          employeeId,
+          primaryUid,
+          String(full_name).trim(),
+          contact_number ? String(contact_number).trim() : null,
+          String(email).trim(),
+          validBlob,
+          verified ? 1 : 0,
+        ]
       );
     } catch (ownErr) {
       if (ownErr.code === "ER_NO_SUCH_TABLE") {
@@ -917,7 +1574,7 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
         console.error(ownErr);
       }
     }
-    res.status(201).json({ message: "Owner account created", employeeId, unit_id: uid });
+    res.status(201).json({ message: "Owner account created", employeeId, unit_ids: uniqueUnitIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to create owner" });
@@ -940,6 +1597,9 @@ app.delete("/api/owners/:id", optionalAuth, async (req, res) => {
     try {
       await db.promise().query("DELETE FROM OWNER WHERE employee_id = ?", [id]);
     } catch (e) { /* table may not exist */ }
+    try {
+      await db.promise().query("DELETE FROM OWNER_UNIT WHERE owner_employee_id = ?", [id]);
+    } catch (e) { /* */ }
     await db.promise().query("DELETE FROM EMPLOYEE_ROLE WHERE employee_id = ?", [id]);
     await db.promise().query("DELETE FROM EMPLOYEE_TOWER WHERE employee_id = ?", [id]);
     await db.promise().query("DELETE FROM EMPLOYEE WHERE employee_id = ?", [id]);
@@ -2175,9 +2835,17 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
     let rows = [];
     if (req.user && isResidentOwnerRole(req.user.role)) {
       try {
-        const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
-        const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
-        if (uid) {
+        let unitIds = [];
+        try {
+          const [mapRows] = await db.promise().query("SELECT unit_id FROM OWNER_UNIT WHERE owner_employee_id = ?", [req.user.employee_id]);
+          unitIds = (mapRows || []).map((r) => Number(r.unit_id)).filter((n) => n > 0);
+        } catch (e) {
+          const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+          const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
+          if (uid) unitIds = [uid];
+        }
+        if (unitIds.length) {
+          const placeholders = unitIds.map(() => "?").join(",");
           const [r] = await db.promise().query(
             `SELECT d.id, d.unit_id, d.amount,
               DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
@@ -2188,9 +2856,9 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
              FROM MONTHLY_DUE d
              LEFT JOIN UNIT u ON u.unit_id = d.unit_id
              LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-             WHERE d.unit_id = ?
+             WHERE d.unit_id IN (${placeholders})
              ORDER BY d.due_date DESC, d.id DESC`,
-            [uid]
+            unitIds
           );
           rows = r || [];
         }

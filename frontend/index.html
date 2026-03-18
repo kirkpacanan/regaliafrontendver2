@@ -30,19 +30,19 @@
 
         <section class="panel-stack" aria-live="polite">
 
-          <!-- Passcode gate (temporary — remove or replace with real auth later) -->
-          <section class="panel is-active" data-view="gate">
+          <!-- Passcode gate (optional) -->
+          <section class="panel is-hidden" data-view="gate">
             <div class="card card--gate">
               <h2 class="card__title">Regalia</h2>
-              <p class="card__subtitle">Enter passcode to continue</p>
+              <p class="card__subtitle">Optional: enter condominium passcode</p>
               <form class="form" data-gate-form autocomplete="off">
                 <label class="field">
-                  <span>Passcode</span>
+                  <span>Condominium passcode</span>
                   <input
                     type="password"
                     name="passcode"
                     data-gate-input
-                    placeholder="Passcode"
+                    placeholder="Condo passcode"
                     autocomplete="off"
                     autocapitalize="off"
                     spellcheck="false"
@@ -52,69 +52,22 @@
                 <div class="gate-error" data-gate-error role="alert"></div>
                 <button class="btn primary" type="submit">Continue</button>
               </form>
-              <p class="gate-note muted">Temporary access for deployment &amp; pitching</p>
+              <button class="link muted" type="button" data-action="to-welcome">Skip</button>
             </div>
           </section>
 
           <!-- Welcome Panel -->
-          <section class="panel is-hidden" data-view="welcome">
-            <h1 class="welcome-title">Welcome!</h1>
+          <section class="panel is-active" data-view="welcome">
+            <h1 class="welcome-title" data-welcome-title>Welcome!</h1>
             <div class="button-group">
-              <button class="btn primary" data-action="to-signup">Create Account</button>
-              <button class="btn outline" data-action="to-login">Login</button>
-            </div>
-          </section>
-
-          <!-- Signup Panel -->
-          <section class="panel is-hidden" data-view="signup">
-            <div class="card">
-              <h2 class="card__title">Enter Credentials</h2>
-              <form class="form" autocomplete="on" data-signup-form>
-                <label class="field">
-                  <span>Full Name</span>
-                  <input type="text" name="full_name" placeholder="Full Name" autocomplete="name" required />
-                </label>
-                <label class="field">
-                  <span>Address</span>
-                  <input type="text" name="address" placeholder="Address" autocomplete="street-address" required />
-                </label>
-                <label class="field">
-                  <span>Username</span>
-                  <input type="text" name="username" placeholder="Username" autocomplete="username" required />
-                </label>
-                <label class="field">
-                  <span>Password</span>
-                  <div class="input-group">
-                    <input id="signup-password" type="password" name="password" placeholder="Password" autocomplete="new-password" required />
-                    <button class="icon-toggle" type="button" data-toggle="password" data-target="signup-password" aria-label="Show password">Show</button>
-                  </div>
-                </label>
-                <label class="field">
-                  <span>Confirm Password</span>
-                  <input type="password" name="confirmPassword" placeholder="Confirm Password" autocomplete="new-password" required />
-                </label>
-                <label class="field">
-                  <span>Contact Number</span>
-                  <input type="text" name="contact_number" placeholder="Contact Number" autocomplete="tel" required />
-                </label>
-                <label class="field">
-                  <span>Email</span>
-                  <input type="email" name="email" placeholder="Email" autocomplete="email" required />
-                </label>
-
-                <div class="signup-error" data-signup-error></div>
-                <button class="btn primary" type="submit">Create Account</button>
-              </form>
-
-              <button class="link" type="button" data-action="to-login">Already have an account? Log in</button>
-              <button class="link muted" type="button" data-action="to-welcome">Back to welcome</button>
+              <button class="btn primary" data-action="to-login">Login</button>
             </div>
           </section>
 
           <!-- Login Panel -->
           <section class="panel is-hidden" data-view="login">
             <div class="card">
-              <h2 class="card__title">Enter Account Details</h2>
+              <h2 class="card__title" data-login-title>Enter Account Details</h2>
               <form class="form" autocomplete="on" data-login-form>
                 <label class="field">
                   <span>Username / Email</span>
@@ -127,12 +80,14 @@
                     <button class="icon-toggle" type="button" data-toggle="password" data-target="login-password" aria-label="Show password">Show</button>
                   </div>
                 </label>
-
+                <label class="field">
+                  <span>Condominium passcode (Admins only)</span>
+                  <input type="password" name="condominium_passcode" placeholder="Condo passcode" autocomplete="off" />
+                </label>
                 <div class="login-error" data-login-error></div>
                 <button class="btn primary" type="submit">Log in</button>
               </form>
 
-              <button class="link" type="button" data-action="to-signup">New here? Create an account</button>
               <button class="link muted" type="button" data-action="to-welcome">Back to welcome</button>
             </div>
           </section>

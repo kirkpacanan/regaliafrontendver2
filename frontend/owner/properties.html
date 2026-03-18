@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Properties | Regalia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../admin/admin.css" />
+  </head>
+  <body data-page="owner-properties">
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand"><img class="brand-logo" src="../logo.png" alt="Regalia" /></div>
+        <nav class="nav">
+          <a href="./index.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg></span>Dashboard</a>
+          <a class="active" href="./properties.html"><span class="icon"><svg viewBox="0 0 24 24"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-6h6v6"></path></svg></span>Properties</a>
+          <a href="./monthly-dues.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></span>Monthly Dues</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="../index.html"><span class="icon"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline></svg></span>Log out</a>
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Properties</h1>
+            <p>Only units assigned by your admin appear here. You can edit unit details, but you can’t change the unit number.</p>
+          </div>
+          <div class="top-actions">
+            <div class="profile-wrap">
+              <button class="avatar avatar-btn" data-profile-btn>OW</button>
+              <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
+                <div class="profile-info">
+                  <div class="profile-avatar-lg" data-profile-initials-lg>OW</div>
+                  <div>
+                    <div class="profile-name" data-profile-name>Owner</div>
+                    <div class="profile-role" data-profile-role>OWNER</div>
+                  </div>
+                </div>
+                <a href="../index.html" class="profile-action" data-logout-link>Logout</a>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section class="panel">
+          <h3>Your assigned units</h3>
+          <div class="properties-list" data-owner-properties></div>
+          <div class="settings-msg" data-load-msg style="margin-top: 12px;"></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="modal-overlay" data-edit-overlay aria-hidden="true">
+      <div class="modal-card modal-card--wide">
+        <div class="modal-header">
+          <h2>Edit unit</h2>
+          <button class="icon-button" type="button" data-edit-close aria-label="Close">
+            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+          </button>
+        </div>
+        <form class="modal-form" data-edit-form>
+          <div class="update-form-fields" style="padding: 4px 0 0;">
+            <label>Unit number (locked) <input type="text" data-edit-unit-number disabled /></label>
+            <label>Floor number <input type="text" name="floor_number" data-edit-floor placeholder="e.g. 12" /></label>
+            <label>Unit type
+              <select name="unit_type" data-edit-unit-type>
+                <option value="">— Select —</option>
+                <option value="Studio Type">Studio Type</option>
+                <option value="1 Bedroom">1 Bedroom</option>
+                <option value="2 Bedroom">2 Bedroom</option>
+                <option value="3 Bedroom">3 Bedroom</option>
+                <option value="Penthouse">Penthouse</option>
+                <option value="Duplex">Duplex</option>
+              </select>
+            </label>
+            <label>Unit size (sqm) <input type="number" step="0.01" name="unit_size" data-edit-unit-size placeholder="e.g. 45" /></label>
+            <label>Price <input type="number" step="0.01" name="price" data-edit-price placeholder="e.g. 50000" /></label>
+            <label>Description <textarea name="description" data-edit-description placeholder="Description"></textarea></label>
+            <label>Image URLs (comma-separated)
+              <textarea name="image_urls" data-edit-images placeholder="https://... , https://..."></textarea>
+            </label>
+          </div>
+          <div class="settings-msg" data-edit-msg></div>
+          <div class="step-actions">
+            <button class="submit-button" type="submit">Save changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      (function gate() {
+        try {
+          if (!localStorage.getItem("token")) { window.location.replace("../index.html"); return; }
+          var r = String(localStorage.getItem("role") || "").toUpperCase();
+          if (r !== "OWNER") {
+            if (r === "ADMIN") window.location.replace("../admin/index.html");
+            else window.location.replace("../index.html");
+          }
+        } catch (e) {}
+      })();
+
+      function getH(json) {
+        var h = {};
+        try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+        if (json) h["Content-Type"] = "application/json";
+        return h;
+      }
+      function esc(s) { var d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+      function parseImages(val) {
+        var s = (val || "").trim();
+        if (!s) return null;
+        var parts = s.split(",").map(function (p) { return p.trim(); }).filter(Boolean);
+        return parts.length ? JSON.stringify(parts) : null;
+      }
+
+      var listEl = document.querySelector("[data-owner-properties]");
+      var loadMsg = document.querySelector("[data-load-msg]");
+      var overlay = document.querySelector("[data-edit-overlay]");
+      var closeBtn = document.querySelector("[data-edit-close]");
+      var form = document.querySelector("[data-edit-form]");
+      var editMsg = document.querySelector("[data-edit-msg]");
+      var editingUnitId = null;
+
+      function firstImg(unit) {
+        var raw = unit && unit.image_urls;
+        if (!raw) return null;
+        try {
+          var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (Array.isArray(arr) && arr.length) return typeof arr[0] === "string" ? arr[0] : (arr[0].url || arr[0].src || null);
+        } catch (e) {}
+        return null;
+      }
+
+      function openEdit(unit) {
+        editingUnitId = unit.unit_id;
+        form.querySelector("[data-edit-unit-number]").value = unit.unit_number || "";
+        form.querySelector("[data-edit-floor]").value = unit.floor_number || "";
+        form.querySelector("[data-edit-unit-type]").value = unit.unit_type || "";
+        form.querySelector("[data-edit-unit-size]").value = unit.unit_size == null ? "" : unit.unit_size;
+        form.querySelector("[data-edit-price]").value = unit.price == null ? "" : unit.price;
+        form.querySelector("[data-edit-description]").value = unit.description || "";
+        var imgs = "";
+        try {
+          var raw = unit.image_urls;
+          var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (Array.isArray(arr)) imgs = arr.map(function (x) { return typeof x === "string" ? x : (x.url || x.src || ""); }).filter(Boolean).join(", ");
+        } catch (e) {}
+        form.querySelector("[data-edit-images]").value = imgs;
+        if (editMsg) editMsg.textContent = "";
+        overlay.classList.add("is-open");
+        overlay.setAttribute("aria-hidden", "false");
+      }
+      function closeEdit() {
+        overlay.classList.remove("is-open");
+        overlay.setAttribute("aria-hidden", "true");
+        editingUnitId = null;
+      }
+      closeBtn.addEventListener("click", closeEdit);
+      overlay.addEventListener("click", function (e) { if (e.target === overlay) closeEdit(); });
+      document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeEdit(); });
+
+      function render(units) {
+        if (!listEl) return;
+        listEl.innerHTML = "";
+        if (!units || !units.length) {
+          listEl.innerHTML = "<div class=\"notif-empty\" style=\"padding: 12px;\">No units assigned yet.</div>";
+          return;
+        }
+        units.forEach(function (u) {
+          var card = document.createElement("div");
+          card.className = "property-card property-card--employee-style";
+          var img = firstImg(u);
+          var media = "<div class=\"property-card__media\">" + (img ? "<img src=\"" + esc(img) + "\" alt=\"\" />" : "<span class=\"property-card__placeholder\"></span>") + "</div>";
+          var meta = [u.unit_type, u.unit_size ? u.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
+          card.innerHTML =
+            media +
+            "<div class=\"property-card__body\">" +
+              "<h4 class=\"property-card__name\">" + esc(u.unit_number || String(u.unit_id)) + "</h4>" +
+              "<p class=\"property-card__role\">" + esc(u.tower_name || "—") + "</p>" +
+              "<div class=\"property-card__meta\"><span>" + esc(meta) + "</span></div>" +
+              "<div style=\"margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;\">" +
+                "<button class=\"btn ghost\" type=\"button\" data-edit-btn>Edit details</button>" +
+              "</div>" +
+            "</div>";
+          card.querySelector("[data-edit-btn]").addEventListener("click", function () { openEdit(u); });
+          listEl.appendChild(card);
+        });
+      }
+
+      function load() {
+        if (loadMsg) loadMsg.textContent = "Loading…";
+        return fetch("/api/properties", { headers: getH(false) })
+          .then(function (r) { return r.ok ? r.json() : []; })
+          .then(function (rows) { render(rows || []); if (loadMsg) loadMsg.textContent = ""; })
+          .catch(function () { if (loadMsg) loadMsg.textContent = "Failed to load properties."; render([]); });
+      }
+
+      form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (!editingUnitId) return;
+        if (editMsg) editMsg.textContent = "Saving…";
+        var fd = new FormData(form);
+        var payload = {
+          floor_number: fd.get("floor_number"),
+          unit_type: fd.get("unit_type"),
+          unit_size: fd.get("unit_size"),
+          price: fd.get("price"),
+          description: fd.get("description"),
+          image_urls: parseImages(fd.get("image_urls"))
+        };
+        fetch("/api/owner/units/" + editingUnitId, { method: "PUT", headers: getH(true), body: JSON.stringify(payload) })
+          .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+          .then(function (res) {
+            if (!res.ok) { if (editMsg) editMsg.textContent = res.d.error || "Failed"; return; }
+            if (editMsg) editMsg.textContent = "Saved.";
+            setTimeout(function () { closeEdit(); load(); }, 600);
+          })
+          .catch(function () { if (editMsg) editMsg.textContent = "Network error"; });
+      });
+
+      try {
+        var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+        var name = emp.full_name || emp.username || "Owner";
+        var ini = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "OW";
+        document.querySelector("[data-profile-btn]").textContent = ini;
+        document.querySelector("[data-profile-initials-lg]").textContent = ini;
+        document.querySelector("[data-profile-name]").textContent = name;
+      } catch (e) {}
+      document.querySelector("[data-profile-btn]").addEventListener("click", function (e) { e.stopPropagation(); document.querySelector("[data-profile-dropdown]").classList.toggle("is-open"); });
+      document.addEventListener("click", function () { document.querySelector("[data-profile-dropdown]").classList.remove("is-open"); });
+      document.querySelector("[data-logout-link]").addEventListener("click", function () { localStorage.clear(); });
+
+      load();
+    </script>
+  </body>
+</html>
+

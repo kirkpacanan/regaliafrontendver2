@@ -6,9 +6,11 @@
   }
 })();
 
-/** TEMPORARY: hardcoded site gate for deployment & pitching — replace with real auth */
-const REGALIA_SITE_PASSCODE = "SUPERSECRETKEY";
+/** TEMPORARY: site condo gate (replace with real auth later) */
 const REGALIA_GATE_STORAGE_KEY = "regalia_site_unlocked";
+const REGALIA_GATE_CONDO_ID_KEY = "regalia_gate_condo_id";
+const REGALIA_GATE_CONDO_PASSCODE_KEY = "regalia_gate_condo_passcode";
+const REGALIA_GATE_CONDO_NAME_KEY = "regalia_gate_condo_name";
 
 const panels = Array.from(document.querySelectorAll(".panel"));
 const views = new Map(panels.map((panel) => [panel.dataset.view, panel]));
@@ -16,32 +18,38 @@ const appRoot = document.querySelector(".app");
 
 let activePanel;
 
+function hydrateGateGreeting() {
+  try {
+    const condoName = String(sessionStorage.getItem(REGALIA_GATE_CONDO_NAME_KEY) || "").trim();
+    const welcomeTitle = document.querySelector("[data-welcome-title]");
+    const loginTitle = document.querySelector("[data-login-title]");
+    if (condoName) {
+      if (welcomeTitle) welcomeTitle.textContent = `Welcome ${condoName} Admin`;
+      if (loginTitle) loginTitle.textContent = `Welcome ${condoName} Admin`;
+    } else {
+      if (welcomeTitle) welcomeTitle.textContent = "Welcome!";
+      if (loginTitle) loginTitle.textContent = "Enter Account Details";
+    }
+  } catch (e) {}
+}
+
+// Hydrate immediately on page load (works on refresh).
+hydrateGateGreeting();
+
 (function initSiteGate() {
   const gate = views.get("gate");
   const welcome = views.get("welcome");
-  let unlocked = false;
-  try {
-    unlocked = sessionStorage.getItem(REGALIA_GATE_STORAGE_KEY) === "1";
-  } catch (e) {}
-
-  if (unlocked && welcome) {
-    if (gate) {
-      gate.classList.remove("is-active");
-      gate.classList.add("is-hidden");
-    }
+  // Gate is optional; default to welcome/login.
+  if (gate) {
+    gate.classList.remove("is-active");
+    gate.classList.add("is-hidden");
+  }
+  if (welcome) {
     welcome.classList.remove("is-hidden");
     welcome.classList.add("is-active");
     activePanel = welcome;
-  } else if (gate) {
-    if (welcome) {
-      welcome.classList.remove("is-active");
-      welcome.classList.add("is-hidden");
-    }
-    gate.classList.remove("is-hidden");
-    gate.classList.add("is-active");
-    activePanel = gate;
   } else {
-    activePanel = welcome || panels[0];
+    activePanel = panels[0];
   }
 })();
 
@@ -68,35 +76,70 @@ const setActivePanel = (viewName) => {
     appRoot.classList.toggle("is-form-open", compactHeader);
   }
   document.body.classList.toggle("is-form-open", compactHeader);
+
+  // Ensure greeting is up-to-date whenever panels change.
+  hydrateGateGreeting();
 };
 
 document.addEventListener("click", (event) => {
   const actionButton = event.target.closest("[data-action]");
   if (actionButton) {
     const action = actionButton.dataset.action;
-    if (action === "to-signup") setActivePanel("signup");
     if (action === "to-login") setActivePanel("login");
     if (action === "to-welcome") setActivePanel("welcome");
+    if (action === "to-gate") setActivePanel("gate");
   }
 });
 
 const gateForm = document.querySelector("[data-gate-form]");
 const gateError = document.querySelector("[data-gate-error]");
 if (gateForm) {
-  gateForm.addEventListener("submit", (event) => {
+  gateForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (gateError) gateError.textContent = "";
     const input = gateForm.querySelector("[data-gate-input]");
     const raw = input ? String(input.value || "").trim() : "";
-    if (raw === REGALIA_SITE_PASSCODE) {
+    if (!raw) {
+      if (gateError) gateError.textContent = "Passcode is required.";
+      if (input) input.focus();
+      return;
+    }
+    // Temporary bypass (no condo selected). Admin login will still require condo gate.
+    if (raw === "SUPERSECRETKEY") {
       try {
         sessionStorage.setItem(REGALIA_GATE_STORAGE_KEY, "1");
+        sessionStorage.removeItem(REGALIA_GATE_CONDO_ID_KEY);
+        sessionStorage.removeItem(REGALIA_GATE_CONDO_PASSCODE_KEY);
+        sessionStorage.removeItem(REGALIA_GATE_CONDO_NAME_KEY);
       } catch (e) {}
       if (input) input.value = "";
+      try { hydrateGateGreeting(); } catch (e) {}
       setActivePanel("welcome");
-    } else {
-      if (gateError) gateError.textContent = "Incorrect passcode. Try again.";
-      if (input) input.focus();
+      return;
+    }
+    try {
+      const response = await fetch("/api/gate/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ condominium_passcode: raw })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        if (gateError) gateError.textContent = (data && data.error) ? data.error : "Incorrect passcode. Try again.";
+        if (input) input.focus();
+        return;
+      }
+      try {
+        sessionStorage.setItem(REGALIA_GATE_STORAGE_KEY, "1");
+        if (data && data.condominium_id) sessionStorage.setItem(REGALIA_GATE_CONDO_ID_KEY, String(data.condominium_id));
+        if (data && data.condominium_name) sessionStorage.setItem(REGALIA_GATE_CONDO_NAME_KEY, String(data.condominium_name));
+        sessionStorage.setItem(REGALIA_GATE_CONDO_PASSCODE_KEY, raw);
+      } catch (e) {}
+      if (input) input.value = "";
+      try { hydrateGateGreeting(); } catch (e) {}
+      setActivePanel("welcome");
+    } catch (e) {
+      if (gateError) gateError.textContent = "Server error. Try again.";
     }
   });
 }
@@ -112,52 +155,6 @@ document.querySelectorAll("[data-toggle='password']").forEach((button) => {
     button.textContent = nextType === "password" ? "Show" : "Hide";
   });
 });
-//Signup
-const signupForm = document.querySelector("[data-signup-form]");
-const signupError = document.querySelector("[data-signup-error]");
-
-if (signupForm) {
-  signupForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    if (signupError) signupError.textContent = "";
-
-    const formData = new FormData(signupForm);
-
-    const payload = {
-    full_name: String(formData.get("full_name") || "").trim(),
-    username: String(formData.get("username") || "").trim(),
-    password: String(formData.get("password") || "").trim(),
-    contact_number: String(formData.get("contact_number") || "").trim(),
-    email: String(formData.get("email") || "").trim(),
-    address: String(formData.get("address") || "").trim()  // <-- added
-    };
-
-
-    try {
-      const response = await fetch("/signup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        alert("Signup successful!");
-        console.log(data);
-
-        // Optional: auto switch to login panel
-        setActivePanel("login");
-      } else {
-        if (signupError) signupError.textContent = data.error || "Signup failed";
-      }
-    } catch (err) {
-      console.error(err);
-      if (signupError) signupError.textContent = "Server error. Try again.";
-    }
-  });
-}
-
 //Login
 const loginForm = document.querySelector("[data-login-form]");
 const loginError = document.querySelector("[data-login-error]");
@@ -170,6 +167,7 @@ if (loginForm) {
     const formData = new FormData(loginForm);
     const username = String(formData.get("login") || "").trim();
     const password = String(formData.get("password") || "").trim();
+    const condominium_passcode = String(formData.get("condominium_passcode") || "").trim();
 
     // Offline accounts for local development
     const offlineAccounts = {
@@ -193,7 +191,7 @@ if (loginForm) {
       const response = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password, condominium_passcode })
       });
 
       const data = await response.json();
