@@ -543,6 +543,19 @@
               setText("[data-size]", unit.unit_size != null ? unit.unit_size + " sqm" : "—");
               setText("[data-description]", unit.description || "");
 
+              // Prefill the booking form owner details from the backend.
+              var formElForPrefill = document.querySelector("[data-booking-form]");
+              var ownerNameEl = formElForPrefill && formElForPrefill.querySelector('[name="owner_name"]');
+              var ownerContactEl = formElForPrefill && formElForPrefill.querySelector('[name="owner_contact"]');
+              if (ownerNameEl) {
+                ownerNameEl.value = unit.owner_name || "";
+                ownerNameEl.readOnly = true;
+              }
+              if (ownerContactEl) {
+                ownerContactEl.value = unit.owner_contact || "";
+                ownerContactEl.readOnly = true;
+              }
+
               if (imagesEl) {
                 imagesEl.innerHTML = "";
                 var urls = [];

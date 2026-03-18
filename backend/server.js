@@ -1176,7 +1176,9 @@ app.get("/api/units/:id", async (req, res) => {
     const unitId = Number(req.params.id);
     const [rows] = await db.promise().query(
       `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-        u.image_urls, u.price, t.tower_name, t.number_floors
+        u.image_urls, u.price, t.tower_name, t.number_floors,
+        (SELECT o.full_name FROM OWNER o WHERE o.unit_id = u.unit_id LIMIT 1) AS owner_name,
+        (SELECT o.contact_number FROM OWNER o WHERE o.unit_id = u.unit_id LIMIT 1) AS owner_contact
        FROM UNIT u
        LEFT JOIN TOWER t ON t.tower_id = u.tower_id
        WHERE u.unit_id = ?`,
