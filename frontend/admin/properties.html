@@ -12,7 +12,7 @@
     />
     <link rel="stylesheet" href="./admin.css" />
   </head>
-  <body data-page="properties">
+  <body data-page="properties" class="page-properties">
     <div class="dashboard">
       <aside class="sidebar">
         <div class="brand">
@@ -134,7 +134,8 @@
           </div>
         </div>
 
-        <section class="panel">
+        <div class="properties-page-main">
+        <section class="panel panel--tower">
           <h3>Add tower</h3>
           <p class="panel-subtitle muted">Towers you create will belong to your admin account.</p>
           <form class="settings-form" data-tower-form>
@@ -143,37 +144,47 @@
             <div class="settings-msg" data-tower-msg></div>
             <button type="submit" class="btn ghost settings-save">Add tower</button>
           </form>
-
-          <div class="settings-divider"></div>
-
-          <h3 style="margin:0 0 0.75rem; font-size: 0.95rem; font-weight: 600; color: var(--accent-1);">Add unit template</h3>
-          <p class="panel-subtitle muted" style="margin:0 0 1rem;">Save unit type + size so the Add unit form can auto-fill.</p>
-          <form class="settings-form" data-template-form>
-            <label class="settings-field"><span>Tower</span>
-              <select name="tower_id" data-template-tower-select required>
-                <option value="">— Select tower —</option>
-              </select>
-            </label>
-            <label class="settings-field"><span>Unit type</span>
-              <select name="unit_type" required>
-                <option value="">— Select —</option>
-                <option value="Studio Type">Studio Type</option>
-                <option value="1 Bedroom">1 Bedroom</option>
-                <option value="2 Bedroom">2 Bedroom</option>
-                <option value="3 Bedroom">3 Bedroom</option>
-                <option value="Penthouse">Penthouse</option>
-                <option value="Duplex">Duplex</option>
-              </select>
-            </label>
-            <label class="settings-field"><span>Unit size (sqm)</span><input type="number" step="0.01" name="unit_size" placeholder="e.g. 45" required /></label>
-            <label class="settings-field"><span>Example unit number (optional)</span><input type="text" name="unit_number_example" placeholder="e.g. 1201" /></label>
-            <label class="settings-field"><span>Default floor level (optional)</span><input type="text" name="floor_number_default" placeholder="e.g. 12" /></label>
-            <div class="settings-msg" data-template-msg></div>
-            <button type="submit" class="btn ghost settings-save">Save template</button>
-          </form>
         </section>
 
-        <section class="panel">
+        <section class="panel panel--collapsible" data-template-card>
+          <button type="button" class="panel-collapsible__head" data-template-card-toggle aria-expanded="true" aria-controls="template-card-body" id="template-card-toggle">
+            <span class="panel-collapsible__title">Add unit template</span>
+            <span class="panel-collapsible__chevron" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+          </button>
+          <p class="panel-subtitle muted panel-collapsible__hint" data-template-card-hint>Save unit type + size so <strong>Add unit</strong> can auto-fill. Click the header to hide when not needed.</p>
+          <div class="panel-collapsible__body" id="template-card-body" data-template-card-body>
+            <form class="settings-form" data-template-form>
+              <label class="settings-field"><span>Tower</span>
+                <select name="tower_id" data-template-tower-select required>
+                  <option value="">— Select tower —</option>
+                </select>
+              </label>
+              <label class="settings-field"><span>Unit type</span>
+                <select name="unit_type" data-template-unit-type-select required>
+                  <option value="">— Select —</option>
+                  <option value="Studio Type">Studio Type</option>
+                  <option value="1 Bedroom">1 Bedroom</option>
+                  <option value="2 Bedroom">2 Bedroom</option>
+                  <option value="3 Bedroom">3 Bedroom</option>
+                  <option value="Penthouse">Penthouse</option>
+                  <option value="Duplex">Duplex</option>
+                  <option value="__custom__">Other (type your own)</option>
+                </select>
+              </label>
+              <label class="settings-field" data-template-custom-type-wrap hidden>
+                <span>Custom unit type</span>
+                <input type="text" name="unit_type_custom" data-template-unit-type-custom placeholder="e.g. Loft, Executive suite" />
+              </label>
+              <label class="settings-field"><span>Unit size (sqm)</span><input type="number" step="0.01" name="unit_size" placeholder="e.g. 45" required /></label>
+              <div class="settings-msg" data-template-msg></div>
+              <button type="submit" class="btn ghost settings-save">Save template</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="panel panel--add-unit">
           <h3>Add unit</h3>
           <p class="panel-subtitle muted">Units you add here can later be assigned to owners.</p>
           <form class="settings-form" data-unit-form>
@@ -188,7 +199,7 @@
               </select>
             </label>
             <label class="settings-field"><span>Unit type</span>
-              <select name="unit_type" required>
+              <select name="unit_type" data-unit-form-unit-type required>
                 <option value="">— Select —</option>
                 <option value="Studio Type">Studio Type</option>
                 <option value="1 Bedroom">1 Bedroom</option>
@@ -196,7 +207,12 @@
                 <option value="3 Bedroom">3 Bedroom</option>
                 <option value="Penthouse">Penthouse</option>
                 <option value="Duplex">Duplex</option>
+                <option value="__custom__">Other (type your own)</option>
               </select>
+            </label>
+            <label class="settings-field" data-unit-form-custom-type-wrap hidden>
+              <span>Custom unit type</span>
+              <input type="text" name="unit_type_custom" data-unit-form-unit-type-custom placeholder="e.g. Loft" />
             </label>
             <label class="settings-field"><span>Unit number</span><input type="text" name="unit_number" placeholder="e.g. 1201" required /></label>
             <label class="settings-field"><span>Floor level</span><input type="text" name="floor_number" placeholder="e.g. 12" /></label>
@@ -205,6 +221,7 @@
             <button type="submit" class="btn ghost settings-save">Add unit</button>
           </form>
         </section>
+        </div>
       </main>
 
       <!-- Settings Modal: Theme Picker -->
@@ -281,8 +298,53 @@
       }
       function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
       var UNIT_TEMPLATES_KEY = "admin_unit_templates_v1";
+      var PRESET_UNIT_TYPES = ["Studio Type", "1 Bedroom", "2 Bedroom", "3 Bedroom", "Penthouse", "Duplex"];
       var adminUnitsCache = null;
       var unitTemplateOptionsByKey = {};
+      function applyUnitTypeToAddUnitForm(typeStr) {
+        var sel = document.querySelector("[data-unit-form-unit-type]");
+        var wrap = document.querySelector("[data-unit-form-custom-type-wrap]");
+        var customIn = document.querySelector("[data-unit-form-unit-type-custom]");
+        if (!sel) return;
+        typeStr = String(typeStr || "").trim();
+        if (PRESET_UNIT_TYPES.indexOf(typeStr) >= 0) {
+          sel.value = typeStr;
+          if (wrap) wrap.hidden = true;
+          if (customIn) { customIn.value = ""; customIn.removeAttribute("required"); }
+        } else if (typeStr) {
+          sel.value = "__custom__";
+          if (wrap) wrap.hidden = false;
+          if (customIn) customIn.value = typeStr;
+        } else {
+          sel.value = "";
+          if (wrap) wrap.hidden = true;
+          if (customIn) customIn.value = "";
+        }
+      }
+      function syncTemplateCustomTypeVisibility() {
+        var sel = document.querySelector("[data-template-unit-type-select]");
+        var wrap = document.querySelector("[data-template-custom-type-wrap]");
+        var inp = document.querySelector("[data-template-unit-type-custom]");
+        if (!sel || !wrap) return;
+        var isCustom = sel.value === "__custom__";
+        wrap.hidden = !isCustom;
+        if (inp) {
+          if (isCustom) inp.setAttribute("required", "required");
+          else { inp.removeAttribute("required"); inp.value = ""; }
+        }
+      }
+      function syncAddUnitCustomTypeVisibility() {
+        var sel = document.querySelector("[data-unit-form-unit-type]");
+        var wrap = document.querySelector("[data-unit-form-custom-type-wrap]");
+        var inp = document.querySelector("[data-unit-form-unit-type-custom]");
+        if (!sel || !wrap) return;
+        var isCustom = sel.value === "__custom__";
+        wrap.hidden = !isCustom;
+        if (inp) {
+          if (isCustom) inp.setAttribute("required", "required");
+          else { inp.removeAttribute("required"); inp.value = ""; }
+        }
+      }
       function getSavedTemplates() {
         try { return JSON.parse(localStorage.getItem(UNIT_TEMPLATES_KEY) || "[]"); } catch (e) { return []; }
       }
@@ -329,29 +391,14 @@
           // Saved templates first
           saved.filter(function (t) { return String(t.tower_id) === String(towerId); }).forEach(function (t) {
             var key = templateKey(t.tower_id, t.unit_type, t.unit_size);
-            optsByKey[key] = {
-              key: key,
-              tower_id: t.tower_id,
-              unit_type: t.unit_type,
-              unit_size: t.unit_size,
-              unit_number_example: t.unit_number_example || "",
-              floor_number_default: t.floor_number_default || ""
-            };
+            optsByKey[key] = { key: key, tower_id: t.tower_id, unit_type: t.unit_type, unit_size: t.unit_size };
           });
 
-          // Infer templates from already-created units
           (units || []).filter(function (u) { return String(u.tower_id) === String(towerId); }).forEach(function (u) {
             if (!u.unit_type || u.unit_size == null || u.unit_size === "") return;
             var key = templateKey(u.tower_id, u.unit_type, u.unit_size);
             if (!optsByKey[key]) {
-              optsByKey[key] = {
-                key: key,
-                tower_id: u.tower_id,
-                unit_type: u.unit_type,
-                unit_size: u.unit_size,
-                unit_number_example: u.unit_number || "",
-                floor_number_default: u.floor_number || ""
-              };
+              optsByKey[key] = { key: key, tower_id: u.tower_id, unit_type: u.unit_type, unit_size: u.unit_size };
             }
           });
 
@@ -383,6 +430,7 @@
             if (!res.ok) { msg.textContent = res.d.error || "Failed"; return; }
             msg.textContent = "Tower added.";
             e.target.reset();
+            adminUnitsCache = null;
             loadTowers();
             setTimeout(function () { msg.textContent = ""; }, 1500);
           }).catch(function () { msg.textContent = "Network error"; });
@@ -391,9 +439,12 @@
         e.preventDefault();
         var msg = document.querySelector("[data-unit-msg]");
         var fd = new FormData(e.target);
+        var unitType = fd.get("unit_type");
+        if (unitType === "__custom__") unitType = (fd.get("unit_type_custom") || "").trim();
+        if (!unitType) { msg.textContent = "Please choose or enter a unit type."; return; }
         var floorVal = fd.get("floor_number");
         if (floorVal === "" || floorVal == null) floorVal = null;
-        var body = { tower_id: fd.get("tower_id"), unit_type: fd.get("unit_type"), unit_number: fd.get("unit_number"), floor_number: floorVal, unit_size: fd.get("unit_size"), price: 0 };
+        var body = { tower_id: fd.get("tower_id"), unit_type: unitType, unit_number: fd.get("unit_number"), floor_number: floorVal, unit_size: fd.get("unit_size"), price: 0 };
         msg.textContent = "Saving…";
         fetch("/api/units", { method: "POST", headers: getH(), body: JSON.stringify(body) })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -401,31 +452,49 @@
             if (!res.ok) { msg.textContent = res.d.error || "Failed"; return; }
             msg.textContent = "Unit added.";
             e.target.reset();
-            loadTowers();
+            applyUnitTypeToAddUnitForm("");
+            syncAddUnitCustomTypeVisibility();
+            adminUnitsCache = null;
+            var tid = document.querySelector("[data-tower-select]");
+            loadTowers().then(function () { if (tid && tid.value) refreshUnitTemplateOptionsForTower(tid.value); });
             setTimeout(function () { msg.textContent = ""; }, 1500);
           }).catch(function () { msg.textContent = "Network error"; });
       });
+      var tplTypeSel = document.querySelector("[data-template-unit-type-select]");
+      if (tplTypeSel) tplTypeSel.addEventListener("change", syncTemplateCustomTypeVisibility);
+      var addUnitTypeSel = document.querySelector("[data-unit-form-unit-type]");
+      if (addUnitTypeSel) addUnitTypeSel.addEventListener("change", syncAddUnitCustomTypeVisibility);
+      syncTemplateCustomTypeVisibility();
+      syncAddUnitCustomTypeVisibility();
+
+      (function collapsibleTemplateCard() {
+        var card = document.querySelector("[data-template-card]");
+        var toggle = document.querySelector("[data-template-card-toggle]");
+        if (!card || !toggle) return;
+        var k = "admin_properties_template_card_collapsed";
+        function apply(collapsed) {
+          card.classList.toggle("panel--collapsible-collapsed", collapsed);
+          toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        }
+        try { if (localStorage.getItem(k) === "1") apply(true); } catch (err) {}
+        toggle.addEventListener("click", function () {
+          var next = !card.classList.contains("panel--collapsible-collapsed");
+          apply(next);
+          try { localStorage.setItem(k, next ? "1" : ""); } catch (e2) {}
+        });
+      })();
       // Template save + unit template selection
       (function initTemplates() {
         var templateForm = document.querySelector("[data-template-form]");
         var templateMsg = document.querySelector("[data-template-msg]");
         var unitTemplateSel = document.querySelector("[data-unit-template-select]");
         var unitTowerSel = document.querySelector("[data-tower-select]");
-        var unitTypeSel = document.querySelector("[data-unit-form] [name=\"unit_type\"]");
         var unitSizeInput = document.querySelector("[data-unit-form] [name=\"unit_size\"]");
-        var unitNumberInput = document.querySelector("[data-unit-form] [name=\"unit_number\"]");
-        var unitFloorInput = document.querySelector("[data-unit-form] [name=\"floor_number\"]");
-
-        function setInputValue(input, value) {
-          if (!input) return;
-          input.value = value == null ? "" : value;
-        }
 
         if (unitTowerSel) {
           unitTowerSel.addEventListener("change", function () {
             refreshUnitTemplateOptionsForTower(unitTowerSel.value).then(function () {
               if (unitTemplateSel) unitTemplateSel.value = "";
-              // Keep user-entered values unless a template is selected explicitly
             });
           });
         }
@@ -434,10 +503,9 @@
           unitTemplateSel.addEventListener("change", function () {
             var t = unitTemplateOptionsByKey[unitTemplateSel.value];
             if (!t) return;
-            if (unitTypeSel) unitTypeSel.value = t.unit_type || "";
+            applyUnitTypeToAddUnitForm(t.unit_type || "");
+            syncAddUnitCustomTypeVisibility();
             if (unitSizeInput) unitSizeInput.value = t.unit_size == null ? "" : t.unit_size;
-            if (unitNumberInput && t.unit_number_example) unitNumberInput.value = t.unit_number_example;
-            if (unitFloorInput) setInputValue(unitFloorInput, t.floor_number_default);
           });
         }
 
@@ -447,9 +515,8 @@
             var fd = new FormData(templateForm);
             var towerId = fd.get("tower_id");
             var unitType = fd.get("unit_type");
+            if (unitType === "__custom__") unitType = (fd.get("unit_type_custom") || "").trim();
             var unitSize = fd.get("unit_size");
-            var unitNumberExample = fd.get("unit_number_example");
-            var floorDefault = fd.get("floor_number_default");
 
             if (!towerId || !unitType || unitSize === "" || unitSize == null) {
               if (templateMsg) templateMsg.textContent = "Please complete tower, unit type, and unit size.";
@@ -459,28 +526,21 @@
             var templates = getSavedTemplates();
             var key = templateKey(towerId, unitType, unitSize);
             var replaced = false;
+            var row = { tower_id: towerId, unit_type: unitType, unit_size: unitSize };
             templates = templates.map(function (t) {
               if (templateKey(t.tower_id, t.unit_type, t.unit_size) === key) {
                 replaced = true;
-                return {
-                  tower_id: towerId,
-                  unit_type: unitType,
-                  unit_size: unitSize,
-                  unit_number_example: unitNumberExample || "",
-                  floor_number_default: floorDefault || ""
-                };
+                return row;
               }
               return t;
             });
-            if (!replaced) {
-              templates.push({ tower_id: towerId, unit_type: unitType, unit_size: unitSize, unit_number_example: unitNumberExample || "", floor_number_default: floorDefault || "" });
-            }
+            if (!replaced) templates.push(row);
             setSavedTemplates(templates);
             if (templateMsg) templateMsg.textContent = "Template saved!";
             setTimeout(function () { if (templateMsg) templateMsg.textContent = ""; }, 1200);
             templateForm.reset();
+            syncTemplateCustomTypeVisibility();
 
-            // If currently on same tower, refresh templates
             if (unitTowerSel && String(unitTowerSel.value) === String(towerId)) {
               refreshUnitTemplateOptionsForTower(towerId);
             }

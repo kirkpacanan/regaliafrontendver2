@@ -2466,3 +2466,75 @@ label .required {
   color: var(--muted);
   font-size: 0.95rem;
 }
+
+/* ---- Admin Properties page: panel spacing + collapsible template card ---- */
+.page-properties .properties-page-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+  margin-top: 1.5rem;
+  padding-bottom: 2rem;
+}
+
+.page-properties .panel--collapsible {
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+}
+
+.page-properties .panel-collapsible__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.35rem 0.15rem;
+  margin: 0 0 0.35rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  border-radius: 12px;
+  transition: background 0.2s ease;
+}
+
+.page-properties .panel-collapsible__head:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.page-properties .panel-collapsible__title {
+  flex: 1;
+}
+
+.page-properties .panel-collapsible__chevron {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  color: rgba(255, 255, 255, 0.85);
+  transition: transform 0.25s ease;
+}
+
+.page-properties .panel-collapsible__hint {
+  margin: 0 0 1rem;
+  line-height: 1.45;
+}
+
+.page-properties .panel-collapsible__body {
+  padding-top: 0.15rem;
+}
+
+.page-properties .panel--collapsible-collapsed .panel-collapsible__body,
+.page-properties .panel--collapsible-collapsed .panel-collapsible__hint {
+  display: none;
+}
+
+.page-properties .panel--collapsible-collapsed .panel-collapsible__head {
+  margin-bottom: 0;
+}
+
+.page-properties .panel--collapsible-collapsed .panel-collapsible__chevron {
+  transform: rotate(-90deg);
+}
