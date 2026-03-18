@@ -192,7 +192,7 @@ app.post("/api/gate/verify", async (req, res) => {
 // ---------------- LOGIN ----------------
 app.post("/login", async (req, res) => {
   try {
-    const { username, password, condominium_passcode, condominium_id } = req.body;
+    const { username, password, condominium_passcode } = req.body;
 
     const [rows] = await db.promise().query(
       "SELECT * FROM EMPLOYEE WHERE username = ?",
@@ -217,8 +217,6 @@ app.post("/login", async (req, res) => {
       if (!condoId) return res.status(403).json({ error: "Admin account is not linked to a condominium" });
       const passRaw = String(condominium_passcode || "").trim();
       if (!passRaw) return res.status(403).json({ error: "Condominium passcode required for admin login" });
-      if (condominium_id != null && Number(condominium_id) && Number(condominium_id) !== condoId)
-        return res.status(403).json({ error: "Incorrect condominium passcode" });
       const [[condo]] = await db.promise().query(
         "SELECT passcode_hash FROM CONDOMINIUM WHERE condominium_id = ?",
         [condoId]

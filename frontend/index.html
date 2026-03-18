@@ -30,11 +30,11 @@
 
         <section class="panel-stack" aria-live="polite">
 
-          <!-- Passcode gate (temporary — remove or replace with real auth later) -->
-          <section class="panel is-active" data-view="gate">
+          <!-- Passcode gate (optional) -->
+          <section class="panel is-hidden" data-view="gate">
             <div class="card card--gate">
               <h2 class="card__title">Regalia</h2>
-              <p class="card__subtitle">Enter condominium passcode to continue</p>
+              <p class="card__subtitle">Optional: enter condominium passcode</p>
               <form class="form" data-gate-form autocomplete="off">
                 <label class="field">
                   <span>Condominium passcode</span>
@@ -52,15 +52,16 @@
                 <div class="gate-error" data-gate-error role="alert"></div>
                 <button class="btn primary" type="submit">Continue</button>
               </form>
-              <p class="gate-note muted">Temporary access for deployment &amp; pitching</p>
+              <button class="link muted" type="button" data-action="to-welcome">Skip</button>
             </div>
           </section>
 
           <!-- Welcome Panel -->
-          <section class="panel is-hidden" data-view="welcome">
+          <section class="panel is-active" data-view="welcome">
             <h1 class="welcome-title" data-welcome-title>Welcome!</h1>
             <div class="button-group">
               <button class="btn outline" data-action="to-login">Login</button>
+              <button class="btn outline" data-action="to-gate">Enter condo passcode (optional)</button>
             </div>
           </section>
 
@@ -79,6 +80,10 @@
                     <input id="login-password" type="password" name="password" placeholder="Password" autocomplete="current-password" />
                     <button class="icon-toggle" type="button" data-toggle="password" data-target="login-password" aria-label="Show password">Show</button>
                   </div>
+                </label>
+                <label class="field">
+                  <span>Condominium passcode (Admins only)</span>
+                  <input type="password" name="condominium_passcode" placeholder="Condo passcode" autocomplete="off" />
                 </label>
                 <div class="login-error" data-login-error></div>
                 <button class="btn primary" type="submit">Log in</button>

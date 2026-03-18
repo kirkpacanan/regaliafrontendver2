@@ -39,29 +39,17 @@ hydrateGateGreeting();
 (function initSiteGate() {
   const gate = views.get("gate");
   const welcome = views.get("welcome");
-  let unlocked = false;
-  try {
-    unlocked = sessionStorage.getItem(REGALIA_GATE_STORAGE_KEY) === "1";
-  } catch (e) {}
-
-  if (unlocked && welcome) {
-    if (gate) {
-      gate.classList.remove("is-active");
-      gate.classList.add("is-hidden");
-    }
+  // Gate is optional; default to welcome/login.
+  if (gate) {
+    gate.classList.remove("is-active");
+    gate.classList.add("is-hidden");
+  }
+  if (welcome) {
     welcome.classList.remove("is-hidden");
     welcome.classList.add("is-active");
     activePanel = welcome;
-  } else if (gate) {
-    if (welcome) {
-      welcome.classList.remove("is-active");
-      welcome.classList.add("is-hidden");
-    }
-    gate.classList.remove("is-hidden");
-    gate.classList.add("is-active");
-    activePanel = gate;
   } else {
-    activePanel = welcome || panels[0];
+    activePanel = panels[0];
   }
 })();
 
@@ -99,6 +87,7 @@ document.addEventListener("click", (event) => {
     const action = actionButton.dataset.action;
     if (action === "to-login") setActivePanel("login");
     if (action === "to-welcome") setActivePanel("welcome");
+    if (action === "to-gate") setActivePanel("gate");
   }
 });
 
@@ -178,13 +167,7 @@ if (loginForm) {
     const formData = new FormData(loginForm);
     const username = String(formData.get("login") || "").trim();
     const password = String(formData.get("password") || "").trim();
-    let condominium_passcode = "";
-    let condominium_id = null;
-    try {
-      condominium_passcode = String(sessionStorage.getItem(REGALIA_GATE_CONDO_PASSCODE_KEY) || "").trim();
-      const rawId = String(sessionStorage.getItem(REGALIA_GATE_CONDO_ID_KEY) || "").trim();
-      condominium_id = rawId ? Number(rawId) : null;
-    } catch (e) {}
+    const condominium_passcode = String(formData.get("condominium_passcode") || "").trim();
 
     // Offline accounts for local development
     const offlineAccounts = {
@@ -208,7 +191,7 @@ if (loginForm) {
       const response = await fetch("/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, condominium_passcode, condominium_id })
+        body: JSON.stringify({ username, password, condominium_passcode })
       });
 
       const data = await response.json();
