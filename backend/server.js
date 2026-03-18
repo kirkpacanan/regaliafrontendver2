@@ -2583,9 +2583,25 @@ app.post("/api/bookings", async (req, res) => {
       id_document,
       payment_proof,
       signature_data,
+      guests,
     } = req.body;
-    if (!unit_id || !guest_name || !email)
+
+    const guestsArr = Array.isArray(guests) ? guests : null;
+    const primaryGuest = guestsArr && guestsArr[0] ? guestsArr[0] : null;
+
+    const finalGuestName = (primaryGuest && primaryGuest.full_name ? primaryGuest.full_name : guest_name) || "";
+    const finalEmail = (primaryGuest && primaryGuest.email ? primaryGuest.email : email) || "";
+    const finalContact = primaryGuest ? primaryGuest.contact_number || contact_number : contact_number;
+    const finalPermAddress = primaryGuest ? primaryGuest.permanent_address || permanent_address : permanent_address;
+    const finalAge = primaryGuest ? primaryGuest.age || age : age;
+    const finalNationality = primaryGuest ? primaryGuest.nationality || nationality : nationality;
+    const finalRelation = primaryGuest ? primaryGuest.relation_to_owner || relation_to_owner : relation_to_owner;
+    const finalOccupation = primaryGuest ? primaryGuest.occupation || occupation : occupation;
+    const finalIdDocument = primaryGuest && primaryGuest.id_document != null ? primaryGuest.id_document : id_document;
+
+    if (!unit_id || !finalGuestName || !finalEmail) {
       return res.status(400).json({ error: "unit_id, guest_name, and email required" });
+    }
 
     await db.promise().query(
       `INSERT INTO BOOKING (
@@ -2596,14 +2612,14 @@ app.post("/api/bookings", async (req, res) => {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')`,
       [
         Number(unit_id),
-        String(guest_name || "").trim(),
-        permanent_address ? String(permanent_address).trim() : null,
-        age ? String(age).trim() : null,
-        nationality ? String(nationality).trim() : null,
-        relation_to_owner ? String(relation_to_owner).trim() : null,
-        occupation ? String(occupation).trim() : null,
-        String(email || "").trim(),
-        contact_number ? String(contact_number).trim() : null,
+        String(finalGuestName || "").trim(),
+        finalPermAddress ? String(finalPermAddress).trim() : null,
+        finalAge ? String(finalAge).trim() : null,
+        finalNationality ? String(finalNationality).trim() : null,
+        finalRelation ? String(finalRelation).trim() : null,
+        finalOccupation ? String(finalOccupation).trim() : null,
+        String(finalEmail || "").trim(),
+        finalContact ? String(finalContact).trim() : null,
         owner_name ? String(owner_name).trim() : null,
         owner_contact ? String(owner_contact).trim() : null,
         inclusive_dates ? String(inclusive_dates).trim() : null,
@@ -2614,13 +2630,53 @@ app.post("/api/bookings", async (req, res) => {
         amount_paid != null && amount_paid !== "" ? String(amount_paid).trim() : null,
         booking_platform ? String(booking_platform).trim() : null,
         payment_method ? String(payment_method).trim() : null,
-        id_document || null,
+        finalIdDocument || null,
         payment_proof || null,
         signature_data || null,
       ]
     );
     const [r] = await db.promise().query("SELECT LAST_INSERT_ID() AS id");
-    res.status(201).json({ message: "Booking submitted", booking_id: r[0].id });
+    const bookingId = r[0].id;
+
+    // Insert extra guests from the new `guests` array (Guest 2+).
+    if (guestsArr && guestsArr.length > 1) {
+      const from = toYmd(check_in_date);
+      const to = toYmd(check_out_date);
+      for (let i = 1; i < guestsArr.length; i++) {
+        const g = guestsArr[i];
+        if (!g) continue;
+        const fullName = (g.full_name || "").trim();
+        if (!fullName) continue;
+        try {
+          await db.promise().query(
+            `INSERT INTO BOOKING_GUEST (booking_id, full_name, email, contact_number, added_via, purpose, relationship, valid_from, valid_to, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+            [
+              bookingId,
+              fullName,
+              g.email ? String(g.email).trim() : null,
+              g.contact_number ? String(g.contact_number).trim() : null,
+              "booker",
+              purpose_of_stay ? String(purpose_of_stay).trim() : null,
+              g.relation_to_owner ? String(g.relation_to_owner).trim() : null,
+              from,
+              to,
+            ]
+          );
+        } catch (insErr) {
+          if (insErr.code === "ER_BAD_FIELD_ERROR") {
+            await db.promise().query(
+              "INSERT INTO BOOKING_GUEST (booking_id, full_name, email, contact_number, added_via) VALUES (?, ?, ?, ?, ?)",
+              [bookingId, fullName, g.email ? String(g.email).trim() : null, g.contact_number ? String(g.contact_number).trim() : null, "booker"]
+            );
+          } else {
+            throw insErr;
+          }
+        }
+      }
+    }
+
+    res.status(201).json({ message: "Booking submitted", booking_id: bookingId });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to submit booking" });

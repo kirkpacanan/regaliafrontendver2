@@ -93,6 +93,30 @@
         box-shadow: 0 12px 22px rgba(0, 0, 0, 0.12);
       }
 
+      .guest-panel {
+        display: none;
+      }
+      .guest-panel.is-active {
+        display: block;
+      }
+
+      .unit-media-actions {
+        display: flex;
+        gap: 0.6rem;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .unit-media-link-input {
+        flex: 1;
+        min-width: 240px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        padding: 0.55rem 0.7rem;
+        color: #fff;
+      }
+
       .details {
         text-align: center;
         display: grid;
@@ -329,7 +353,6 @@
       <section class="card" data-unit-card>
         <div class="card-loading" data-unit-loading>Loading property…</div>
         <div class="card-content" data-unit-content style="display: none;">
-          <div class="image-grid" data-images></div>
           <div class="details">
             <h2 data-unit>Unit</h2>
             <div class="detail-grid">
@@ -340,12 +363,25 @@
               <div><span>Description:</span> <span data-description></span></div>
             </div>
           </div>
+          <div style="text-align: center;">
+            <button class="btn secondary" type="button" data-toggle-unit-media>
+              Show unit photos & booking link
+            </button>
+          </div>
+          <div class="unit-media" data-unit-media style="display: none;">
+            <div class="image-grid" data-images></div>
+            <div class="unit-media-actions" style="margin-top: 0.9rem;">
+              <input type="text" class="unit-media-link-input" data-unit-booking-link readonly />
+              <button class="btn secondary" type="button" data-open-unit-booking>Open</button>
+              <button class="btn secondary" type="button" data-copy-unit-booking>Copy</button>
+            </div>
+          </div>
         </div>
         <div class="card-error" data-unit-error style="display: none;">No property selected. Use the link from the property listing.</div>
       </section>
 
       <form class="form" data-booking-form method="post" action="#">
-        <div class="field-group">
+        <div class="field-group" data-guest-section>
           <div class="section-title">
             <svg viewBox="0 0 24 24">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -353,27 +389,42 @@
             </svg>
             Personal Information
           </div>
-          <div class="field-row">
-            <input type="text" name="guest_name" placeholder="Name" required />
-            <input type="text" name="permanent_address" placeholder="Permanent Address" />
+
+          <div style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
+            <div style="font-size:0.8rem;color:rgba(255,255,255,0.92);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
+              Guest
+            </div>
+            <select name="guest_selector" data-guest-selector>
+              <option value="0">Guest 1</option>
+              <option value="__add__">+ Add another guest</option>
+            </select>
           </div>
-          <div class="field-row">
-            <input type="text" name="age" placeholder="Age" />
-            <input type="text" name="nationality" placeholder="Nationality" />
-          </div>
-          <div class="field-row">
-            <input type="text" name="relation_to_owner" placeholder="Relation to the Unit Owner" />
-            <input type="text" name="occupation" placeholder="Occupation" />
-          </div>
-          <div class="field-row">
-            <input type="email" name="email" placeholder="E-mail Address" required />
-            <input type="text" name="contact_number" placeholder="Contact Number" />
-          </div>
-          <div class="field-note">
-            Kindly attach a copy of any government issued identification card.
-          </div>
-          <div class="field-row">
-            <input type="file" name="id_document" data-id-document accept="image/*" />
+
+          <div data-guest-panels>
+            <div class="guest-panel is-active" data-guest-panel="0">
+              <div class="field-row">
+                <input type="text" name="guest_name_0" placeholder="Name" required />
+                <input type="text" name="permanent_address_0" placeholder="Permanent Address" />
+              </div>
+              <div class="field-row">
+                <input type="text" name="age_0" placeholder="Age" />
+                <input type="text" name="nationality_0" placeholder="Nationality" />
+              </div>
+              <div class="field-row">
+                <input type="text" name="relation_to_owner_0" placeholder="Relation to the Unit Owner" />
+                <input type="text" name="occupation_0" placeholder="Occupation" />
+              </div>
+              <div class="field-row">
+                <input type="email" name="email_0" placeholder="E-mail Address" required />
+                <input type="text" name="contact_number_0" placeholder="Contact Number" />
+              </div>
+              <div class="field-note">
+                Kindly attach a copy of any government issued identification card.
+              </div>
+              <div class="field-row">
+                <input type="file" name="id_document_0" data-guest-id-document accept="image/*" data-guest-id-document-idx="0" />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -508,6 +559,11 @@
         const errorEl = document.querySelector("[data-unit-error]");
         const imagesEl = document.querySelector("[data-images]");
         const prefillUnit = document.querySelector("[data-prefill-unit]");
+        const toggleUnitMediaBtn = document.querySelector("[data-toggle-unit-media]");
+        const unitMediaEl = document.querySelector("[data-unit-media]");
+        const unitBookingLinkInput = document.querySelector("[data-unit-booking-link]");
+        const openUnitBookingBtn = document.querySelector("[data-open-unit-booking]");
+        const copyUnitBookingBtn = document.querySelector("[data-copy-unit-booking]");
 
         function setText(selector, value) {
           const el = document.querySelector(selector);
@@ -524,6 +580,26 @@
           if (loadingEl) loadingEl.style.display = "none";
           if (contentEl) contentEl.style.display = "none";
           if (errorEl) errorEl.style.display = "block";
+        }
+
+        if (toggleUnitMediaBtn && unitMediaEl) {
+          toggleUnitMediaBtn.addEventListener("click", function () {
+            if (!unitMediaEl) return;
+            unitMediaEl.style.display = unitMediaEl.style.display === "none" ? "" : "none";
+          });
+        }
+        if (openUnitBookingBtn && unitBookingLinkInput) {
+          openUnitBookingBtn.addEventListener("click", function () {
+            var link = unitBookingLinkInput.value;
+            if (link) window.open(link, "_blank");
+          });
+        }
+        if (copyUnitBookingBtn && unitBookingLinkInput) {
+          copyUnitBookingBtn.addEventListener("click", function () {
+            var link = unitBookingLinkInput.value;
+            if (!link) return;
+            if (navigator.clipboard) navigator.clipboard.writeText(link).catch(function () {});
+          });
         }
 
         if (!unitId) {
@@ -577,6 +653,13 @@
                 }
               }
 
+              if (unitBookingLinkInput) {
+                unitBookingLinkInput.value =
+                  window.location.origin +
+                  "/guest/booking.html?unit_id=" +
+                  (unit.unit_id != null ? unit.unit_id : "");
+              }
+
               if (prefillUnit) prefillUnit.value = (unit.unit_number || "") + (unit.tower_name ? " · " + unit.tower_name : "");
               var formEl = document.querySelector("[data-booking-form]");
               if (formEl) formEl.dataset.unitId = unit.unit_id;
@@ -587,6 +670,110 @@
         }
       })();
 
+      (function initGuests() {
+        var selector = document.querySelector("[data-guest-selector]");
+        var panelsWrap = document.querySelector("[data-guest-panels]");
+        if (!selector || !panelsWrap) return;
+
+        var maxGuests = 6;
+        var existingPanels = panelsWrap.querySelectorAll("[data-guest-panel]").length;
+        var guestCount = existingPanels > 0 ? existingPanels : 1;
+
+        function setActiveGuest(idx) {
+          var panels = panelsWrap.querySelectorAll("[data-guest-panel]");
+          panels.forEach(function (p) {
+            var pIdx = Number(p.getAttribute("data-guest-panel"));
+            if (pIdx === idx) p.classList.add("is-active");
+            else p.classList.remove("is-active");
+          });
+        }
+
+        function addGuestPanel(idx) {
+          var isPrimary = idx === 0;
+          var panel = document.createElement("div");
+          panel.className = "guest-panel";
+          panel.setAttribute("data-guest-panel", String(idx));
+          panel.innerHTML =
+            '<div class="field-row">' +
+            '<input type="text" name="guest_name_' +
+            idx +
+            '" placeholder="Name" ' +
+            (isPrimary ? "required" : "") +
+            " />" +
+            '<input type="text" name="permanent_address_' +
+            idx +
+            '" placeholder="Permanent Address" />' +
+            "</div>" +
+            '<div class="field-row">' +
+            '<input type="text" name="age_' +
+            idx +
+            '" placeholder="Age" />' +
+            '<input type="text" name="nationality_' +
+            idx +
+            '" placeholder="Nationality" />' +
+            "</div>" +
+            '<div class="field-row">' +
+            '<input type="text" name="relation_to_owner_' +
+            idx +
+            '" placeholder="Relation to the Unit Owner" />' +
+            '<input type="text" name="occupation_' +
+            idx +
+            '" placeholder="Occupation" />' +
+            "</div>" +
+            '<div class="field-row">' +
+            '<input type="email" name="email_' +
+            idx +
+            '" placeholder="E-mail Address" ' +
+            (isPrimary ? "required" : "") +
+            " />" +
+            '<input type="text" name="contact_number_' +
+            idx +
+            '" placeholder="Contact Number" />' +
+            "</div>" +
+            '<div class="field-note">Kindly attach a copy of any government issued identification card.</div>' +
+            '<div class="field-row">' +
+            '<input type="file" name="id_document_' +
+            idx +
+            '" data-guest-id-document accept="image/*" data-guest-id-document-idx="' +
+            idx +
+            '" />' +
+            "</div>";
+          panelsWrap.appendChild(panel);
+        }
+
+        // Ensure guest 1 is active at start.
+        setActiveGuest(0);
+
+        selector.addEventListener("change", function () {
+          var val = selector.value;
+          if (val === "__add__") {
+            if (guestCount >= maxGuests) {
+              alert("Max guests reached.");
+              selector.value = "0";
+              setActiveGuest(0);
+              return;
+            }
+            var newIdx = guestCount;
+            guestCount++;
+
+            addGuestPanel(newIdx);
+
+            var newOption = document.createElement("option");
+            newOption.value = String(newIdx);
+            newOption.textContent = "Guest " + String(newIdx + 1);
+            var addOpt = selector.querySelector('option[value="__add__"]');
+            if (addOpt) selector.insertBefore(newOption, addOpt);
+            else selector.appendChild(newOption);
+
+            selector.value = String(newIdx);
+            setActiveGuest(newIdx);
+          } else {
+            var idx = Number(val);
+            if (!isNaN(idx)) setActiveGuest(idx);
+          }
+        });
+      })();
+
       function getFormData() {
         var form = document.querySelector("[data-booking-form]");
         var unitId = form && form.dataset.unitId;
@@ -595,16 +782,48 @@
           return el ? el.value.trim() : "";
         };
         var paidEl = form && form.querySelector("input[name=\"paid\"]:checked");
+        var panels = form && form.querySelectorAll("[data-guest-panel]");
+        var guests = [];
+        var panelGet = function (panel, name) {
+          var el = panel && panel.querySelector("[name=\"" + name + "\"]");
+          return el ? el.value.trim() : "";
+        };
+        if (panels && panels.length) {
+          panels.forEach(function (panel) {
+            var idx = Number(panel.getAttribute("data-guest-panel"));
+            if (isNaN(idx)) return;
+            guests[idx] = {
+              full_name: panelGet(panel, "guest_name_" + idx),
+              permanent_address: panelGet(panel, "permanent_address_" + idx),
+              age: panelGet(panel, "age_" + idx),
+              nationality: panelGet(panel, "nationality_" + idx),
+              relation_to_owner: panelGet(panel, "relation_to_owner_" + idx),
+              occupation: panelGet(panel, "occupation_" + idx),
+              email: panelGet(panel, "email_" + idx),
+              contact_number: panelGet(panel, "contact_number_" + idx),
+              id_document: null
+            };
+          });
+        }
+
+        guests = (guests || []).map(function (g) {
+          return g || null;
+        });
+        var primary = guests && guests[0] ? guests[0] : {};
+
         var data = {
           unit_id: unitId || null,
-          guest_name: getVal("guest_name"),
-          permanent_address: getVal("permanent_address") || null,
-          age: getVal("age") || null,
-          nationality: getVal("nationality") || null,
-          relation_to_owner: getVal("relation_to_owner") || null,
-          occupation: getVal("occupation") || null,
-          email: getVal("email"),
-          contact_number: getVal("contact_number") || null,
+          guests: guests && guests.length ? guests : null,
+          // Legacy fields: keep the backend-compatible shape for guest #1.
+          guest_name: primary.full_name || "",
+          permanent_address: primary.permanent_address || null,
+          age: primary.age || null,
+          nationality: primary.nationality || null,
+          relation_to_owner: primary.relation_to_owner || null,
+          occupation: primary.occupation || null,
+          email: primary.email || "",
+          contact_number: primary.contact_number || null,
+          id_document: null,
           owner_name: getVal("owner_name") || null,
           owner_contact: getVal("owner_contact") || null,
           inclusive_dates: getVal("inclusive_dates") || null,
@@ -646,7 +865,7 @@
             alert("Name and email are required.");
             return;
           }
-          var idFile = form && form.querySelector("[data-id-document]");
+          var idInputs = form ? form.querySelectorAll("[data-guest-id-document]") : [];
           var paymentFile = form && form.querySelector("[data-payment-upload]");
           var isWalkin = walkin && walkinToken;
           if (isWalkin) data.token = walkinToken;
@@ -668,6 +887,15 @@
                   alert("Booking submitted. The owner will review and confirm or reject.");
                 }
                 if (form) form.reset();
+                // Reset guest UI back to Guest 1 after successful submit.
+                var guestSelector = document.querySelector("[data-guest-selector]");
+                if (guestSelector) guestSelector.value = "0";
+                var panels = document.querySelectorAll("[data-guest-panel]");
+                panels.forEach(function (p) {
+                  var pIdx = Number(p.getAttribute("data-guest-panel"));
+                  if (pIdx === 0) p.classList.add("is-active");
+                  else p.classList.remove("is-active");
+                });
                 var canvas = document.querySelector("[data-signature]");
                 if (canvas) { var ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); }
               })
@@ -675,9 +903,37 @@
                 alert(err.message || "Failed to submit.");
               });
           };
-          if (idFile && idFile.files && idFile.files[0]) {
-            fileToBase64(idFile.files[0], function (b64) { data.id_document = b64; next(); });
-          } else { data.id_document = null; next(); }
+          var guestIdInputsArr = Array.prototype.slice.call(idInputs || []);
+          guestIdInputsArr.sort(function (a, b) {
+            return Number(a.getAttribute("data-guest-id-document-idx")) - Number(b.getAttribute("data-guest-id-document-idx"));
+          });
+
+          function readGuestIdDocs(i) {
+            if (i >= guestIdInputsArr.length) {
+              // Legacy: BOOKING.id_document should come from Guest 1 only.
+              data.id_document = data.guests && data.guests[0] ? data.guests[0].id_document : null;
+              next();
+              return;
+            }
+            var inp = guestIdInputsArr[i];
+            var idx = Number(inp.getAttribute("data-guest-id-document-idx"));
+            var file = inp && inp.files && inp.files[0] ? inp.files[0] : null;
+            if (data.guests && data.guests[idx]) {
+              if (file) {
+                fileToBase64(file, function (b64) {
+                  data.guests[idx].id_document = b64;
+                  readGuestIdDocs(i + 1);
+                });
+              } else {
+                data.guests[idx].id_document = null;
+                readGuestIdDocs(i + 1);
+              }
+            } else {
+              readGuestIdDocs(i + 1);
+            }
+          }
+
+          readGuestIdDocs(0);
           function next() {
             if (paymentFile && paymentFile.files && paymentFile.files[0]) {
               fileToBase64(paymentFile.files[0], function (b64) { data.payment_proof = b64; done(); });
