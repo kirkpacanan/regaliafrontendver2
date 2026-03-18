@@ -187,6 +187,40 @@ body {
   margin-top: -8vh;
 }
 
+.panel[data-view="gate"] {
+  margin-top: -10vh;
+}
+
+.card--gate {
+  width: 100%;
+  max-width: 400px;
+}
+
+.card__subtitle {
+  margin: -0.5rem 0 1.25rem;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.gate-error {
+  min-height: 1.25rem;
+  font-size: 0.85rem;
+  color: #c53030;
+  margin-bottom: 0.25rem;
+  text-align: left;
+}
+
+.gate-note {
+  margin: 1.25rem 0 0;
+  font-size: 0.78rem;
+  text-align: center;
+}
+
+.gate-note.muted {
+  color: var(--text-muted);
+}
+
 .panel.is-active {
   opacity: 1;
   transform: translateY(0);

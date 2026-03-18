@@ -30,8 +30,34 @@
 
         <section class="panel-stack" aria-live="polite">
 
+          <!-- Passcode gate (temporary — remove or replace with real auth later) -->
+          <section class="panel is-active" data-view="gate">
+            <div class="card card--gate">
+              <h2 class="card__title">Regalia</h2>
+              <p class="card__subtitle">Enter passcode to continue</p>
+              <form class="form" data-gate-form autocomplete="off">
+                <label class="field">
+                  <span>Passcode</span>
+                  <input
+                    type="password"
+                    name="passcode"
+                    data-gate-input
+                    placeholder="Passcode"
+                    autocomplete="off"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    required
+                  />
+                </label>
+                <div class="gate-error" data-gate-error role="alert"></div>
+                <button class="btn primary" type="submit">Continue</button>
+              </form>
+              <p class="gate-note muted">Temporary access for deployment &amp; pitching</p>
+            </div>
+          </section>
+
           <!-- Welcome Panel -->
-          <section class="panel is-active" data-view="welcome">
+          <section class="panel is-hidden" data-view="welcome">
             <h1 class="welcome-title">Welcome!</h1>
             <div class="button-group">
               <button class="btn primary" data-action="to-signup">Create Account</button>

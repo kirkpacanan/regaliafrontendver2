@@ -6,11 +6,44 @@
   }
 })();
 
+/** TEMPORARY: hardcoded site gate for deployment & pitching — replace with real auth */
+const REGALIA_SITE_PASSCODE = "SUPERSECRETKEY";
+const REGALIA_GATE_STORAGE_KEY = "regalia_site_unlocked";
+
 const panels = Array.from(document.querySelectorAll(".panel"));
 const views = new Map(panels.map((panel) => [panel.dataset.view, panel]));
 const appRoot = document.querySelector(".app");
 
-let activePanel = views.get("welcome");
+let activePanel;
+
+(function initSiteGate() {
+  const gate = views.get("gate");
+  const welcome = views.get("welcome");
+  let unlocked = false;
+  try {
+    unlocked = sessionStorage.getItem(REGALIA_GATE_STORAGE_KEY) === "1";
+  } catch (e) {}
+
+  if (unlocked && welcome) {
+    if (gate) {
+      gate.classList.remove("is-active");
+      gate.classList.add("is-hidden");
+    }
+    welcome.classList.remove("is-hidden");
+    welcome.classList.add("is-active");
+    activePanel = welcome;
+  } else if (gate) {
+    if (welcome) {
+      welcome.classList.remove("is-active");
+      welcome.classList.add("is-hidden");
+    }
+    gate.classList.remove("is-hidden");
+    gate.classList.add("is-active");
+    activePanel = gate;
+  } else {
+    activePanel = welcome || panels[0];
+  }
+})();
 
 if (appRoot) {
   window.requestAnimationFrame(() => {
@@ -30,10 +63,11 @@ const setActivePanel = (viewName) => {
   nextPanel.classList.add("is-active");
   activePanel = nextPanel;
 
+  const compactHeader = viewName !== "welcome" && viewName !== "gate";
   if (appRoot) {
-    appRoot.classList.toggle("is-form-open", viewName !== "welcome");
+    appRoot.classList.toggle("is-form-open", compactHeader);
   }
-  document.body.classList.toggle("is-form-open", viewName !== "welcome");
+  document.body.classList.toggle("is-form-open", compactHeader);
 };
 
 document.addEventListener("click", (event) => {
@@ -45,6 +79,27 @@ document.addEventListener("click", (event) => {
     if (action === "to-welcome") setActivePanel("welcome");
   }
 });
+
+const gateForm = document.querySelector("[data-gate-form]");
+const gateError = document.querySelector("[data-gate-error]");
+if (gateForm) {
+  gateForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    if (gateError) gateError.textContent = "";
+    const input = gateForm.querySelector("[data-gate-input]");
+    const raw = input ? String(input.value || "").trim() : "";
+    if (raw === REGALIA_SITE_PASSCODE) {
+      try {
+        sessionStorage.setItem(REGALIA_GATE_STORAGE_KEY, "1");
+      } catch (e) {}
+      if (input) input.value = "";
+      setActivePanel("welcome");
+    } else {
+      if (gateError) gateError.textContent = "Incorrect passcode. Try again.";
+      if (input) input.focus();
+    }
+  });
+}
 
 document.querySelectorAll("[data-toggle='password']").forEach((button) => {
   button.addEventListener("click", () => {
