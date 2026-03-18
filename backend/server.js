@@ -131,11 +131,30 @@ async function getOwnerUnitOwnerColumnName() {
 async function getOwnerUnitOwnerValue(ownerEmployeeId) {
   const ownerCol = await getOwnerUnitOwnerColumnName();
   if (ownerCol === "owner_id") {
-    const [[row]] = await db.promise().query(
-      "SELECT owner_id FROM OWNER WHERE employee_id = ? LIMIT 1",
+    // Prefer mapping via OWNER.employee_id if that column exists/populated.
+    try {
+      const [[row]] = await db.promise().query(
+        "SELECT owner_id FROM OWNER WHERE employee_id = ? LIMIT 1",
+        [ownerEmployeeId]
+      );
+      if (row && row.owner_id != null) return row.owner_id;
+    } catch (e) {
+      // Some DBs may not have OWNER.employee_id yet; fall back to email mapping.
+    }
+
+    // Fallback: map OWNER.owner_id via OWNER.email = EMPLOYEE.email.
+    const [[emp]] = await db.promise().query(
+      "SELECT email FROM EMPLOYEE WHERE employee_id = ? LIMIT 1",
       [ownerEmployeeId]
     );
-    return row ? row.owner_id : null;
+    const email = emp && emp.email ? String(emp.email).trim() : null;
+    if (!email) return null;
+
+    const [[row2]] = await db.promise().query(
+      "SELECT owner_id FROM OWNER WHERE email = ? LIMIT 1",
+      [email]
+    );
+    return row2 ? row2.owner_id : null;
   }
   return ownerEmployeeId;
 }
