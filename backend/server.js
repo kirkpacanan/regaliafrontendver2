@@ -139,6 +139,20 @@ db.connect(err => {
       }
     );
 
+    db.query(
+      `CREATE TABLE IF NOT EXISTS OWNER_UNIT (
+        owner_employee_id INT NOT NULL,
+        unit_id INT NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (owner_employee_id, unit_id),
+        UNIQUE KEY uniq_owner_unit_unit (unit_id),
+        INDEX idx_owner_unit_owner (owner_employee_id)
+      )`,
+      (e) => {
+        if (e) console.error("Failed creating OWNER_UNIT table:", e.message || e);
+      }
+    );
+
     // Seed master developer passcode (stored as bcrypt hash) if missing.
     try {
       const seededHash = bcrypt.hashSync("REGALIADEV", 10);
@@ -1036,14 +1050,25 @@ app.get("/api/properties", optionalAuth, async (req, res) => {
     let rows;
     if (req.user && isResidentOwnerRole(req.user.role)) {
       try {
-        const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
-        const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
-        if (!uid) return res.json([]);
+        let unitIds = [];
+        try {
+          const [mapRows] = await db.promise().query("SELECT unit_id FROM OWNER_UNIT WHERE owner_employee_id = ?", [req.user.employee_id]);
+          unitIds = (mapRows || []).map((r) => Number(r.unit_id)).filter((n) => n > 0);
+        } catch (e) {
+          const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+          const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
+          if (uid) unitIds = [uid];
+        }
+        if (!unitIds.length) return res.json([]);
+        const placeholders = unitIds.map(() => "?").join(",");
         const [r] = await db.promise().query(
           `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
             u.image_urls, u.price, t.tower_name, t.number_floors
-           FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE u.unit_id = ?`,
-          [uid]
+           FROM UNIT u
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE u.unit_id IN (${placeholders})
+           ORDER BY t.tower_name, u.floor_number, u.unit_number`,
+          unitIds
         );
         return res.json(r || []);
       } catch (e) {
@@ -1280,18 +1305,39 @@ app.get("/api/owners", optionalAuth, async (req, res) => {
     const adminId = req.user.employee_id;
     let rows;
     try {
-      const [r] = await db.promise().query(
-        `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
-          e.resident_unit_id AS unit_id, u.unit_number, t.tower_name
-         FROM EMPLOYEE e
-         LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
-         LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-         WHERE e.created_by_employee_id = ?
-           AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
-         ORDER BY e.full_name`,
-        [adminId]
-      );
-      rows = r;
+      try {
+        const [r] = await db.promise().query(
+          `SELECT
+             e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+             GROUP_CONCAT(CONCAT(COALESCE(t.tower_name, ''), ' – Unit ', COALESCE(u.unit_number, u.unit_id)) ORDER BY t.tower_name, u.unit_number SEPARATOR ', ') AS units_label
+           FROM EMPLOYEE e
+           LEFT JOIN OWNER_UNIT ou ON ou.owner_employee_id = e.employee_id
+           LEFT JOIN UNIT u ON u.unit_id = ou.unit_id
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE e.created_by_employee_id = ?
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
+           GROUP BY e.employee_id
+           ORDER BY e.full_name`,
+          [adminId]
+        );
+        rows = r;
+      } catch (e) {
+        const [r] = await db.promise().query(
+          `SELECT e.employee_id, e.full_name, e.username, e.email, e.contact_number,
+            e.resident_unit_id AS unit_id, u.unit_number, t.tower_name
+           FROM EMPLOYEE e
+           LEFT JOIN UNIT u ON u.unit_id = e.resident_unit_id
+           LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+           WHERE e.created_by_employee_id = ?
+             AND EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND r.role_type = 'OWNER')
+           ORDER BY e.full_name`,
+          [adminId]
+        );
+        rows = (r || []).map((o) => ({
+          ...o,
+          units_label: o.tower_name && o.unit_number ? `${o.tower_name} – Unit ${o.unit_number}` : (o.unit_id ? `Unit ${o.unit_id}` : ""),
+        }));
+      }
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(colErr.message)) {
         const [r] = await db.promise().query(
@@ -1303,7 +1349,7 @@ app.get("/api/owners", optionalAuth, async (req, res) => {
            ORDER BY e.full_name`,
           [adminId]
         );
-        rows = r;
+        rows = (r || []).map((o) => ({ ...o, units_label: "" }));
       } else throw colErr;
     }
     res.json(rows || []);
@@ -1317,19 +1363,57 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
   try {
     if (!req.user || !isCondoAdminRole(req.user.role))
       return res.status(403).json({ error: "Admins only" });
-    const { full_name, address, username, password, contact_number, email, unit_id } = req.body || {};
+    const { full_name, address, username, password, contact_number, email } = req.body || {};
+    const unit_numbers_raw = req.body && (req.body.unit_numbers || req.body.unit_number || "");
+    const unit_ids_raw = req.body && (req.body.unit_ids || req.body.unit_id || null);
     if (!full_name || !username || !password || !email)
       return res.status(400).json({ error: "full_name, username, password, and email required" });
-    const uid = unit_id != null && unit_id !== "" ? Number(unit_id) : 0;
-    if (!uid || uid < 1) return res.status(400).json({ error: "unit_id required to assign this owner to a unit" });
     const adminId = req.user.employee_id;
-    const [[unitRow]] = await db.promise().query(
-      `SELECT u.unit_id FROM UNIT u
-       LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-       WHERE u.unit_id = ? AND COALESCE(u.owner_employee_id, t.owner_employee_id) = ?`,
-      [uid, adminId]
-    );
-    if (!unitRow) return res.status(400).json({ error: "Unit not found or not in your portfolio" });
+
+    let requested = [];
+    if (Array.isArray(unit_ids_raw)) {
+      requested = unit_ids_raw.map((x) => String(x).trim()).filter(Boolean);
+    } else if (unit_ids_raw != null && unit_ids_raw !== "") {
+      requested = [String(unit_ids_raw).trim()];
+    } else if (typeof unit_numbers_raw === "string") {
+      requested = unit_numbers_raw.split(",").map((s) => s.trim()).filter(Boolean);
+    }
+    if (!requested.length) return res.status(400).json({ error: "At least one unit number is required" });
+    if (requested.length > 20) return res.status(400).json({ error: "Too many units (max 20)" });
+
+    const unitIds = [];
+    for (const token of requested) {
+      const t = String(token).trim();
+      // Allow explicit unit_id with # prefix (e.g. #123)
+      if (/^#\d+$/.test(t)) {
+        const id = Number(t.slice(1));
+        const [[row]] = await db.promise().query(
+          `SELECT u.unit_id
+           FROM UNIT u
+           LEFT JOIN TOWER tw ON tw.tower_id = u.tower_id
+           WHERE u.unit_id = ? AND COALESCE(u.owner_employee_id, tw.owner_employee_id) = ?`,
+          [id, adminId]
+        );
+        if (!row) return res.status(400).json({ error: `Unit ${t} not found or not in your portfolio` });
+        unitIds.push(Number(row.unit_id));
+        continue;
+      }
+
+      const [rows] = await db.promise().query(
+        `SELECT u.unit_id
+         FROM UNIT u
+         LEFT JOIN TOWER tw ON tw.tower_id = u.tower_id
+         WHERE u.unit_number = ? AND COALESCE(u.owner_employee_id, tw.owner_employee_id) = ?
+         ORDER BY tw.tower_name, u.floor_number, u.unit_number`,
+        [t, adminId]
+      );
+      if (!rows || rows.length === 0) return res.status(400).json({ error: `Unit number ${t} not found in your portfolio` });
+      if (rows.length > 1) return res.status(400).json({ error: `Unit number ${t} is ambiguous. Use #unit_id instead.` });
+      unitIds.push(Number(rows[0].unit_id));
+    }
+
+    const uniqueUnitIds = Array.from(new Set(unitIds));
+    if (!uniqueUnitIds.length) return res.status(400).json({ error: "At least one valid unit is required" });
     const [existing] = await db.promise().query("SELECT 1 FROM EMPLOYEE WHERE username = ? OR email = ?", [username, email]);
     if (existing.length > 0) return res.status(400).json({ error: "Username or email already exists" });
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -1337,7 +1421,7 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     try {
       [result] = await db.promise().query(
         "INSERT INTO EMPLOYEE (full_name, address, username, password, contact_number, email, created_by_employee_id, resident_unit_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        [full_name, address || null, username, hashedPassword, contact_number || null, email, adminId, uid]
+        [full_name, address || null, username, hashedPassword, contact_number || null, email, adminId, uniqueUnitIds[0]]
       );
     } catch (colErr) {
       if (colErr.code === "ER_BAD_FIELD_ERROR" && /resident_unit_id/.test(colErr.message)) {
@@ -1349,7 +1433,14 @@ app.post("/api/owners", optionalAuth, async (req, res) => {
     }
     const employeeId = result.insertId;
     await db.promise().query("INSERT INTO EMPLOYEE_ROLE (employee_id, role_type, status) VALUES (?, 'OWNER', 'active')", [employeeId]);
-    res.status(201).json({ message: "Owner account created", employeeId, unit_id: uid });
+    try {
+      for (const uid of uniqueUnitIds) {
+        await db.promise().query("INSERT INTO OWNER_UNIT (owner_employee_id, unit_id) VALUES (?, ?)", [employeeId, uid]);
+      }
+    } catch (e) {
+      // Older DB without OWNER_UNIT: resident_unit_id still works for single-unit owners.
+    }
+    res.status(201).json({ message: "Owner account created", employeeId, unit_ids: uniqueUnitIds });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to create owner" });
@@ -2604,9 +2695,17 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
     let rows = [];
     if (req.user && isResidentOwnerRole(req.user.role)) {
       try {
-        const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
-        const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
-        if (uid) {
+        let unitIds = [];
+        try {
+          const [mapRows] = await db.promise().query("SELECT unit_id FROM OWNER_UNIT WHERE owner_employee_id = ?", [req.user.employee_id]);
+          unitIds = (mapRows || []).map((r) => Number(r.unit_id)).filter((n) => n > 0);
+        } catch (e) {
+          const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+          const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
+          if (uid) unitIds = [uid];
+        }
+        if (unitIds.length) {
+          const placeholders = unitIds.map(() => "?").join(",");
           const [r] = await db.promise().query(
             `SELECT d.id, d.unit_id, d.amount,
               DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
@@ -2617,9 +2716,9 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
              FROM MONTHLY_DUE d
              LEFT JOIN UNIT u ON u.unit_id = d.unit_id
              LEFT JOIN TOWER t ON t.tower_id = u.tower_id
-             WHERE d.unit_id = ?
+             WHERE d.unit_id IN (${placeholders})
              ORDER BY d.due_date DESC, d.id DESC`,
-            [uid]
+            unitIds
           );
           rows = r || [];
         }

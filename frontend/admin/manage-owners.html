@@ -73,7 +73,13 @@
           <label>Username <input type="text" name="username" required /></label>
           <label>Email <input type="email" name="email" required /></label>
           <label>Password <input type="password" name="password" required minlength="6" /></label>
-          <label>Unit <select name="unit_id" data-owner-unit required><option value="">— Loading units —</option></select></label>
+          <label>
+            Unit number(s)
+            <input type="text" name="unit_numbers" placeholder="e.g. 1203, 1204 (or use #unit_id)" required />
+            <small class="muted" style="display:block;margin-top:6px;">
+              You can assign multiple units to one owner (comma-separated).
+            </small>
+          </label>
           <div class="settings-msg" data-owner-form-msg></div>
           <div class="step-actions">
             <button type="button" class="submit-button ghost" data-close-owner-modal2>Cancel</button>
@@ -96,17 +102,6 @@
         try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
         return h;
       }
-      function loadUnits(sel) {
-        fetch("/api/properties", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
-          sel.innerHTML = "<option value=\"\">— Select unit —</option>";
-          (rows || []).forEach(function (u) {
-            var opt = document.createElement("option");
-            opt.value = u.unit_id;
-            opt.textContent = (u.tower_name || "") + " – Unit " + (u.unit_number || u.unit_id);
-            sel.appendChild(opt);
-          });
-        });
-      }
       function loadOwners() {
         var tb = document.querySelector("[data-owners-tbody]");
         var empty = document.querySelector("[data-owners-empty]");
@@ -118,8 +113,8 @@
           rows.forEach(function (o) {
             var tr = document.createElement("tr");
             tr.dataset.ownerRow = "1";
-            var unit = o.tower_name && o.unit_number ? o.tower_name + " – Unit " + o.unit_number : (o.unit_id ? "Unit #" + o.unit_id : "—");
-            tr.innerHTML = "<td>" + escapeHtml(o.full_name || "") + "</td><td>" + escapeHtml(o.email || "") + "</td><td>" + escapeHtml(o.username || "") + "</td><td>" + escapeHtml(unit) + "</td><td><button type=\"button\" class=\"btn ghost danger\" data-del-owner=\"" + o.employee_id + "\">Remove</button></td>";
+            var units = o.units_label ? o.units_label : (o.tower_name && o.unit_number ? o.tower_name + " – Unit " + o.unit_number : (o.unit_id ? "Unit #" + o.unit_id : "—"));
+            tr.innerHTML = "<td>" + escapeHtml(o.full_name || "") + "</td><td>" + escapeHtml(o.email || "") + "</td><td>" + escapeHtml(o.username || "") + "</td><td>" + escapeHtml(units) + "</td><td><button type=\"button\" class=\"btn ghost danger\" data-del-owner=\"" + o.employee_id + "\">Remove</button></td>";
             tb.appendChild(tr);
           });
         }).catch(function () {});
@@ -130,8 +125,6 @@
       }
       document.querySelector("[data-open-add-owner]").addEventListener("click", function () {
         var m = document.querySelector("[data-owner-modal]");
-        var sel = document.querySelector("[data-owner-unit]");
-        loadUnits(sel);
         m.classList.add("is-open");
       });
       document.querySelectorAll("[data-close-owner-modal],[data-close-owner-modal2]").forEach(function (b) {
@@ -144,7 +137,7 @@
         e.preventDefault();
         var msg = document.querySelector("[data-owner-form-msg]");
         var fd = new FormData(e.target);
-        var body = { full_name: fd.get("full_name"), username: fd.get("username"), email: fd.get("email"), password: fd.get("password"), unit_id: fd.get("unit_id") };
+        var body = { full_name: fd.get("full_name"), username: fd.get("username"), email: fd.get("email"), password: fd.get("password"), unit_numbers: fd.get("unit_numbers") };
         msg.textContent = "Saving…";
         fetch("/api/owners", { method: "POST", headers: getH(), body: JSON.stringify(body) })
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -176,6 +169,91 @@
       } catch (x) {}
       document.querySelector("[data-logout-link]").addEventListener("click", function () { try { localStorage.clear(); } catch (e) {} });
       loadOwners();
+    </script>
+
+    <!-- Settings Modal: Theme Picker -->
+    <div class="settings-overlay" data-settings-overlay>
+      <div class="settings-modal">
+        <div class="settings-header">
+          <h2>Appearance</h2>
+          <button class="settings-close" data-settings-close>&times;</button>
+        </div>
+        <div class="settings-body">
+          <p class="settings-subtitle">Choose a color theme for your dashboard</p>
+          <div class="theme-grid" data-theme-grid>
+            <button class="theme-swatch theme-swatch--default is-active" data-theme="default"><span class="theme-preview"></span><span class="theme-label">Default</span></button>
+            <button class="theme-swatch theme-swatch--ocean" data-theme="ocean"><span class="theme-preview"></span><span class="theme-label">Ocean</span></button>
+            <button class="theme-swatch theme-swatch--sunset" data-theme="sunset"><span class="theme-preview"></span><span class="theme-label">Sunset</span></button>
+            <button class="theme-swatch theme-swatch--forest" data-theme="forest"><span class="theme-preview"></span><span class="theme-label">Forest</span></button>
+            <button class="theme-swatch theme-swatch--purple" data-theme="purple"><span class="theme-preview"></span><span class="theme-label">Purple</span></button>
+            <button class="theme-swatch theme-swatch--midnight" data-theme="midnight"><span class="theme-preview"></span><span class="theme-label">Midnight</span></button>
+            <button class="theme-swatch theme-swatch--rose" data-theme="rose"><span class="theme-preview"></span><span class="theme-label">Rose</span></button>
+          </div>
+          <div class="theme-status" data-theme-status></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Apply saved theme immediately
+      (function () {
+        try {
+          var saved = localStorage.getItem("theme_color");
+          var themes = ["default","ocean","sunset","forest","purple","midnight","rose"];
+          themes.forEach(function (t) { document.body.classList.remove("theme-" + t); });
+          if (saved && saved !== "default") document.body.classList.add("theme-" + saved);
+        } catch (e) {}
+      })();
+
+      // Theme picker + settings modal logic (same behavior as dashboard)
+      (function () {
+        var overlay = document.querySelector("[data-settings-overlay]");
+        var closeBtn = document.querySelector("[data-settings-close]");
+        var openBtn = document.querySelector("[data-open-settings]");
+        if (!overlay) return;
+        function openSettings() { overlay.classList.add("is-open"); }
+        function closeSettings() { overlay.classList.remove("is-open"); }
+        if (openBtn) openBtn.addEventListener("click", function (e) { e.preventDefault(); openSettings(); });
+        if (closeBtn) closeBtn.addEventListener("click", closeSettings);
+        overlay.addEventListener("click", function (e) { if (e.target === overlay) closeSettings(); });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape" && overlay.classList.contains("is-open")) closeSettings(); });
+        var themes = ["default","ocean","sunset","forest","purple","midnight","rose"];
+        var grid = overlay.querySelector("[data-theme-grid]");
+        var statusEl = overlay.querySelector("[data-theme-status]");
+        function applyTheme(name) {
+          themes.forEach(function (t) { document.body.classList.remove("theme-" + t); });
+          if (name && name !== "default") document.body.classList.add("theme-" + name);
+          if (grid) grid.querySelectorAll(".theme-swatch").forEach(function (s) {
+            s.classList.toggle("is-active", s.getAttribute("data-theme") === name);
+          });
+        }
+        function getHeaders() {
+          var h = { "Content-Type": "application/json" };
+          try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+          return h;
+        }
+        function saveThemeToServer(name) {
+          localStorage.setItem("theme_color", name);
+          if (statusEl) { statusEl.textContent = "Saving..."; statusEl.className = "theme-status"; }
+          fetch("/api/employee/theme", {
+            method: "PUT", headers: getHeaders(), body: JSON.stringify({ theme_color: name })
+          }).then(function (r) { return r.json(); }).then(function () {
+            if (statusEl) { statusEl.textContent = "Theme saved!"; statusEl.className = "theme-status success"; }
+            setTimeout(function () { if (statusEl) statusEl.textContent = ""; }, 2000);
+          }).catch(function () {
+            if (statusEl) { statusEl.textContent = "Saved locally (server unavailable)"; statusEl.className = "theme-status"; }
+          });
+        }
+        if (grid) grid.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-theme]");
+          if (!btn) return;
+          var t = btn.getAttribute("data-theme");
+          applyTheme(t);
+          saveThemeToServer(t);
+        });
+        var saved = localStorage.getItem("theme_color");
+        if (saved) { applyTheme(saved); }
+      })();
     </script>
   </body>
 </html>
