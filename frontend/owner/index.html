@@ -19,6 +19,15 @@
           <a href="./monthly-dues.html"><span class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></span>Monthly Dues</a>
         </nav>
         <div class="sidebar-footer">
+          <a href="#" data-open-settings>
+            <span class="icon">
+              <svg viewBox="0 0 24 24">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </span>
+            Settings
+          </a>
           <a href="../index.html"><span class="icon"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline></svg></span>Log out</a>
         </div>
       </aside>
@@ -29,6 +38,21 @@
             <p>Your unit — view monthly dues assigned by management.</p>
           </div>
           <div class="top-actions">
+            <div class="notif-wrap">
+              <button class="notif-btn" data-notif-btn aria-label="Notifications">
+                <svg viewBox="0 0 24 24">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"></path>
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+                </svg>
+                <span class="notif-badge" data-notif-badge style="display:none;"></span>
+              </button>
+              <div class="topbar-dropdown notif-dropdown" data-notif-dropdown>
+                <div class="topbar-dropdown__title">Today's Activity</div>
+                <div class="notif-list" data-notif-list>
+                  <div class="notif-empty">No activity today</div>
+                </div>
+              </div>
+            </div>
             <div class="profile-wrap">
               <button class="avatar avatar-btn" data-profile-btn>OW</button>
               <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
@@ -39,7 +63,15 @@
                     <div class="profile-role" data-profile-role>OWNER</div>
                   </div>
                 </div>
-                <a href="../index.html" class="profile-action" data-logout-link>Logout</a>
+                <div class="topbar-dropdown__divider"></div>
+                <button class="profile-action" data-open-profile>
+                  <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  Profile
+                </button>
+                <a href="../index.html" class="profile-action" data-logout-link>
+                  <svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path><polyline points="10 17 15 12 10 7"></polyline><line x1="15" y1="12" x2="3" y2="12"></line></svg>
+                  Logout
+                </a>
               </div>
             </div>
           </div>
@@ -51,6 +83,61 @@
         </section>
       </main>
     </div>
+
+    <div class="settings-overlay" data-settings-overlay>
+      <div class="settings-modal">
+        <div class="settings-header">
+          <h2>Appearance</h2>
+          <button class="settings-close" data-settings-close>&times;</button>
+        </div>
+        <div class="settings-body">
+          <p class="settings-subtitle">Choose a color theme for your dashboard</p>
+          <div class="theme-grid" data-theme-grid>
+            <button class="theme-swatch theme-swatch--default is-active" data-theme="default"><span class="theme-preview"></span><span class="theme-label">Default</span></button>
+            <button class="theme-swatch theme-swatch--ocean" data-theme="ocean"><span class="theme-preview"></span><span class="theme-label">Ocean</span></button>
+            <button class="theme-swatch theme-swatch--sunset" data-theme="sunset"><span class="theme-preview"></span><span class="theme-label">Sunset</span></button>
+            <button class="theme-swatch theme-swatch--forest" data-theme="forest"><span class="theme-preview"></span><span class="theme-label">Forest</span></button>
+            <button class="theme-swatch theme-swatch--purple" data-theme="purple"><span class="theme-preview"></span><span class="theme-label">Purple</span></button>
+            <button class="theme-swatch theme-swatch--midnight" data-theme="midnight"><span class="theme-preview"></span><span class="theme-label">Midnight</span></button>
+            <button class="theme-swatch theme-swatch--rose" data-theme="rose"><span class="theme-preview"></span><span class="theme-label">Rose</span></button>
+          </div>
+          <div class="theme-status" data-theme-status></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="settings-overlay" data-profile-overlay>
+      <div class="settings-modal">
+        <div class="settings-header">
+          <h2>Profile</h2>
+          <button class="settings-close" data-profile-close>&times;</button>
+        </div>
+        <div class="settings-body">
+          <div class="settings-section">
+            <h3>Account Info</h3>
+            <form class="settings-form" data-profile-form>
+              <label class="settings-field"><span>Full Name</span><input type="text" name="full_name" data-pf-name /></label>
+              <label class="settings-field"><span>Username</span><input type="text" name="username" data-pf-username /></label>
+              <label class="settings-field"><span>Email</span><input type="email" name="email" data-pf-email /></label>
+              <label class="settings-field"><span>Contact Number</span><input type="text" name="contact" data-pf-contact /></label>
+              <div class="settings-msg" data-pf-msg></div>
+              <button type="submit" class="btn ghost settings-save">Save Changes</button>
+            </form>
+          </div>
+          <div class="settings-divider"></div>
+          <div class="settings-section">
+            <h3>Change Password</h3>
+            <form class="settings-form" data-pw-form>
+              <label class="settings-field"><span>Current Password</span><input type="password" name="current_password" required /></label>
+              <label class="settings-field"><span>New Password</span><input type="password" name="new_password" required /></label>
+              <label class="settings-field"><span>Confirm New Password</span><input type="password" name="confirm_password" required /></label>
+              <div class="settings-msg" data-pw-msg></div>
+              <button type="submit" class="btn ghost settings-save">Update Password</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
     <script>
       (function gate() {
         try {
@@ -61,17 +148,175 @@
           }
         } catch (e) {}
       })();
-      try {
-        var emp = JSON.parse(localStorage.getItem("employee") || "{}");
-        var name = emp.full_name || emp.username || "Owner";
-        var ini = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "OW";
-        document.querySelector("[data-profile-btn]").textContent = ini;
-        document.querySelector("[data-profile-initials-lg]").textContent = ini;
-        document.querySelector("[data-profile-name]").textContent = name;
-      } catch (e) {}
-      document.querySelector("[data-profile-btn]").addEventListener("click", function (e) { e.stopPropagation(); document.querySelector("[data-profile-dropdown]").classList.toggle("is-open"); });
-      document.addEventListener("click", function () { document.querySelector("[data-profile-dropdown]").classList.remove("is-open"); });
-      document.querySelector("[data-logout-link]").addEventListener("click", function () { localStorage.clear(); });
+
+      function getH(json) {
+        var h = json ? { "Content-Type": "application/json" } : {};
+        try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
+        return h;
+      }
+
+      (function profileUi() {
+        try {
+          var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+          var role = String(localStorage.getItem("role") || "OWNER").toUpperCase();
+          var name = emp.full_name || emp.username || "Owner";
+          var ini = name.split(" ").filter(Boolean).map(function (w) { return w[0]; }).join("").slice(0, 2).toUpperCase() || "OW";
+          var profileBtn = document.querySelector("[data-profile-btn]");
+          if (profileBtn) profileBtn.textContent = ini;
+          var plg = document.querySelector("[data-profile-initials-lg]"); if (plg) plg.textContent = ini;
+          var pn = document.querySelector("[data-profile-name]"); if (pn) pn.textContent = name;
+          var pr = document.querySelector("[data-profile-role]"); if (pr) pr.textContent = role;
+        } catch (e) {}
+      })();
+
+      (function dropdowns() {
+        var notifBtn = document.querySelector("[data-notif-btn]");
+        var notifDd = document.querySelector("[data-notif-dropdown]");
+        var profileBtn = document.querySelector("[data-profile-btn]");
+        var profileDd = document.querySelector("[data-profile-dropdown]");
+        function closeAll() {
+          if (notifDd) notifDd.classList.remove("is-open");
+          if (profileDd) profileDd.classList.remove("is-open");
+        }
+        if (notifBtn) notifBtn.addEventListener("click", function (e) { e.stopPropagation(); var o = notifDd && notifDd.classList.contains("is-open"); closeAll(); if (!o && notifDd) notifDd.classList.add("is-open"); });
+        if (profileBtn) profileBtn.addEventListener("click", function (e) { e.stopPropagation(); var o = profileDd && profileDd.classList.contains("is-open"); closeAll(); if (!o && profileDd) profileDd.classList.add("is-open"); });
+        document.addEventListener("click", closeAll);
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape") closeAll(); });
+      })();
+
+      (function notifs() {
+        function escapeHtml(s) { var d = document.createElement("div"); d.textContent = String(s || ""); return d.innerHTML; }
+        var listEl = document.querySelector("[data-notif-list]");
+        var badgeEl = document.querySelector("[data-notif-badge]");
+        if (!listEl || !badgeEl) return;
+        Promise.all([
+          fetch("/api/properties", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+          fetch("/api/bookings", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+        ]).then(function (res) {
+          var props = Array.isArray(res[0]) ? res[0] : [];
+          var bookings = Array.isArray(res[1]) ? res[1] : [];
+          var unitIds = new Set(props.map(function (u) { return u && u.unit_id != null ? Number(u.unit_id) : null; }).filter(function (x) { return x != null && !isNaN(x); }));
+          var mine = bookings.filter(function (b) { var uid = b && b.unit_id != null ? Number(b.unit_id) : null; return uid != null && unitIds.has(uid); });
+
+          var today = new Date();
+          var todayKey = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+          var movements = [];
+          mine.filter(function (b) { return b.status === "confirmed"; }).forEach(function (b) {
+            var ci = b.check_in_date ? String(b.check_in_date).slice(0, 10) : "";
+            var co = b.check_out_date ? String(b.check_out_date).slice(0, 10) : "";
+            var alreadyIn = !!b.checked_in_at && !b.checked_out_at;
+            if (ci === todayKey) movements.push({ type: alreadyIn ? "checked-in" : "upcoming", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name });
+            if (co === todayKey) movements.push({ type: "departure", name: b.guest_name, unit: b.unit_number || b.unit_id, tower: b.tower_name });
+          });
+
+          if (!movements.length) {
+            badgeEl.style.display = "none";
+            listEl.innerHTML = "<div class=\"notif-empty\">No activity today</div>";
+            return;
+          }
+          badgeEl.style.display = "";
+          badgeEl.textContent = String(movements.length);
+          var iconMap = { upcoming: "↓", "checked-in": "✓", departure: "→" };
+          var labelMap = { upcoming: "Check-in", "checked-in": "In house", departure: "Checkout" };
+          listEl.innerHTML = movements.slice(0, 8).map(function (m) {
+            return "<div class=\"notif-item\"><div class=\"notif-item__name\">" + escapeHtml(m.name || "Guest") + "</div><div class=\"notif-item__detail\">" + escapeHtml(labelMap[m.type] || m.type) + " · Unit " + escapeHtml(m.unit || "—") + (m.tower ? " · " + escapeHtml(m.tower) : "") + "</div></div>";
+          }).join("");
+        }).catch(function () {
+          badgeEl.style.display = "none";
+          listEl.innerHTML = "<div class=\"notif-empty\">No activity today</div>";
+        });
+      })();
+
+      (function theme() {
+        var overlay = document.querySelector("[data-settings-overlay]");
+        var closeBtn = document.querySelector("[data-settings-close]");
+        var openBtn = document.querySelector("[data-open-settings]");
+        if (!overlay) return;
+        function openSettings() { overlay.classList.add("is-open"); }
+        function closeSettings() { overlay.classList.remove("is-open"); }
+        if (openBtn) openBtn.addEventListener("click", function (e) { e.preventDefault(); openSettings(); });
+        if (closeBtn) closeBtn.addEventListener("click", closeSettings);
+        overlay.addEventListener("click", function (e) { if (e.target === overlay) closeSettings(); });
+        var themes = ["default", "ocean", "sunset", "forest", "purple", "midnight", "rose"];
+        var gridEl = overlay.querySelector("[data-theme-grid]");
+        var statusEl = overlay.querySelector("[data-theme-status]");
+        function applyTheme(name) {
+          themes.forEach(function (t) { document.body.classList.remove("theme-" + t); });
+          if (name && name !== "default") document.body.classList.add("theme-" + name);
+          if (gridEl) gridEl.querySelectorAll(".theme-swatch").forEach(function (s) {
+            s.classList.toggle("is-active", s.getAttribute("data-theme") === name);
+          });
+        }
+        function saveTheme(name) {
+          localStorage.setItem("theme_color", name);
+          fetch("/api/employee/theme", { method: "PUT", headers: getH(true), body: JSON.stringify({ theme_color: name }) }).catch(function () {});
+        }
+        if (gridEl) gridEl.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-theme]");
+          if (!btn) return;
+          var t = btn.getAttribute("data-theme");
+          applyTheme(t);
+          saveTheme(t);
+          if (statusEl) { statusEl.textContent = "Saved"; setTimeout(function () { statusEl.textContent = ""; }, 1500); }
+        });
+        var saved = localStorage.getItem("theme_color");
+        if (saved) applyTheme(saved);
+      })();
+
+      (function profileModal() {
+        var pOverlay = document.querySelector("[data-profile-overlay]");
+        var pClose = document.querySelector("[data-profile-close]");
+        var pOpen = document.querySelector("[data-open-profile]");
+        if (!pOverlay || !pOpen) return;
+        function openP() { pOverlay.classList.add("is-open"); var dd = document.querySelector("[data-profile-dropdown]"); if (dd) dd.classList.remove("is-open"); }
+        function closeP() { pOverlay.classList.remove("is-open"); }
+        pOpen.addEventListener("click", function (e) { e.preventDefault(); openP(); });
+        if (pClose) pClose.addEventListener("click", closeP);
+        pOverlay.addEventListener("click", function (e) { if (e.target === pOverlay) closeP(); });
+
+        try {
+          var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+          var ni = pOverlay.querySelector("[data-pf-name]"); if (ni) ni.value = emp.full_name || "";
+          var ui = pOverlay.querySelector("[data-pf-username]"); if (ui) ui.value = emp.username || "";
+          var ei = pOverlay.querySelector("[data-pf-email]"); if (ei) ei.value = emp.email || "";
+          var ci = pOverlay.querySelector("[data-pf-contact]"); if (ci) ci.value = emp.contact_number || "";
+        } catch (e) {}
+
+        var pForm = pOverlay.querySelector("[data-profile-form]");
+        var pMsg = pOverlay.querySelector("[data-pf-msg]");
+        if (pForm) pForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var payload = {
+            full_name: (pOverlay.querySelector("[data-pf-name]") || {}).value || "",
+            username: (pOverlay.querySelector("[data-pf-username]") || {}).value || "",
+            email: (pOverlay.querySelector("[data-pf-email]") || {}).value || "",
+            contact_number: (pOverlay.querySelector("[data-pf-contact]") || {}).value || ""
+          };
+          fetch("/api/employee/profile", { method: "PUT", headers: getH(true), body: JSON.stringify(payload) })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) {
+              if (res.ok && res.data.employee) localStorage.setItem("employee", JSON.stringify(res.data.employee));
+              if (pMsg) pMsg.textContent = res.ok ? "Saved!" : (res.data.error || "Failed");
+              try { profileUi(); } catch (e) {}
+            })
+            .catch(function () { if (pMsg) pMsg.textContent = "Error"; });
+        });
+
+        var pwForm = pOverlay.querySelector("[data-pw-form]");
+        var pwMsg = pOverlay.querySelector("[data-pw-msg]");
+        if (pwForm) pwForm.addEventListener("submit", function (e) {
+          e.preventDefault();
+          var fd = new FormData(pwForm);
+          if (fd.get("new_password") !== fd.get("confirm_password")) { if (pwMsg) pwMsg.textContent = "Passwords do not match"; return; }
+          fetch("/api/employee/password", { method: "PUT", headers: getH(true), body: JSON.stringify({ current_password: fd.get("current_password"), new_password: fd.get("new_password") }) })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, data: d }; }); })
+            .then(function (res) { if (pwMsg) pwMsg.textContent = res.ok ? "Updated" : (res.data.error || "Failed"); if (res.ok) pwForm.reset(); });
+        });
+      })();
+
+      document.querySelector("[data-logout-link]").addEventListener("click", function () {
+        try { var tc = localStorage.getItem("theme_color"); localStorage.clear(); if (tc) localStorage.setItem("theme_color", tc); } catch (e) {}
+      });
     </script>
   </body>
 </html>
