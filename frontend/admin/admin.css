@@ -284,6 +284,30 @@ body.theme-rose .sidebar { background: rgba(142,34,68,0.25); }
 .settings-field input { padding: 0.55rem 0.8rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.3); background: rgba(255,255,255,0.08); color: #fff; font-size: 0.88rem; font-family: inherit; transition: border-color 0.2s, background 0.2s; }
 .settings-field input:focus { outline: none; border-color: rgba(255,255,255,0.55); background: rgba(255,255,255,0.12); }
 .settings-field input::placeholder { color: rgba(255,255,255,0.4); }
+/* Add button in Manage unit types – matches input/chip glass style */
+.unit-type-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  padding: 0 1rem;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.unit-type-add-btn:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.14);
+}
+.unit-type-add-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+}
 .settings-save { margin-top: 0.35rem; justify-self: start; padding: 0.5rem 0.9rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.4); background: transparent; color: #fff; font-size: 0.85rem; cursor: pointer; transition: transform 0.2s, background 0.2s; }
 .settings-save:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
 .settings-divider { height: 1px; background: rgba(255,255,255,0.12); margin: 1.1rem 0; }
@@ -1890,6 +1914,47 @@ label .required {
   padding-bottom: 0.5rem;
   border-top: 1px solid rgba(47, 95, 103, 0.15);
   font-size: 0.95rem;
+}
+
+/* Overlapping bookings block in owner booking detail */
+.booking-detail-block--overlap {
+  border: 1px solid rgba(255, 180, 100, 0.35);
+  background: rgba(255, 200, 120, 0.08);
+}
+.booking-overlap-intro {
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  opacity: 0.95;
+}
+.booking-overlap-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.booking-overlap-item:last-child {
+  border-bottom: none;
+}
+.booking-overlap-item__info {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+}
+.booking-overlap-item__dates {
+  opacity: 0.85;
+  font-size: 0.85rem;
+}
+.booking-overlap-item__status {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+.booking-overlap-cancel {
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.85rem;
 }
 
 /* Extra spacing for Status, Signature, and Additional Charges sections */

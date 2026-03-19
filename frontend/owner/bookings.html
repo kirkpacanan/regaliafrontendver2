@@ -193,6 +193,25 @@
         </div>
       </div>
 
+      <!-- Overlap conflict modal (shown when confirm returns 409) -->
+      <div class="modal-overlay" data-overlap-conflict-modal>
+        <div class="modal-card">
+          <div class="modal-header">
+            <h2>Overlapping bookings</h2>
+            <button class="icon-button" type="button" data-close-overlap-conflict aria-label="Close">
+              <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+            </button>
+          </div>
+          <div class="modal-form">
+            <p class="booking-overlap-intro" style="margin:0 0 1rem;">This unit is already booked for these dates. Cancel the overlapping booking(s) below, then try confirming again.</p>
+            <div data-overlap-conflict-list></div>
+            <div class="step-actions" style="margin-top:1rem;">
+              <button type="button" class="submit-button ghost" data-close-overlap-conflict>Close</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Reject/Cancel modal (reason required) -->
       <div class="modal-overlay" data-reject-reason-modal>
         <div class="modal-card">
@@ -600,6 +619,31 @@
           return "Pending";
         }
 
+        function datesOverlap(aIn, aOut, bIn, bOut) {
+          if (!aIn || !aOut || !bIn || !bOut) return false;
+          var a1 = new Date(aIn).getTime();
+          var a2 = new Date(aOut).getTime();
+          var b1 = new Date(bIn).getTime();
+          var b2 = new Date(bOut).getTime();
+          return a1 < b2 && a2 > b1;
+        }
+
+        function getOverlappingBookings(booking, allBookings) {
+          if (!booking || !allBookings || !Array.isArray(allBookings)) return [];
+          var unitId = booking.unit_id != null ? Number(booking.unit_id) : null;
+          if (unitId == null) return [];
+          return allBookings.filter(function (other) {
+            if (other.booking_id === booking.booking_id) return false;
+            if (Number(other.unit_id) !== unitId) return false;
+            return datesOverlap(
+              booking.check_in_date,
+              booking.check_out_date,
+              other.check_in_date,
+              other.check_out_date
+            );
+          });
+        }
+
         function clearLists() {
           if (listNext7) listNext7.innerHTML = "";
           if (listMonth) listMonth.innerHTML = "";
@@ -918,6 +962,33 @@
               var arrivalMetaHint = arrivalMeta ? (" <span style=\"opacity:.7;\">(" + escapeHtml(arrivalMeta) + ")</span>") : "";
               var departMetaHint = departMeta ? (" <span style=\"opacity:.7;\">(" + escapeHtml(departMeta) + ")</span>") : "";
 
+              var overlaps = getOverlappingBookings(b, bookings);
+              var overlapSectionHtml = "";
+              if (overlaps.length > 0) {
+                overlapSectionHtml =
+                  "<div class=\"booking-detail-block booking-detail-block--overlap\">" +
+                    "<h4>Overlapping bookings</h4>" +
+                    "<p class=\"booking-overlap-intro\">This booking overlaps with the following for the same unit. You can cancel their booking to free the dates.</p>" +
+                    overlaps.map(function (ob) {
+                      var obDates = (ob.check_in_date && ob.check_out_date)
+                        ? "Check-in: " + formatDate(ob.check_in_date) + " – Check-out: " + formatDate(ob.check_out_date)
+                        : "";
+                      var obStatus = (ob.status || "").toLowerCase();
+                      var obStatusLabel = obStatus === "confirmed" ? "Confirmed" : obStatus === "pending" ? "Pending" : "Cancelled";
+                      return (
+                        "<div class=\"booking-overlap-item\">" +
+                          "<div class=\"booking-overlap-item__info\">" +
+                            "<strong>" + escapeHtml(ob.guest_name || "Guest") + "</strong> " +
+                            "<span class=\"booking-overlap-item__dates\">" + escapeHtml(obDates) + "</span> " +
+                            "<span class=\"booking-overlap-item__status\">(" + escapeHtml(obStatusLabel) + ")</span>" +
+                          "</div>" +
+                          "<button type=\"button\" class=\"submit-button ghost booking-overlap-cancel\" data-cancel-overlap-id=\"" + escapeHtml(String(ob.booking_id)) + "\" data-cancel-overlap-name=\"" + escapeHtml(ob.guest_name || "Guest") + "\">Cancel their booking</button>" +
+                        "</div>"
+                      );
+                    }).join("") +
+                  "</div>";
+              }
+
               var html =
                 "<div class=\"booking-detail-grid\">" +
                   guestStepperHtml +
@@ -936,6 +1007,7 @@
                     "<p><strong>" + statusLabel(b.status) + "</strong></p>" +
                     (b.rejection_reason ? "<p class=\"booking-rejection-reason\"><strong>Reason:</strong> " + escapeHtml(b.rejection_reason) + "</p>" : "") +
                   "</div>" +
+                  overlapSectionHtml +
                 "</div>";
 
               detailBody.innerHTML = html;
@@ -1010,13 +1082,47 @@
             });
         }
 
+        var overlapConflictModal = document.querySelector("[data-overlap-conflict-modal]");
+        var overlapConflictList = document.querySelector("[data-overlap-conflict-list]");
+
+        function showOverlapConflictModal(overlappingBookings) {
+          if (!overlapConflictModal || !overlapConflictList) return;
+          overlapConflictList.innerHTML = (overlappingBookings || []).map(function (ob) {
+            var dates = (ob.check_in_date && ob.check_out_date)
+              ? "Check-in: " + formatDate(ob.check_in_date) + " – Check-out: " + formatDate(ob.check_out_date)
+              : "";
+            return (
+              "<div class=\"booking-overlap-item\" style=\"margin-bottom:0.75rem;\">" +
+                "<div class=\"booking-overlap-item__info\" style=\"margin-bottom:0.35rem;\">" +
+                  "<strong>" + escapeHtml(ob.guest_name || "Guest") + "</strong> " +
+                  "<span class=\"booking-overlap-item__dates\">" + escapeHtml(dates) + "</span>" +
+                "</div>" +
+                "<button type=\"button\" class=\"submit-button ghost booking-overlap-cancel\" data-cancel-overlap-id=\"" + escapeHtml(String(ob.booking_id)) + "\" data-cancel-overlap-name=\"" + escapeHtml(ob.guest_name || "Guest") + "\">Cancel their booking</button>" +
+              "</div>"
+            );
+          }).join("");
+          overlapConflictModal.classList.add("is-open");
+        }
+
+        function closeOverlapConflictModal() {
+          if (overlapConflictModal) overlapConflictModal.classList.remove("is-open");
+        }
+
         function confirmBooking() {
           if (!assertAllowedActiveBooking()) return;
           fetch(API + "/bookings/" + activeBookingId + "/confirm", { method: "PUT", headers: getAuthHeaders() })
-            .then(function (r) { return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); }); })
-            .then(function () {
-              closeDetailModal();
-              loadBookings();
+            .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, status: r.status, data: data }; }); })
+            .then(function (res) {
+              if (res.ok) {
+                closeDetailModal();
+                loadBookings();
+                return;
+              }
+              if (res.status === 409 && res.data && res.data.overlappingBookings && res.data.overlappingBookings.length > 0) {
+                showOverlapConflictModal(res.data.overlappingBookings);
+                return;
+              }
+              throw new Error((res.data && res.data.error) || "Failed to confirm.");
             })
             .catch(function (err) { alert(err.message || "Failed to confirm."); });
         }
@@ -1042,6 +1148,23 @@
               loadBookings();
             })
             .catch(function (err) { alert(err.message || "Failed to delete."); });
+        }
+
+        function cancelBookingById(bookingId, guestName) {
+          if (!bookingId) return;
+          var name = guestName || "this guest";
+          if (!confirm("Cancel " + name + "'s booking? They will be notified. You can then confirm the other booking.")) return;
+          fetch(API + "/bookings/" + bookingId + "/reject", {
+            method: "PUT",
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ reason: "Cancelled due to overlap. Unit no longer available for these dates." })
+          })
+            .then(function (r) { return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); }); })
+            .then(function () {
+              closeOverlapConflictModal();
+              loadBookings();
+            })
+            .catch(function (err) { alert(err.message || "Failed to cancel booking."); });
         }
 
         function submitReject() {
@@ -1461,6 +1584,29 @@
         if (detailSidebar && detailSidebar.querySelector(".assign-sidebar__backdrop")) {
           detailSidebar.querySelector(".assign-sidebar__backdrop").addEventListener("click", closeDetailModal);
         }
+        if (detailBody) detailBody.addEventListener("click", function (e) {
+          var btn = e.target.closest("[data-cancel-overlap-id]");
+          if (!btn) return;
+          e.preventDefault();
+          var id = btn.getAttribute("data-cancel-overlap-id");
+          var name = btn.getAttribute("data-cancel-overlap-name") || "this guest";
+          cancelBookingById(id, name);
+        });
+        if (overlapConflictModal) {
+          overlapConflictModal.addEventListener("click", function (e) {
+            if (e.target === overlapConflictModal) closeOverlapConflictModal();
+            var btn = e.target.closest("[data-cancel-overlap-id]");
+            if (btn) {
+              e.preventDefault();
+              var id = btn.getAttribute("data-cancel-overlap-id");
+              var name = btn.getAttribute("data-cancel-overlap-name") || "this guest";
+              cancelBookingById(id, name);
+            }
+          });
+        }
+        document.querySelectorAll("[data-close-overlap-conflict]").forEach(function (btn) {
+          btn.addEventListener("click", closeOverlapConflictModal);
+        });
         if (confirmBtn) confirmBtn.addEventListener("click", confirmBooking);
         if (rejectBtn) rejectBtn.addEventListener("click", function () { openRejectModal(false); });
         if (cancelBtn) cancelBtn.addEventListener("click", function () { openRejectModal(true); });

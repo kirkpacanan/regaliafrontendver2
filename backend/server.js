@@ -38,6 +38,13 @@ function normalizeJwtRole(role) {
 function isCondoAdminRole(role) {
   return normalizeJwtRole(role) === "ADMIN";
 }
+function isForeignKeyConstraintError(err) {
+  if (!err) return false;
+  if (err.code === "ER_ROW_IS_REFERENCED_2" || err.errno === 1451) return true;
+  return !!(err.message && String(err.message).includes("foreign key constraint"));
+}
+const FK_UNASSIGN_MESSAGE =
+  "Can't delete this unit or tower because it is still assigned to an owner or staff. Unassign it first to delete.";
 function isResidentOwnerRole(role) {
   return normalizeJwtRole(role) === "OWNER";
 }
@@ -1255,6 +1262,8 @@ app.delete("/api/towers/:id", optionalAuth, async (req, res) => {
     res.json({ message: "Tower deleted" });
   } catch (err) {
     console.error(err);
+    if (isForeignKeyConstraintError(err))
+      return res.status(409).json({ error: FK_UNASSIGN_MESSAGE });
     res.status(500).json({ error: err.message || "Failed to delete tower" });
   }
 });
@@ -1667,6 +1676,8 @@ app.delete("/api/units/:id", optionalAuth, async (req, res) => {
     res.json({ message: "Unit deleted" });
   } catch (err) {
     console.error(err);
+    if (isForeignKeyConstraintError(err))
+      return res.status(409).json({ error: FK_UNASSIGN_MESSAGE });
     res.status(500).json({ error: err.message || "Failed to delete unit" });
   }
 });
@@ -3579,12 +3590,9 @@ app.get("/api/bookings/:id/email-preview", async (req, res) => {
 app.put("/api/bookings/:id/confirm", async (req, res) => {
   try {
     const id = Number(req.params.id);
-    const [result] = await db.promise().query("UPDATE BOOKING SET status = 'confirmed', rejection_reason = NULL WHERE booking_id = ?", [id]);
-    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found" });
-
-    // Fetch booking for email
+    // Fetch booking first to check overlaps before confirming
     const [rows] = await db.promise().query(
-      `SELECT b.booking_id, b.guest_name, b.email, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
+      `SELECT b.booking_id, b.unit_id, b.guest_name, b.email, b.check_in_date, b.check_out_date, u.unit_number, t.tower_name
        FROM BOOKING b
        LEFT JOIN UNIT u ON u.unit_id = b.unit_id
        LEFT JOIN TOWER t ON t.tower_id = u.tower_id
@@ -3592,6 +3600,32 @@ app.put("/api/bookings/:id/confirm", async (req, res) => {
       [id]
     );
     const booking = rows[0];
+    if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+    // Check for overlapping confirmed bookings on the same unit
+    const [overlapping] = await db.promise().query(
+      `SELECT b2.booking_id, b2.guest_name, b2.check_in_date, b2.check_out_date, b2.status
+       FROM BOOKING b2
+       WHERE b2.unit_id = ? AND b2.booking_id != ? AND (b2.status = 'confirmed' OR b2.status = 'Confirmed')
+       AND b2.check_in_date < ? AND b2.check_out_date > ?`,
+      [booking.unit_id, id, booking.check_out_date, booking.check_in_date]
+    );
+    if (overlapping && overlapping.length > 0) {
+      const overlappingBookings = overlapping.map((row) => ({
+        booking_id: row.booking_id,
+        guest_name: row.guest_name,
+        check_in_date: row.check_in_date,
+        check_out_date: row.check_out_date,
+        status: row.status,
+      }));
+      return res.status(409).json({
+        error: "This unit is already booked for overlapping dates. Cancel the overlapping booking(s) first, or cancel this one.",
+        overlappingBookings,
+      });
+    }
+
+    const [result] = await db.promise().query("UPDATE BOOKING SET status = 'confirmed', rejection_reason = NULL WHERE booking_id = ?", [id]);
+    if (result.affectedRows === 0) return res.status(404).json({ error: "Booking not found" });
     let emailSent = false;
     let emailError = null;
 
