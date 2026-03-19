@@ -3100,7 +3100,53 @@ app.get("/api/bookings/:id", async (req, res) => {
       [id]
     );
     if (!rows || rows.length === 0) return res.status(404).json({ error: "Booking not found" });
-    res.json(rows[0]);
+    const booking = rows[0];
+
+    // Attach full guest list (Guest 1 from BOOKING + Guest 2+ from BOOKING_GUEST).
+    // Owner/frontdesk UI uses this to show Guest 1..N with Prev/Next.
+    try {
+      const extras = await getBookingGuests(id);
+      const primary = {
+        full_name: booking.guest_name || "",
+        permanent_address: booking.permanent_address || "",
+        age: booking.age || "",
+        nationality: booking.nationality || "",
+        relation_to_owner: booking.relation_to_owner || "",
+        occupation: booking.occupation || "",
+        email: booking.email || "",
+        contact_number: booking.contact_number || "",
+        id_document: booking.id_document || null,
+      };
+      booking.guests = [primary].concat(
+        (extras || []).map((g) => ({
+          full_name: g.full_name || "",
+          permanent_address: g.permanent_address || "",
+          age: g.age || "",
+          nationality: g.nationality || "",
+          relation_to_owner: g.relationship || g.relation_to_owner || "",
+          occupation: g.occupation || "",
+          email: g.email || "",
+          contact_number: g.contact_number || "",
+          id_document: g.id_document || null,
+        }))
+      );
+    } catch (e) {
+      booking.guests = [
+        {
+          full_name: booking.guest_name || "",
+          permanent_address: booking.permanent_address || "",
+          age: booking.age || "",
+          nationality: booking.nationality || "",
+          relation_to_owner: booking.relation_to_owner || "",
+          occupation: booking.occupation || "",
+          email: booking.email || "",
+          contact_number: booking.contact_number || "",
+          id_document: booking.id_document || null,
+        },
+      ];
+    }
+
+    res.json(booking);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch booking" });
@@ -3287,8 +3333,10 @@ app.post("/api/bookings", async (req, res) => {
         if (!fullName) continue;
         try {
           await db.promise().query(
-            `INSERT INTO BOOKING_GUEST (booking_id, full_name, email, contact_number, added_via, purpose, relationship, valid_from, valid_to, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
+            `INSERT INTO BOOKING_GUEST (
+               booking_id, full_name, email, contact_number, added_via, purpose, relationship, valid_from, valid_to, status,
+               permanent_address, age, nationality, occupation, id_document
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?)`,
             [
               bookingId,
               fullName,
@@ -3299,6 +3347,11 @@ app.post("/api/bookings", async (req, res) => {
               g.relation_to_owner ? String(g.relation_to_owner).trim() : null,
               from,
               to,
+              g.permanent_address ? String(g.permanent_address).trim() : null,
+              g.age ? String(g.age).trim() : null,
+              g.nationality ? String(g.nationality).trim() : null,
+              g.occupation ? String(g.occupation).trim() : null,
+              g.id_document != null && String(g.id_document).trim() !== "" ? String(g.id_document).trim() : null,
             ]
           );
         } catch (insErr) {
@@ -4374,7 +4427,8 @@ setInterval(pruneWalkInTokens, 60 * 1000);
 async function getBookingGuests(bookingId) {
   try {
     const [rows] = await db.promise().query(
-      `SELECT id, full_name, email, contact_number, added_via, purpose, relationship, valid_from, valid_to, status, created_at
+      `SELECT id, full_name, email, contact_number, added_via, purpose, relationship, valid_from, valid_to, status,
+              permanent_address, age, nationality, occupation, id_document, created_at
        FROM BOOKING_GUEST WHERE booking_id = ? ORDER BY created_at ASC`,
       [Number(bookingId)]
     );
