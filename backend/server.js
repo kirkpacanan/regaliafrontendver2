@@ -387,8 +387,11 @@ async function getUnitOwnerInfo(unitId) {
     const ownerCol = await getOwnerUnitOwnerColumnName();
     if (ownerCol === "owner_id") {
       const [[row]] = await db.promise().query(
-        `SELECT o.full_name AS owner_name, o.contact_number AS owner_contact
+        `SELECT
+           COALESCE(NULLIF(TRIM(e.full_name), ''), NULLIF(TRIM(o.full_name), '')) AS owner_name,
+           COALESCE(NULLIF(TRIM(o.contact_number), ''), NULLIF(TRIM(e.contact_number), '')) AS owner_contact
          FROM OWNER_UNIT ou INNER JOIN OWNER o ON o.owner_id = ou.owner_id
+         LEFT JOIN EMPLOYEE e ON e.employee_id = o.employee_id
          WHERE ou.unit_id = ? LIMIT 1`,
         [id]
       );
@@ -399,8 +402,11 @@ async function getUnitOwnerInfo(unitId) {
     } else {
       const sc = ownerCol === "employee_id" ? "employee_id" : "owner_employee_id";
       const [[row]] = await db.promise().query(
-        `SELECT o.full_name AS owner_name, o.contact_number AS owner_contact
+        `SELECT
+           COALESCE(NULLIF(TRIM(e.full_name), ''), NULLIF(TRIM(o.full_name), '')) AS owner_name,
+           COALESCE(NULLIF(TRIM(o.contact_number), ''), NULLIF(TRIM(e.contact_number), '')) AS owner_contact
          FROM OWNER_UNIT ou INNER JOIN OWNER o ON o.employee_id = ou.${sc}
+         LEFT JOIN EMPLOYEE e ON e.employee_id = o.employee_id
          WHERE ou.unit_id = ? LIMIT 1`,
         [id]
       );
@@ -411,7 +417,12 @@ async function getUnitOwnerInfo(unitId) {
     }
     if (out.owner_name == null && out.owner_contact == null) {
       const [[fallback]] = await db.promise().query(
-        `SELECT full_name AS owner_name, contact_number AS owner_contact FROM OWNER WHERE unit_id = ? LIMIT 1`,
+        `SELECT
+           COALESCE(NULLIF(TRIM(e.full_name), ''), NULLIF(TRIM(o.full_name), '')) AS owner_name,
+           COALESCE(NULLIF(TRIM(o.contact_number), ''), NULLIF(TRIM(e.contact_number), '')) AS owner_contact
+         FROM OWNER o
+         LEFT JOIN EMPLOYEE e ON e.employee_id = o.employee_id
+         WHERE o.unit_id = ? LIMIT 1`,
         [id]
       );
       if (fallback) {
@@ -423,7 +434,12 @@ async function getUnitOwnerInfo(unitId) {
     console.error("[getUnitOwnerInfo]", e.message || e);
     try {
       const [[fallback]] = await db.promise().query(
-        `SELECT full_name AS owner_name, contact_number AS owner_contact FROM OWNER WHERE unit_id = ? LIMIT 1`,
+        `SELECT
+           COALESCE(NULLIF(TRIM(e.full_name), ''), NULLIF(TRIM(o.full_name), '')) AS owner_name,
+           COALESCE(NULLIF(TRIM(o.contact_number), ''), NULLIF(TRIM(e.contact_number), '')) AS owner_contact
+         FROM OWNER o
+         LEFT JOIN EMPLOYEE e ON e.employee_id = o.employee_id
+         WHERE o.unit_id = ? LIMIT 1`,
         [id]
       );
       if (fallback) {
