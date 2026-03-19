@@ -1301,9 +1301,8 @@
           });
         }
 
-        guests = (guests || []).map(function (g) {
-          return g || null;
-        });
+        guests = (guests || []).map(function (g) { return g || null; });
+        var paxCount = guests.filter(function (g) { return !!g; }).length;
         var primary = guests && guests[0] ? guests[0] : {};
 
         var intentTok =
@@ -1313,6 +1312,7 @@
           unit_id: unitId || null,
           booking_intent_token: intentTok || undefined,
           guests: guests && guests.length ? guests : null,
+          num_pax: paxCount || undefined,
           // Legacy fields: keep the backend-compatible shape for guest #1.
           guest_name: primary.full_name || "",
           permanent_address: primary.permanent_address || null,
