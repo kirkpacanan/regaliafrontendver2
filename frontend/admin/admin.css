@@ -3272,29 +3272,25 @@ label .required {
   font-weight: 600;
   font-size: 1rem;
 }
-/* Manage properties — terracotta pill + soft peach label (reference UI) */
+/* Manage properties — simple "Remove" style */
 .manage-properties-btn-delete {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.55rem 1.25rem;
-  font-size: 0.8rem;
-  font-weight: 700;
+  padding: 0.55rem 1.05rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   font-family: inherit;
-  letter-spacing: 0.02em;
   line-height: 1.2;
-  border-radius: 999px;
+  border-radius: 14px;
   cursor: pointer;
-  color: #f8d4ce;
-  border: 1px solid rgba(92, 52, 44, 0.55);
-  background: linear-gradient(180deg, #b0786a 0%, #965a4c 45%, #7d483c 100%);
-  box-shadow:
-    0 3px 0 rgba(58, 32, 28, 0.45),
-    0 5px 14px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.18);
-  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+  color: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(255, 140, 140, 0.55);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .manage-properties-btn-delete__icon {
@@ -3304,22 +3300,13 @@ label .required {
 }
 
 .manage-properties-btn-delete:hover:not(:disabled) {
-  color: #fff5f2;
-  background: linear-gradient(180deg, #bc8678 0%, #a06454 45%, #8b5244 100%);
-  border-color: rgba(72, 40, 34, 0.6);
-  box-shadow:
-    0 4px 0 rgba(58, 32, 28, 0.4),
-    0 7px 18px rgba(0, 0, 0, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22);
-  transform: translateY(-1px);
+  color: #ffffff;
+  border-color: rgba(255, 140, 140, 0.85);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .manage-properties-btn-delete:active:not(:disabled) {
-  transform: translateY(1px);
-  box-shadow:
-    0 1px 0 rgba(58, 32, 28, 0.5),
-    0 2px 8px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.16);
 }
 
 .manage-properties-btn-delete:focus {
@@ -3327,25 +3314,23 @@ label .required {
 }
 
 .manage-properties-btn-delete:focus-visible {
-  outline: 2px solid #f8d4ce;
+  outline: 2px solid rgba(255, 140, 140, 0.9);
   outline-offset: 3px;
 }
 
 .manage-properties-btn-delete:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  transform: none;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: none;
 }
 
 .manage-properties-btn-delete--tower {
-  padding: 0.6rem 1.35rem;
-  font-size: 0.84rem;
+  padding: 0.6rem 1.1rem;
 }
 
 .manage-properties-btn-delete--unit {
-  padding: 0.48rem 1.1rem;
-  font-size: 0.76rem;
+  padding: 0.5rem 0.95rem;
+  font-size: 0.82rem;
   margin-left: 0.35rem;
 }
 
