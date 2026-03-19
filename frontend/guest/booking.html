@@ -138,23 +138,6 @@
         margin: 0;
       }
 
-      .unit-media-actions {
-        display: flex;
-        gap: 0.6rem;
-        align-items: center;
-        flex-wrap: wrap;
-      }
-
-      .unit-media-link-input {
-        flex: 1;
-        min-width: 240px;
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 12px;
-        padding: 0.55rem 0.7rem;
-        color: #fff;
-      }
-
       .details {
         text-align: center;
         display: grid;
@@ -184,11 +167,6 @@
         font-weight: 600;
         margin-right: 0.35rem;
       }
-      .details .unit-media-actions {
-        margin-top: 1rem;
-        justify-content: center;
-      }
-
       .form {
         width: min(920px, 94vw);
         background: var(--panel);
@@ -397,16 +375,6 @@
         margin-top: -0.25rem;
         margin-bottom: 0.6rem;
       }
-      .card-hint-text {
-        font-size: 0.74rem;
-        color: rgba(255, 255, 255, 0.8);
-        text-align: center;
-        margin: 0.5rem 0 0;
-        line-height: 1.4;
-        max-width: 36rem;
-        margin-left: auto;
-        margin-right: auto;
-      }
       .intent-banner-charges-title {
         font-size: 0.7rem;
         text-transform: uppercase;
@@ -581,15 +549,6 @@
               <div><span>Size:</span> <span data-size></span></div>
               <div><span>Description:</span> <span data-description></span></div>
             </div>
-            <div class="unit-media-actions">
-              <input type="text" class="unit-media-link-input" data-unit-booking-link readonly />
-              <button class="btn secondary" type="button" data-open-unit-booking>Open</button>
-              <button class="btn secondary" type="button" data-copy-unit-booking>Copy</button>
-            </div>
-            <p class="card-hint-text" data-card-link-hint>
-              Link to this booking page (for your records). <strong>Owner name &amp; number</strong> in the form below are the
-              <em>condo unit owner’s</em> contact — not the booking website’s support line.
-            </p>
           </div>
         </div>
         <div class="card-error" data-unit-error style="display: none;">No property selected. Use the link from the property listing.</div>
@@ -889,10 +848,6 @@
         const errorEl = document.querySelector("[data-unit-error]");
         const imagesEl = document.querySelector("[data-images]");
         const prefillUnit = document.querySelector("[data-prefill-unit]");
-        const unitBookingLinkInput = document.querySelector("[data-unit-booking-link]");
-        const openUnitBookingBtn = document.querySelector("[data-open-unit-booking]");
-        const copyUnitBookingBtn = document.querySelector("[data-copy-unit-booking]");
-
         function setText(selector, value) {
           const el = document.querySelector(selector);
           if (el) el.textContent = value || "—";
@@ -940,20 +895,6 @@
             errorEl.style.display = "block";
             if (msg) errorEl.textContent = msg;
           }
-        }
-
-        if (openUnitBookingBtn && unitBookingLinkInput) {
-          openUnitBookingBtn.addEventListener("click", function () {
-            var link = unitBookingLinkInput.value;
-            if (link) window.open(link, "_blank");
-          });
-        }
-        if (copyUnitBookingBtn && unitBookingLinkInput) {
-          copyUnitBookingBtn.addEventListener("click", function () {
-            var link = unitBookingLinkInput.value;
-            if (!link) return;
-            if (navigator.clipboard) navigator.clipboard.writeText(link).catch(function () {});
-          });
         }
 
         if (intentToken) {
@@ -1011,8 +952,6 @@
                 ownerContactEl.classList.add("intent-readonly");
               }
               if (prefillUnit) prefillUnit.value = (unit.unit_number || "") + (unit.tower_name ? " · " + unit.tower_name : "");
-              if (unitBookingLinkInput) unitBookingLinkInput.value = window.location.href.split("?")[0] + "?intent=" + encodeURIComponent(intentToken);
-
               if (cinEl) cinEl.classList.add("intent-readonly");
               if (coutEl) coutEl.classList.add("intent-readonly");
               if (incEl) incEl.classList.add("intent-readonly");
@@ -1038,12 +977,6 @@
                 gsh.textContent =
                   "Guest 1 name was set by your host. Add email, phone, address, and a government ID for every guest listed.";
               }
-              var cardH = document.querySelector("[data-card-link-hint]");
-              if (cardH) {
-                cardH.innerHTML =
-                  "This link returns to this booking form. <strong>Owner name &amp; number</strong> below are the <em>unit owner’s</em> condo records — use them for building/front-desk matters, not for Airbnb/Booking.com refunds.";
-              }
-
               var bpEl = formEl && formEl.querySelector('[name="booking_platform"]');
               if (bpEl && payload.booking_platform) {
                 bpEl.value = String(payload.booking_platform);
@@ -1238,13 +1171,6 @@
               }
 
               fillImages(unit);
-
-              if (unitBookingLinkInput) {
-                unitBookingLinkInput.value =
-                  window.location.origin +
-                  "/guest/booking.html?unit_id=" +
-                  (unit.unit_id != null ? unit.unit_id : "");
-              }
 
               if (prefillUnit) prefillUnit.value = (unit.unit_number || "") + (unit.tower_name ? " · " + unit.tower_name : "");
               var formEl = document.querySelector("[data-booking-form]");
