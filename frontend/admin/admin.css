@@ -1423,6 +1423,26 @@ label .required {
   margin: 0 0 0.85rem;
   line-height: 1.35;
 }
+.owner-bk-before-submit {
+  margin-top: 0.35rem;
+  padding: 0.9rem 1rem 0.85rem;
+  background: rgba(79, 127, 132, 0.1);
+  border-radius: 14px;
+  border: 1px solid rgba(79, 127, 132, 0.28);
+}
+.owner-bk-before-submit-title {
+  font-weight: 700;
+  color: #1a3d40;
+  margin: 0 0 0.7rem;
+  font-size: 0.9rem;
+}
+.owner-bk-req {
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 600;
+  color: #b33;
+  font-size: 0.7rem;
+}
 .owner-booking-setup-fields {
   display: flex;
   flex-direction: column;

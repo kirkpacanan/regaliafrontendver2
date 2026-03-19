@@ -138,14 +138,6 @@
             <div class="owner-bk-field-group">
               <label class="owner-bk-label">Guest name (primary booker) <input type="text" data-bk-guest-name placeholder="Full name" autocomplete="name" /></label>
             </div>
-            <div class="owner-bk-field-group">
-              <label class="owner-bk-label">Booking platform <input type="text" data-bk-platform placeholder="e.g. Airbnb, Booking.com, Agoda" autocomplete="off" /></label>
-              <p class="owner-bk-hint">Shown on the guest form as where they booked.</p>
-            </div>
-            <div class="owner-bk-field-group">
-              <label class="owner-bk-label">Nightly rate (₱) <input type="number" data-bk-nightly min="0" step="0.01" placeholder="e.g. 2500" /></label>
-              <p class="owner-bk-hint" data-bk-nightly-hint>Defaults to unit list price. Total stay = nights × this rate plus additional charges below.</p>
-            </div>
             <div class="owner-bk-field-group owner-bk-field-group--pax">
               <label class="owner-bk-label">Number of guests (pax) <input type="number" data-bk-pax min="1" step="1" value="1" /></label>
               <p class="owner-bk-hint" data-bk-max-pax-hint></p>
@@ -168,6 +160,17 @@
             </div>
             <div class="owner-bk-field-group owner-bk-field-group--fees">
               <div class="owner-bk-fee-preview" data-bk-fee-preview></div>
+            </div>
+            <div class="owner-bk-field-group owner-bk-before-submit">
+              <p class="owner-bk-before-submit-title">Before you create the link</p>
+              <label class="owner-bk-label">Booking platform <span class="owner-bk-req">(required)</span>
+                <input type="text" data-bk-platform placeholder="e.g. Airbnb, Booking.com, Agoda" autocomplete="off" />
+              </label>
+              <p class="owner-bk-hint">Shown on the guest form (e.g. where they booked their stay).</p>
+              <label class="owner-bk-label">Nightly rate (₱)
+                <input type="number" data-bk-nightly min="0" step="0.01" placeholder="e.g. 2500" />
+              </label>
+              <p class="owner-bk-hint" data-bk-nightly-hint>Uses unit list price if left as pre-filled. Total = nights × this rate + fees above.</p>
             </div>
           </div>
           <div class="settings-msg" data-bk-setup-msg style="margin-top: 0.5rem;"></div>
