@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bookings | Regalia Owner</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../admin/admin.css" />
+  </head>
+  <body data-page="bookings">
+    <div class="dashboard">
+      <aside class="sidebar">
+        <div class="brand"><img class="brand-logo" src="../logo.png" alt="Regalia" /></div>
+        <nav class="nav">
+          <a href="./index.html"
+            ><span class="icon"
+              ><svg viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1"></rect></svg></span
+            >Dashboard</a
+          >
+          <a href="./properties.html"
+            ><span class="icon"
+              ><svg viewBox="0 0 24 24">
+                <path d="M3 21h18"></path>
+                <path d="M5 21V7l7-4 7 4v14"></path>
+                <path d="M9 21v-6h6v6"></path></svg></span
+            >Properties</a
+          >
+          <a class="active" href="./bookings.html"
+            ><span class="icon"
+              ><svg viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <line x1="3" y1="10" x2="21" y2="10"></line>
+                <line x1="8" y1="2" x2="8" y2="6"></line>
+                <line x1="16" y1="2" x2="16" y2="6"></line></svg></span
+            >Bookings</a
+          >
+          <a href="./monthly-dues.html"
+            ><span class="icon"
+              ><svg viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="18" rx="2"></rect>
+                <line x1="3" y1="10" x2="21" y2="10"></line></svg></span
+            >Monthly Dues</a
+          >
+        </nav>
+        <div class="sidebar-footer">
+          <a href="../index.html"
+            ><span class="icon"
+              ><svg viewBox="0 0 24 24">
+                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+                <polyline points="10 17 15 12 10 7"></polyline>
+                <line x1="15" y1="12" x2="3" y2="12"></line></svg></span
+            >Log out</a
+          >
+        </div>
+      </aside>
+
+      <main class="main">
+        <header class="topbar">
+          <div>
+            <h1>Bookings</h1>
+            <p>Review booking requests for your unit(s). Approve, cancel, or delete them.</p>
+          </div>
+          <div class="top-actions">
+            <div class="profile-wrap">
+              <button class="avatar avatar-btn" data-profile-btn aria-label="Account">OW</button>
+              <div class="topbar-dropdown profile-dropdown" data-profile-dropdown>
+                <div class="profile-info">
+                  <div class="profile-avatar-lg" data-profile-initials-lg>OW</div>
+                  <div>
+                    <div class="profile-name" data-profile-name>Owner</div>
+                    <div class="profile-role" data-profile-role>OWNER</div>
+                  </div>
+                </div>
+                <a href="../index.html" class="profile-action" data-logout-link>Logout</a>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <div class="bookings-content">
+          <div class="bookings-section" data-section="next7">
+            <h3 class="bookings-section-title">Next 7 Days</h3>
+            <div class="bookings-list" data-list="next7"></div>
+          </div>
+          <div class="bookings-section" data-section="month">
+            <h3 class="bookings-section-title">This Month</h3>
+            <div class="bookings-list" data-list="month"></div>
+          </div>
+          <div class="bookings-section" data-section="later">
+            <h3 class="bookings-section-title">Later</h3>
+            <div class="bookings-list" data-list="later"></div>
+          </div>
+          <div class="empty-state" data-bookings-empty style="display: none;">No bookings yet. Guest submissions will appear here.</div>
+        </div>
+      </main>
+
+      <!-- Booking detail sidebar (employee-style) -->
+      <div class="assign-sidebar" id="bookingDetailSidebar" data-booking-detail-sidebar aria-hidden="true">
+        <div class="assign-sidebar__backdrop" data-close-booking-detail></div>
+        <div class="assign-sidebar__content" id="bookingDetailSidebarContent">
+          <div class="assign-sidebar__header">
+            <h3 class="assign-sidebar__title" data-booking-detail-title>Booking details</h3>
+            <button class="icon-button" type="button" data-close-booking-detail aria-label="Close">
+              <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+            </button>
+          </div>
+          <div class="assign-sidebar__body assign-sidebar__body--scroll">
+            <div class="booking-detail-body" data-booking-detail-body></div>
+          </div>
+          <div class="assign-sidebar__footer booking-detail-actions" data-booking-detail-actions>
+            <button class="submit-button full" type="button" data-confirm-booking style="display: none;">Confirm booking</button>
+            <button class="submit-button danger" type="button" data-reject-booking style="display: none;">Reject booking</button>
+            <button class="submit-button danger" type="button" data-cancel-booking style="display: none;">Cancel booking</button>
+            <button class="submit-button full" type="button" data-checkout-booking style="display: none;">Check out guest</button>
+            <button class="submit-button ghost" type="button" data-delete-booking style="display: none;">Delete booking</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Reject/Cancel modal (reason required) -->
+      <div class="modal-overlay" data-reject-reason-modal>
+        <div class="modal-card">
+          <div class="modal-header">
+            <h2 data-reject-modal-title>Reason</h2>
+            <button class="icon-button" type="button" data-close-reject-modal aria-label="Close">
+              <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+            </button>
+          </div>
+          <div class="modal-form">
+            <label>Please provide a reason (required)
+              <textarea data-reject-reason rows="4" placeholder="e.g. Dates no longer available"></textarea>
+            </label>
+            <div class="step-actions">
+              <button class="submit-button ghost" type="button" data-cancel-reject>Cancel</button>
+              <button class="submit-button danger" type="button" data-submit-reject data-submit-reject-label>Reject booking</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      (function gate() {
+        try {
+          if (!localStorage.getItem("token")) {
+            window.location.replace("../index.html");
+            return;
+          }
+          var role = String(localStorage.getItem("role") || "").toUpperCase();
+          if (role !== "OWNER") {
+            if (role === "ADMIN") window.location.replace("../admin/bookings.html");
+            else window.location.replace("../index.html");
+          }
+        } catch (e) {}
+      })();
+    </script>
+    <script src="../admin/adminscript.js"></script>
+    <script>
+      (function ownerProfileUi() {
+        try {
+          var emp = JSON.parse(localStorage.getItem("employee") || "{}");
+          var name = emp.full_name || emp.username || "Owner";
+          var ini = name
+            .split(" ")
+            .filter(Boolean)
+            .map(function (w) {
+              return w[0];
+            })
+            .join("")
+            .slice(0, 2)
+            .toUpperCase() || "OW";
+          var pb = document.querySelector("[data-profile-btn]");
+          if (pb) pb.textContent = ini;
+          var plg = document.querySelector("[data-profile-initials-lg]");
+          if (plg) plg.textContent = ini;
+          var pn = document.querySelector("[data-profile-name]");
+          if (pn) pn.textContent = name;
+        } catch (e) {}
+
+        var btn = document.querySelector("[data-profile-btn]");
+        var dd = document.querySelector("[data-profile-dropdown]");
+        if (btn && dd) {
+          btn.addEventListener("click", function (e) {
+            e.stopPropagation();
+            dd.classList.toggle("is-open");
+          });
+          document.addEventListener("click", function () {
+            dd.classList.remove("is-open");
+          });
+        }
+        var out = document.querySelector("[data-logout-link]");
+        if (out) out.addEventListener("click", function () { try { localStorage.clear(); } catch (e) {} });
+      })();
+    </script>
+  </body>
+</html>
+
