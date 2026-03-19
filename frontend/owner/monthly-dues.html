@@ -87,10 +87,10 @@
           <div class="payment-placeholder-table">
             <table class="payment-table">
               <thead>
-                <tr><th>Unit</th><th>Amount</th><th>Due</th><th>Status</th></tr>
+                <tr><th>Unit</th><th>Description</th><th>Amount</th><th>Due</th><th>Status</th></tr>
               </thead>
               <tbody data-dues-list>
-                <tr data-empty><td colspan="4" class="payment-placeholder-cell">No dues for your unit yet.</td></tr>
+                <tr data-empty><td colspan="5" class="payment-placeholder-cell">No dues for your unit yet.</td></tr>
               </tbody>
             </table>
           </div>
@@ -102,10 +102,10 @@
           <div class="payment-placeholder-table">
             <table class="payment-table dues-table dues-table--paid" aria-label="Paid dues for this month">
               <thead>
-                <tr><th>Unit</th><th>Amount</th><th>Due</th><th>Status</th></tr>
+                <tr><th>Unit</th><th>Description</th><th>Amount</th><th>Due</th><th>Status</th></tr>
               </thead>
               <tbody data-dues-paid-list>
-                <tr data-dues-paid-empty><td colspan="4" class="payment-placeholder-cell"><span class="payment-placeholder-message" data-dues-paid-empty-msg>None paid for this month.</span></td></tr>
+                <tr data-dues-paid-empty><td colspan="5" class="payment-placeholder-cell"><span class="payment-placeholder-message" data-dues-paid-empty-msg>None paid for this month.</span></td></tr>
               </tbody>
             </table>
           </div>
@@ -252,14 +252,14 @@
               return uid != null && unitIds.has(uid);
             });
 
-          var viewMonth = vm;
-          if (viewMonth === "all") {
+          var effectiveMonth = vm;
+          if (effectiveMonth === "all") {
             var now = new Date();
-            viewMonth = now.getFullYear() + "-" + pad(now.getMonth() + 1);
+            effectiveMonth = now.getFullYear() + "-" + pad(now.getMonth() + 1);
           }
 
-          var filtered = scoped.filter(function (d) { return dueApplies(d, vm); }).filter(function (d) { return !isPaidForMonth(d, viewMonth); });
-          var paid = vm === "all" ? [] : scoped.filter(function (d) { return dueApplies(d, vm) && isPaidForMonth(d, viewMonth); });
+          var filtered = scoped.filter(function (d) { return dueApplies(d, vm); }).filter(function (d) { return !isPaidForMonth(d, effectiveMonth); });
+          var paid = scoped.filter(function (d) { return dueApplies(d, vm) && isPaidForMonth(d, effectiveMonth); });
 
           if (!filtered.length) {
             if (empty) empty.style.display = "";
@@ -269,27 +269,29 @@
             filtered.forEach(function (d) {
               var tr = document.createElement("tr");
               tr.dataset.row = "1";
+              var descText = (d.description || "").trim() || "—";
               var amt = d.amount != null ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
               var st = "Pending";
-              tr.innerHTML = "<td>" + esc(d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit")) + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>" + esc(st) + "</td>";
+              tr.innerHTML = "<td>" + esc(d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit")) + "</td><td>" + esc(descText) + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>" + esc(st) + "</td>";
               tb.appendChild(tr);
             });
           }
 
           // Paid panel (read-only)
           var paidSection = document.querySelector("[data-dues-paid-section]");
-          if (paidSection) paidSection.style.display = vm === "all" ? "none" : "";
+          if (paidSection) paidSection.style.display = "";
           var paidTitle = document.querySelector("[data-dues-paid-title]");
-          if (paidTitle) paidTitle.textContent = vm === "all" ? "Paid for this month" : ("Paid for " + vm);
+          if (paidTitle) paidTitle.textContent = vm === "all" ? ("Paid for " + effectiveMonth) : ("Paid for " + vm);
           var paidEmptyMsg = document.querySelector("[data-dues-paid-empty-msg]");
-          if (paidEmptyMsg) paidEmptyMsg.textContent = vm === "all" ? "—" : (paid.length ? "" : ("None paid for " + vm + "."));
+          if (paidEmptyMsg) paidEmptyMsg.textContent = paid.length ? "" : ("None paid for " + (vm === "all" ? effectiveMonth : vm) + ".");
           if (paidEmpty) paidEmpty.style.display = paid.length ? "none" : "";
           if (paidTb) {
             paid.forEach(function (d) {
               var tr = document.createElement("tr");
               tr.dataset.paidRow = "1";
+              var descText = (d.description || "").trim() || "—";
               var amt = d.amount != null ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
-              tr.innerHTML = "<td>" + esc(d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit")) + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>Paid</td>";
+              tr.innerHTML = "<td>" + esc(d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit")) + "</td><td>" + esc(descText) + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>Paid</td>";
               paidTb.appendChild(tr);
             });
           }

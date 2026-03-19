@@ -226,6 +226,14 @@ async function runStartupSchemaFixes() {
         }
       }
     }
+
+    // MONTHLY_DUE description column (what the due is for)
+    if (await tableExists("MONTHLY_DUE")) {
+      if (!(await colExists("MONTHLY_DUE", "description"))) {
+        await db.promise().query("ALTER TABLE MONTHLY_DUE ADD COLUMN description VARCHAR(255) NULL");
+        console.log("[schema] MONTHLY_DUE: added description");
+      }
+    }
   } catch (e) {
     console.error("[schema] startup fixes:", e.message || e);
   }
@@ -4334,8 +4342,10 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
         }
         if (unitIds.length) {
           const placeholders = unitIds.map(() => "?").join(",");
-          const [r] = await db.promise().query(
-            `SELECT d.id, d.unit_id, d.amount,
+          let r;
+          try {
+            [r] = await db.promise().query(
+            `SELECT d.id, d.unit_id, d.description, d.amount,
               DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
               d.effective_from_month,
               d.status,
@@ -4348,6 +4358,27 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
              ORDER BY d.due_date DESC, d.id DESC`,
             unitIds
           );
+          } catch (e) {
+            if (e.code === "ER_BAD_FIELD_ERROR") {
+              const [legacy] = await db.promise().query(
+                `SELECT d.id, d.unit_id, d.amount,
+                  DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
+                  d.effective_from_month,
+                  d.status,
+                  DATE_FORMAT(d.created_at, '%Y-%m-%d') AS created_at,
+                  u.unit_number, t.tower_name
+                 FROM MONTHLY_DUE d
+                 LEFT JOIN UNIT u ON u.unit_id = d.unit_id
+                 LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+                 WHERE d.unit_id IN (${placeholders})
+                 ORDER BY d.due_date DESC, d.id DESC`,
+                unitIds
+              );
+              r = legacy;
+            } else {
+              throw e;
+            }
+          }
           rows = r || [];
         }
       } catch (e) {
@@ -4355,8 +4386,10 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
       }
     } else if (req.user && isCondoAdminRole(req.user.role)) {
       const ownerId = req.user.employee_id;
-      const [r] = await db.promise().query(
-        `SELECT d.id, d.unit_id, d.amount,
+      let r;
+      try {
+        [r] = await db.promise().query(
+        `SELECT d.id, d.unit_id, d.description, d.amount,
           DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
           d.effective_from_month,
           d.status,
@@ -4369,6 +4402,27 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
          ORDER BY d.due_date DESC, d.id DESC`,
         [ownerId]
       );
+      } catch (e) {
+        if (e.code === "ER_BAD_FIELD_ERROR") {
+          const [legacy] = await db.promise().query(
+            `SELECT d.id, d.unit_id, d.amount,
+              DATE_FORMAT(d.due_date, '%Y-%m-%d') AS due_date,
+              d.effective_from_month,
+              d.status,
+              DATE_FORMAT(d.created_at, '%Y-%m-%d') AS created_at,
+              u.unit_number, t.tower_name
+             FROM MONTHLY_DUE d
+             LEFT JOIN UNIT u ON u.unit_id = d.unit_id
+             LEFT JOIN TOWER t ON t.tower_id = u.tower_id
+             WHERE d.owner_employee_id = ?
+             ORDER BY d.due_date DESC, d.id DESC`,
+            [ownerId]
+          );
+          r = legacy;
+        } else {
+          throw e;
+        }
+      }
       rows = r || [];
     }
     // Attach paid_months (DB-backed) when table exists; otherwise empty arrays.
@@ -4462,7 +4516,7 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
     if (!req.user || !isCondoAdminRole(req.user.role))
       return res.status(403).json({ error: "Only administrators can create monthly dues" });
     const ownerId = req.user.employee_id;
-    const { unit_id, amount, due_date } = req.body || {};
+    const { unit_id, amount, due_date, description } = req.body || {};
     const amt = Number(amount);
     if (amt === undefined || isNaN(amt) || amt < 0) return res.status(400).json({ error: "amount required and must be >= 0" });
     const raw = due_date && String(due_date).trim() ? String(due_date).trim() : null;
@@ -4482,12 +4536,24 @@ app.post("/api/monthly-dues", optionalAuth, async (req, res) => {
       return res.status(400).json({ error: "due_date must be YYYY-MM-DD or DD/MM/YYYY" });
     }
     const effectiveFromMonth = dueDate.length >= 7 ? dueDate.slice(0, 7) : null;
-    const [result] = await db.promise().query(
-      "INSERT INTO MONTHLY_DUE (unit_id, amount, due_date, effective_from_month, status, owner_employee_id) VALUES (?, ?, ?, ?, 'pending', ?)",
-      [unit_id != null && unit_id !== "" && unit_id !== "general" ? Number(unit_id) : null, amt, dueDate, effectiveFromMonth, ownerId]
-    );
+    const desc = description != null && String(description).trim() !== "" ? String(description).trim() : null;
+    let result;
+    try {
+      [result] = await db.promise().query(
+        "INSERT INTO MONTHLY_DUE (unit_id, description, amount, due_date, effective_from_month, status, owner_employee_id) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
+        [unit_id != null && unit_id !== "" && unit_id !== "general" ? Number(unit_id) : null, desc, amt, dueDate, effectiveFromMonth, ownerId]
+      );
+    } catch (e) {
+      // older schema without description
+      if (e.code === "ER_BAD_FIELD_ERROR") {
+        [result] = await db.promise().query(
+          "INSERT INTO MONTHLY_DUE (unit_id, amount, due_date, effective_from_month, status, owner_employee_id) VALUES (?, ?, ?, ?, 'pending', ?)",
+          [unit_id != null && unit_id !== "" && unit_id !== "general" ? Number(unit_id) : null, amt, dueDate, effectiveFromMonth, ownerId]
+        );
+      } else throw e;
+    }
     const [rows] = await db.promise().query(
-      "SELECT id, unit_id, amount, due_date, effective_from_month, status, created_at FROM MONTHLY_DUE WHERE id = ?",
+      "SELECT id, unit_id, description, amount, due_date, effective_from_month, status, created_at FROM MONTHLY_DUE WHERE id = ?",
       [result.insertId]
     );
     const row = rows[0];

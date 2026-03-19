@@ -198,8 +198,8 @@
                 <span style="font-size:0.78rem;color:var(--muted);font-weight:500;">Manage unit types</span>
                 <div data-unit-type-manager style="display:flex;flex-direction:column;gap:8px;">
                   <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-                    <input type="text" data-unit-type-new placeholder="Add new unit type (e.g. Loft)" style="flex:1;min-width:220px;" />
-                    <button type="button" class="btn ghost" data-unit-type-add>Add</button>
+                    <input type="text" data-unit-type-new placeholder="Add new unit type (e.g. Loft)" style="flex:1;min-width:220px;height:42px;border-radius:12px;" />
+                    <button type="button" class="btn ghost" data-unit-type-add style="height:42px;padding:0 16px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;font-weight:600;">Add</button>
                   </div>
                   <div data-unit-type-list style="display:flex;flex-wrap:wrap;gap:8px;"></div>
                   <div class="settings-msg" data-unit-type-msg></div>
@@ -358,12 +358,7 @@
             opt.dataset.deletable = t.owner_employee_id != null ? "1" : "";
             sel.appendChild(opt);
           });
-          // Bottom option to add new
-          var addOpt = document.createElement("option");
-          addOpt.value = "__add_new__";
-          addOpt.textContent = "Add new unit type…";
-          sel.appendChild(addOpt);
-          if (current && current !== "__add_new__") sel.value = current;
+          if (current) sel.value = current;
         }
         if (listEl) {
           listEl.innerHTML = "";
@@ -426,15 +421,6 @@
         }
         if (addBtn) addBtn.addEventListener("click", function () { addType(input ? input.value : ""); });
         if (input) input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addType(input.value); } });
-        if (sel) {
-          sel.addEventListener("change", function () {
-            if (sel.value === "__add_new__") {
-              var nm = window.prompt("New unit type name:");
-              if (!nm) { sel.value = ""; return; }
-              addType(nm);
-            }
-          });
-        }
         loadUnitTypes().then(function () { renderUnitTypes(); });
       }
       function getSavedTemplates() {
