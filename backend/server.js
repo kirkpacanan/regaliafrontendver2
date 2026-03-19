@@ -231,6 +231,53 @@ async function getOwnerUnitColumnSet() {
   return ownerUnitColumnSetCache;
 }
 
+/** unit_id -> { assigned_owner_employee_id, assigned_owner_name } for admin owner-assignment UI */
+async function getAssignmentsForUnitIds(unitIds) {
+  const map = new Map();
+  const ids = [...new Set((unitIds || []).map((x) => Number(x)).filter((x) => x > 0))];
+  if (!ids.length) return map;
+  const col = await getOwnerUnitOwnerColumnName();
+  const ph = ids.map(() => "?").join(",");
+  try {
+    if (col === "owner_id") {
+      const [rows] = await db.promise().query(
+        `SELECT ou.unit_id, ow.employee_id AS assigned_owner_employee_id, e.full_name AS assigned_owner_name
+         FROM OWNER_UNIT ou
+         INNER JOIN OWNER ow ON ow.owner_id = ou.owner_id
+         LEFT JOIN EMPLOYEE e ON e.employee_id = ow.employee_id
+         WHERE ou.unit_id IN (${ph})`,
+        ids
+      );
+      (rows || []).forEach((r) => {
+        map.set(Number(r.unit_id), {
+          assigned_owner_employee_id:
+            r.assigned_owner_employee_id != null ? Number(r.assigned_owner_employee_id) : null,
+          assigned_owner_name: (r.assigned_owner_name && String(r.assigned_owner_name).trim()) || "Another owner",
+        });
+      });
+    } else {
+      const sc = col === "employee_id" ? "employee_id" : "owner_employee_id";
+      const [rows] = await db.promise().query(
+        `SELECT ou.unit_id, ou.${sc} AS assigned_owner_employee_id, e.full_name AS assigned_owner_name
+         FROM OWNER_UNIT ou
+         LEFT JOIN EMPLOYEE e ON e.employee_id = ou.${sc}
+         WHERE ou.unit_id IN (${ph})`,
+        ids
+      );
+      (rows || []).forEach((r) => {
+        map.set(Number(r.unit_id), {
+          assigned_owner_employee_id:
+            r.assigned_owner_employee_id != null ? Number(r.assigned_owner_employee_id) : null,
+          assigned_owner_name: (r.assigned_owner_name && String(r.assigned_owner_name).trim()) || "Another owner",
+        });
+      });
+    }
+  } catch (e) {
+    console.error("[getAssignmentsForUnitIds]", e.message || e);
+  }
+  return map;
+}
+
 // Used when OWNER_UNIT.owner_id is NOT NULL (your ERD) but unit-assignment code was only inserting owner_employee_id.
 async function getOwnerIdForEmployee(ownerEmployeeId) {
   // 1) Try direct mapping
@@ -1032,7 +1079,17 @@ app.get("/api/towers/:towerId/units", optionalAuth, async (req, res) => {
       const [r3] = await db.promise().query(sqlNoScope, [tid]);
       rows = r3 || [];
     }
-    res.json(rows);
+    const unitIds = (rows || []).map((r) => r.unit_id).filter(Boolean);
+    const assignMap = await getAssignmentsForUnitIds(unitIds);
+    const enriched = (rows || []).map((r) => {
+      const a = assignMap.get(Number(r.unit_id));
+      return {
+        ...r,
+        assigned_owner_employee_id: a ? a.assigned_owner_employee_id : null,
+        assigned_owner_name: a ? a.assigned_owner_name : null,
+      };
+    });
+    res.json(enriched);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to fetch units" });
@@ -2488,13 +2545,42 @@ app.post("/api/owners/:id/units", optionalAuth, async (req, res) => {
     if (!ownerIdForInsert) ownerIdForInsert = await ensureOwnerRowForEmployee(id);
     if (!ownerIdForInsert) return res.status(400).json({ error: "Could not resolve or create OWNER row for employee." });
 
+    const assignMap = await getAssignmentsForUnitIds(ids);
     const added = [];
+    const skipped_other_owner = [];
+    const ouCol = await getOwnerUnitOwnerColumnName();
+    const scEmp = ouCol === "employee_id" ? "employee_id" : "owner_employee_id";
     for (const unitId of [...new Set(ids)]) {
       const [[row]] = await db.promise().query(
         "SELECT u.unit_id FROM UNIT u WHERE u.unit_id = ?",
         [unitId]
       );
       if (!row) continue;
+      let takenByOther = false;
+      let takenLabel = "Another owner";
+      const meta = assignMap.get(unitId);
+      if (meta && meta.assigned_owner_name) takenLabel = meta.assigned_owner_name;
+      try {
+        if (ouCol === "owner_id") {
+          const [[r]] = await db.promise().query(
+            "SELECT owner_id AS oid FROM OWNER_UNIT WHERE unit_id = ? LIMIT 1",
+            [unitId]
+          );
+          if (r && r.oid != null && Number(r.oid) !== Number(ownerIdForInsert)) takenByOther = true;
+        } else {
+          const [[r]] = await db.promise().query(
+            `SELECT ${scEmp} AS oid FROM OWNER_UNIT WHERE unit_id = ? LIMIT 1`,
+            [unitId]
+          );
+          if (r && r.oid != null && Number(r.oid) !== Number(id)) takenByOther = true;
+        }
+      } catch (e) {
+        if (e.code !== "ER_NO_SUCH_TABLE") throw e;
+      }
+      if (takenByOther) {
+        skipped_other_owner.push({ unit_id: unitId, assigned_to: takenLabel });
+        continue;
+      }
       try {
         const [[exists]] = await db.promise().query(
           "SELECT 1 AS x FROM OWNER_UNIT WHERE owner_id = ? AND unit_id = ? LIMIT 1",
@@ -2509,11 +2595,18 @@ app.post("/api/owners/:id/units", optionalAuth, async (req, res) => {
           added.push(unitId);
         }
       } catch (e) {
+        if (e.code === "ER_DUP_ENTRY") {
+          skipped_other_owner.push({
+            unit_id: unitId,
+            assigned_to: "Already assigned",
+          });
+          continue;
+        }
         if (e.code !== "ER_NO_SUCH_TABLE") throw e;
       }
     }
     await syncOwnerPrimaryUnit(db, id);
-    res.json({ ok: true, added });
+    res.json({ ok: true, added, skipped_other_owner });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to assign units" });

@@ -308,6 +308,7 @@
                 <option value="">— Select tower —</option>
               </select>
             </label>
+            <p class="panel-subtitle muted" style="margin: -0.15rem 0 0.35rem; font-size: 0.72rem; line-height: 1.35">Each unit can belong to only one owner. Units already assigned elsewhere appear below but can’t be selected.</p>
             <div class="owner-unit-pick-grid" data-owner-units-checkboxes></div>
             <button type="button" class="submit-button full" data-owner-add-units>Add selected units</button>
             <div class="settings-msg" data-owner-assign-msg style="min-height: 1em; margin-top: 0.5rem; font-size: 0.8rem"></div>
@@ -316,6 +317,7 @@
             <button type="button" class="submit-button ghost full" style="margin-bottom: 1rem" data-owner-back-units>← Back to units</button>
             <p class="assign-sidebar__label" style="margin-top: 0">Edit account</p>
             <div class="owner-edit-panel owner-edit-panel--sidebar">
+              <label>Owner ID <input type="text" data-edit-owner-id readonly aria-readonly="true" tabindex="0" title="Read-only account ID" /></label>
               <label>Full name <input type="text" data-edit-full-name /></label>
               <label>Email <input type="email" data-edit-email /></label>
               <label>Contact <input type="text" data-edit-contact /></label>
@@ -544,7 +546,10 @@
         if (img) img.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(o.full_name || employeeId);
         var nm = document.getElementById("ownerSidebarName"); if (nm) nm.textContent = o.full_name || "—";
         var us = document.getElementById("ownerSidebarUser"); if (us) us.textContent = "@" + (o.username || "—") + " · " + (o.contact_number || "—");
-        var rid = document.getElementById("ownerSidebarId"); if (rid) rid.textContent = "ID: REG-" + String(employeeId).padStart(6, "0");
+        var regId = "REG-" + String(employeeId).padStart(6, "0");
+        var rid = document.getElementById("ownerSidebarId"); if (rid) rid.textContent = "ID: " + regId;
+        var idEdit = document.querySelector("[data-edit-owner-id]");
+        if (idEdit) idEdit.value = regId;
         document.querySelector("[data-edit-full-name]").value = o.full_name || "";
         document.querySelector("[data-edit-email]").value = o.email || "";
         document.querySelector("[data-edit-contact]").value = o.contact_number || "";
@@ -596,14 +601,57 @@
         fetch("/api/towers/" + towerId + "/units", { headers: getH() })
           .then(function (r) { return r.ok ? r.json() : []; })
           .then(function (units) {
-            var avail = (units || []).filter(function (u) { return !assignedUnitIds.has(Number(u.unit_id)); });
-            if (!avail.length) {
-              box.innerHTML = "<span class=\"muted\" style=\"font-size:0.85rem\">No free units in this tower (all assigned to this owner or none listed).</span>";
+            var activeEmp = Number(activeOwnerId);
+            var selectable = [];
+            var takenByOther = [];
+            (units || []).forEach(function (u) {
+              var uid = Number(u.unit_id);
+              if (assignedUnitIds.has(uid)) return;
+              var otherEmp = u.assigned_owner_employee_id != null && u.assigned_owner_employee_id !== "" ? Number(u.assigned_owner_employee_id) : null;
+              if (otherEmp != null && !isNaN(otherEmp) && otherEmp !== activeEmp) {
+                takenByOther.push(u);
+              } else {
+                selectable.push(u);
+              }
+            });
+            var parts = [];
+            if (selectable.length) {
+              parts.push(
+                selectable
+                  .map(function (u) {
+                    return "<label class=\"owner-unit-pick-row\"><input type=\"checkbox\" value=\"" + u.unit_id + "\" data-owner-unit-cb /> Unit " + escapeHtml(String(u.unit_number || u.unit_id)) + "</label>";
+                  })
+                  .join("")
+              );
+            }
+            if (takenByOther.length) {
+              parts.push(
+                "<div class=\"owner-unit-taken-heading muted\" style=\"font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;margin:0.65rem 0 0.35rem\">Already assigned to another owner</div>" +
+                  takenByOther
+                    .map(function (u) {
+                      var name = escapeHtml((u.assigned_owner_name || "Another owner").trim() || "Another owner");
+                      return (
+                        "<div class=\"owner-unit-pick-row owner-unit-pick-row--taken\" aria-disabled=\"true\"><span>Unit " +
+                        escapeHtml(String(u.unit_number || u.unit_id)) +
+                        "</span><span class=\"owner-unit-pick-row__taken-meta\">" +
+                        name +
+                        "</span></div>"
+                      );
+                    })
+                    .join("")
+              );
+            }
+            if (!parts.length) {
+              box.innerHTML =
+                "<span class=\"muted\" style=\"font-size:0.85rem\">No units to assign in this tower (empty, or all are already on this owner’s list).</span>";
               return;
             }
-            box.innerHTML = avail.map(function (u) {
-              return "<label class=\"owner-unit-pick-row\"><input type=\"checkbox\" value=\"" + u.unit_id + "\" data-owner-unit-cb /> Unit " + escapeHtml(String(u.unit_number || u.unit_id)) + "</label>";
-            }).join("");
+            if (!selectable.length && takenByOther.length) {
+              parts.unshift(
+                "<span class=\"muted\" style=\"font-size:0.85rem;display:block;margin-bottom:0.35rem\">No units available here — every unit in this tower is already linked to another owner.</span>"
+              );
+            }
+            box.innerHTML = parts.join("");
           })
           .catch(function () { box.innerHTML = "<span class=\"muted\">Failed to load units.</span>"; });
       }
@@ -621,7 +669,20 @@
           .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
           .then(function (res) {
             if (!res.ok) { if (msg) msg.textContent = res.d.error || "Failed"; return; }
-            if (msg) msg.textContent = res.d.added && res.d.added.length ? "Added " + res.d.added.length + " unit(s)." : "No new units (already assigned).";
+            var skip = res.d.skipped_other_owner || [];
+            var addedN = res.d.added && res.d.added.length ? res.d.added.length : 0;
+            if (msg) {
+              if (addedN && skip.length) {
+                msg.textContent =
+                  "Added " + addedN + " unit(s). " + skip.length + " skipped (already assigned to another owner).";
+              } else if (addedN) {
+                msg.textContent = "Added " + addedN + " unit(s).";
+              } else if (skip.length) {
+                msg.textContent = "Could not add: " + skip.length + " unit(s) already belong to another owner.";
+              } else {
+                msg.textContent = "No new units (already on this owner’s list).";
+              }
+            }
             loadOwners();
             setTimeout(function () { refreshOwnerSidebar(activeOwnerId); }, 400);
           })
