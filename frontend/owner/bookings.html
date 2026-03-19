@@ -129,6 +129,45 @@
           </div>
           <div class="empty-state" data-bookings-empty style="display: none;">No bookings yet. Guest submissions will appear here.</div>
         </div>
+
+        <section class="panel owner-bookings-panel">
+          <h3>Additional Charges</h3>
+          <p class="panel-subtitle muted">Add extra charges for checked-in guests</p>
+          <div style="margin-bottom: 1rem;">
+            <label class="owner-charge-label">Select Booking</label>
+            <select class="owner-charge-select" data-owner-charge-booking-select>
+              <option value="">— Choose a booking —</option>
+            </select>
+          </div>
+          <form class="owner-charge-form" data-owner-charge-form style="display: none;">
+            <div class="owner-charge-form-row">
+              <input type="text" name="description" placeholder="Charge description" required />
+              <input type="number" name="quantity" placeholder="Qty" min="1" value="1" required />
+              <input type="number" name="unit_price" placeholder="Price" min="0" step="0.01" required />
+            </div>
+            <button type="submit" class="submit-button ghost">+ Add Charge</button>
+          </form>
+          <div data-owner-charge-list class="owner-charge-list"></div>
+          <div data-owner-charge-total class="owner-charge-total" style="display: none;"></div>
+        </section>
+
+        <section class="panel calendar-panel owner-bookings-panel">
+          <h3>Booking Calendar</h3>
+          <div class="owner-calendar">
+            <div class="calendar-header">
+              <span data-owner-calendar-month-label>—</span>
+              <div class="calendar-actions">
+                <button type="button" class="submit-button ghost" data-owner-calendar-prev>Prev</button>
+                <button type="button" class="submit-button ghost" data-owner-calendar-next>Next</button>
+              </div>
+            </div>
+            <div class="calendar-grid" data-owner-calendar-grid></div>
+            <div class="calendar-details" data-owner-calendar-details>
+              <div class="calendar-details__title">Select a date to view bookings.</div>
+              <div class="owner-calendar-list" data-owner-calendar-list></div>
+            </div>
+          </div>
+        </section>
       </main>
 
       <!-- Booking detail sidebar (employee-style) -->
@@ -1146,6 +1185,7 @@
             bookings = [demo];
             bookingsById = { "999001": demo };
             renderBookings();
+            initChargesAndCalendar();
             return Promise.resolve();
           }
           return fetch(API + "/bookings", { headers: getAuthHeaders() })
@@ -1161,13 +1201,251 @@
                 if (b && b.booking_id != null) bookingsById[String(b.booking_id)] = b;
               });
               renderBookings();
+              initChargesAndCalendar();
             })
             .catch(function () {
               bookings = [];
               bookingsById = {};
               renderBookings();
+              initChargesAndCalendar();
             });
         }
+
+        var currentCalendar = new Date();
+        var selectedCalendarDate = null;
+        var bookingsByDate = {};
+        var ownerChargeCurrent = [];
+
+        function toDateKey(d) {
+          if (!d) return "";
+          var x = d instanceof Date ? d : new Date(d);
+          if (isNaN(x.getTime())) return "";
+          var y = x.getFullYear();
+          var m = x.getMonth() + 1;
+          var day = x.getDate();
+          return y + "-" + (m < 10 ? "0" : "") + m + "-" + (day < 10 ? "0" : "") + day;
+        }
+
+        function buildBookingsByDate(list) {
+          var map = {};
+          (list || []).forEach(function (b) {
+            var start = b.check_in_date ? new Date(b.check_in_date) : null;
+            var end = b.check_out_date ? new Date(b.check_out_date) : null;
+            if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) return;
+            for (var d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+              var key = toDateKey(d);
+              if (!map[key]) map[key] = [];
+              map[key].push(b);
+            }
+          });
+          return map;
+        }
+
+        function renderOwnerCalendarDetails(dateKey) {
+          var details = document.querySelector("[data-owner-calendar-details]");
+          var list = document.querySelector("[data-owner-calendar-list]");
+          var title = details ? details.querySelector(".calendar-details__title") : null;
+          var listBookings = bookingsByDate[dateKey] || [];
+          if (!list || !title) return;
+          list.innerHTML = "";
+          title.textContent = dateKey ? dateKey + " · " + listBookings.length + " booking(s)" : "Select a date to view bookings.";
+          listBookings.forEach(function (b) {
+            var item = document.createElement("div");
+            item.className = "owner-calendar-list-item";
+            item.dataset.bookingId = b.booking_id;
+            var guest = b.guest_name || "Guest";
+            var unit = b.unit_number || b.unit_id || "—";
+            var status = (b.status || "").toLowerCase();
+            var statusText = status === "pending" ? "Pending" : status === "confirmed" ? "Confirmed" : "Cancelled";
+            item.innerHTML = "<span>" + escapeHtml(guest) + " · Unit " + escapeHtml(String(unit)) + " · " + escapeHtml(statusText) + "</span>";
+            item.addEventListener("click", function () { openDetailModal(String(b.booking_id)); });
+            list.appendChild(item);
+          });
+        }
+
+        function renderOwnerCalendar() {
+          var y = currentCalendar.getFullYear();
+          var m = currentCalendar.getMonth();
+          var monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+          var label = document.querySelector("[data-owner-calendar-month-label]");
+          if (label) label.textContent = monthNames[m] + " " + y;
+
+          var first = new Date(y, m, 1);
+          var last = new Date(y, m + 1, 0);
+          var startDay = first.getDay();
+          var daysInMonth = last.getDate();
+          var prevMonth = new Date(y, m, 0);
+          var prevDays = prevMonth.getDate();
+
+          var grid = document.querySelector("[data-owner-calendar-grid]");
+          if (!grid) return;
+          grid.innerHTML = "";
+
+          ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"].forEach(function (d) {
+            var cell = document.createElement("div");
+            cell.className = "calendar-day";
+            cell.textContent = d;
+            grid.appendChild(cell);
+          });
+
+          for (var i = 0; i < startDay; i++) {
+            var cell = document.createElement("div");
+            cell.className = "calendar-cell muted";
+            var pd = prevDays - startDay + i + 1;
+            var prevDate = new Date(y, m - 1, pd);
+            cell.dataset.date = toDateKey(prevDate);
+            cell.textContent = pd;
+            grid.appendChild(cell);
+          }
+          for (var day = 1; day <= daysInMonth; day++) {
+            var cell = document.createElement("div");
+            cell.className = "calendar-cell";
+            var dateKey = y + "-" + (m + 1 < 10 ? "0" : "") + (m + 1) + "-" + (day < 10 ? "0" : "") + day;
+            cell.dataset.date = dateKey;
+            var count = (bookingsByDate[dateKey] || []).length;
+            cell.textContent = day;
+            if (count > 0) {
+              var badge = document.createElement("span");
+              badge.className = "badge";
+              badge.textContent = count;
+              cell.appendChild(badge);
+              cell.classList.add("has-bookings");
+            }
+            grid.appendChild(cell);
+          }
+          var totalCells = 7 * 6;
+          var used = startDay + daysInMonth;
+          for (var j = 1; j <= totalCells - used; j++) {
+            var cell = document.createElement("div");
+            cell.className = "calendar-cell muted";
+            cell.dataset.date = toDateKey(new Date(y, m + 1, j));
+            cell.textContent = j;
+            grid.appendChild(cell);
+          }
+
+          grid.querySelectorAll(".calendar-cell").forEach(function (cell) {
+            cell.addEventListener("click", function () {
+              grid.querySelectorAll(".calendar-cell").forEach(function (c) { c.classList.remove("selected"); });
+              cell.classList.add("selected");
+              selectedCalendarDate = cell.dataset.date || null;
+              renderOwnerCalendarDetails(selectedCalendarDate);
+            });
+          });
+
+          if (selectedCalendarDate) {
+            var sel = grid.querySelector(".calendar-cell[data-date=\"" + selectedCalendarDate + "\"]");
+            if (sel) { sel.classList.add("selected"); renderOwnerCalendarDetails(selectedCalendarDate); }
+          } else {
+            renderOwnerCalendarDetails(null);
+          }
+        }
+
+        function renderOwnerCharges() {
+          var chargeList = document.querySelector("[data-owner-charge-list]");
+          var chargeTotal = document.querySelector("[data-owner-charge-total]");
+          if (!chargeList) return;
+          if (ownerChargeCurrent.length === 0) {
+            chargeList.innerHTML = "<div class=\"owner-charge-item\" style=\"opacity:0.7;\">No charges added</div>";
+            if (chargeTotal) chargeTotal.style.display = "none";
+            return;
+          }
+          var total = 0;
+          chargeList.innerHTML = ownerChargeCurrent.map(function (c) {
+            var line = (c.quantity * c.unit_price);
+            total += line;
+            return "<div class=\"owner-charge-item\" data-charge-id=\"" + (c.charge_id || c.id || "") + "\">" +
+              "<div><strong>" + escapeHtml(c.description) + "</strong> <span style=\"opacity:0.8;font-size:0.85rem;\">" + c.quantity + " × ₱" + Number(c.unit_price).toFixed(2) + " = ₱" + line.toFixed(2) + "</span></div>" +
+              "<button type=\"button\" class=\"submit-button ghost\" data-owner-remove-charge=\"" + (c.charge_id || c.id) + "\" style=\"padding:0.3rem 0.6rem;font-size:0.8rem;\">Remove</button></div>";
+          }).join("");
+          if (chargeTotal) { chargeTotal.style.display = "block"; chargeTotal.textContent = "Total: ₱" + total.toFixed(2); }
+        }
+
+        function loadChargesForBooking(bookingId) {
+          if (!bookingId) { ownerChargeCurrent = []; renderOwnerCharges(); return; }
+          fetch(API + "/bookings/" + bookingId + "/charges", { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (data) { ownerChargeCurrent = Array.isArray(data) ? data : []; renderOwnerCharges(); })
+            .catch(function () { ownerChargeCurrent = []; renderOwnerCharges(); });
+        }
+
+        function initChargesAndCalendar() {
+          bookingsByDate = buildBookingsByDate(bookings);
+
+          var chargeSelect = document.querySelector("[data-owner-charge-booking-select]");
+          var chargeForm = document.querySelector("[data-owner-charge-form]");
+          var chargeList = document.querySelector("[data-owner-charge-list]");
+
+          if (chargeSelect && !chargeSelect._ownerChargesBound) {
+            chargeSelect._ownerChargesBound = true;
+            chargeSelect.addEventListener("change", function () {
+              var bid = chargeSelect.value;
+              if (chargeForm) chargeForm.style.display = bid ? "block" : "none";
+              loadChargesForBooking(bid);
+            });
+            if (chargeForm) chargeForm.addEventListener("submit", function (e) {
+              e.preventDefault();
+              var bid = chargeSelect.value;
+              if (!bid) return;
+              var desc = (chargeForm.querySelector("[name=description]") || {}).value;
+              var qty = parseInt((chargeForm.querySelector("[name=quantity]") || {}).value, 10);
+              var price = parseFloat((chargeForm.querySelector("[name=unit_price]") || {}).value);
+              if (!desc || !qty || isNaN(price)) return;
+              fetch(API + "/bookings/" + bid + "/charges", {
+                method: "POST",
+                headers: getAuthHeaders(true),
+                body: JSON.stringify({ description: desc, quantity: qty, unit_price: price })
+              }).then(function (r) { return r.json(); })
+                .then(function (charge) {
+                  if (charge && charge.error) { alert(charge.error); return; }
+                  ownerChargeCurrent.unshift(charge || {});
+                  renderOwnerCharges();
+                  chargeForm.reset();
+                  if (chargeForm.querySelector("[name=quantity]")) chargeForm.querySelector("[name=quantity]").value = 1;
+                })
+                .catch(function () { alert("Failed to add charge"); });
+            });
+            if (chargeList) chargeList.addEventListener("click", function (e) {
+              var btn = e.target.closest("[data-owner-remove-charge]");
+              if (!btn) return;
+              var cid = btn.getAttribute("data-owner-remove-charge");
+              btn.disabled = true;
+              fetch(API + "/charges/" + cid, { method: "DELETE", headers: getAuthHeaders() })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                  if (data && data.error) { alert(data.error); btn.disabled = false; return; }
+                  ownerChargeCurrent = ownerChargeCurrent.filter(function (c) { return String(c.charge_id || c.id) !== String(cid); });
+                  renderOwnerCharges();
+                })
+                .catch(function () { btn.disabled = false; alert("Failed to remove"); });
+            });
+          }
+
+          if (chargeSelect) {
+            while (chargeSelect.options.length > 1) chargeSelect.remove(1);
+            var confirmedBookings = bookings.filter(function (b) { return (b.status || "").toLowerCase() === "confirmed"; });
+            confirmedBookings.forEach(function (b) {
+              var opt = document.createElement("option");
+              opt.value = b.booking_id;
+              opt.textContent = (b.guest_name || "Guest") + " — Unit " + (b.unit_number || b.unit_id || "—");
+              chargeSelect.appendChild(opt);
+            });
+            if (chargeForm) chargeForm.style.display = chargeSelect.value ? "block" : "none";
+            loadChargesForBooking(chargeSelect.value || null);
+          }
+
+          renderOwnerCalendar();
+        }
+
+        var ownerCalendarPrev = document.querySelector("[data-owner-calendar-prev]");
+        var ownerCalendarNext = document.querySelector("[data-owner-calendar-next]");
+        if (ownerCalendarPrev) ownerCalendarPrev.addEventListener("click", function () {
+          currentCalendar.setMonth(currentCalendar.getMonth() - 1);
+          renderOwnerCalendar();
+        });
+        if (ownerCalendarNext) ownerCalendarNext.addEventListener("click", function () {
+          currentCalendar.setMonth(currentCalendar.getMonth() + 1);
+          renderOwnerCalendar();
+        });
 
         // List click handlers (event delegation)
         [listNext7, listMonth, listLater].forEach(function (listEl) {
@@ -1220,7 +1498,6 @@
           .then(loadAllowedUnits)
           .then(loadBookings)
           .then(function () {
-            // Safety: if demo is on but nothing rendered, inject again.
             if (isDemo && (!bookings || !bookings.length)) return loadBookings();
           });
       })();

@@ -284,6 +284,28 @@
         </div>
       </div>
 
+      <!-- Password confirmation for delete tower/unit -->
+      <div class="settings-overlay" id="delete-confirm-password-overlay" data-delete-confirm-overlay aria-hidden="true">
+        <div class="settings-modal">
+          <div class="settings-header">
+            <h2 data-delete-confirm-title>Confirm deletion</h2>
+            <button type="button" class="settings-close" data-delete-confirm-close aria-label="Close">&times;</button>
+          </div>
+          <div class="settings-body">
+            <p class="panel-subtitle muted" data-delete-confirm-message>Enter your password to confirm.</p>
+            <label class="settings-field" style="margin-top: 0.75rem;">
+              <span>Your password</span>
+              <input type="password" data-delete-confirm-password placeholder="Password" autocomplete="current-password" />
+            </label>
+            <div class="settings-msg" data-delete-confirm-msg></div>
+            <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+              <button type="button" class="submit-button ghost" data-delete-confirm-cancel>Cancel</button>
+              <button type="button" class="submit-button" data-delete-confirm-submit>Confirm</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Profile Modal -->
       <div class="settings-overlay" data-profile-overlay>
         <div class="settings-modal">
@@ -799,33 +821,103 @@
           });
         }
 
+        var pendingDelete = null;
+        var deleteOverlay = document.querySelector("[data-delete-confirm-overlay]");
+        var deleteTitle = document.querySelector("[data-delete-confirm-title]");
+        var deleteMessage = document.querySelector("[data-delete-confirm-message]");
+        var deletePasswordInput = document.querySelector("[data-delete-confirm-password]");
+        var deleteMsg = document.querySelector("[data-delete-confirm-msg]");
+        var deleteCancelBtn = document.querySelector("[data-delete-confirm-cancel]");
+        var deleteSubmitBtn = document.querySelector("[data-delete-confirm-submit]");
+        var deleteCloseBtn = document.querySelector("[data-delete-confirm-close]");
+
+        function openDeleteConfirm(type, id, button) {
+          pendingDelete = { type: type, id: id, button: button };
+          if (button) button.disabled = true;
+          if (deleteTitle) deleteTitle.textContent = type === "tower" ? "Delete tower?" : "Delete unit?";
+          if (deleteMessage) deleteMessage.textContent = type === "tower"
+            ? "This will delete the tower and all its units. Enter your password to confirm."
+            : "This will delete the unit. Enter your password to confirm.";
+          if (deletePasswordInput) { deletePasswordInput.value = ""; deletePasswordInput.focus(); }
+          if (deleteMsg) deleteMsg.textContent = "";
+          if (deleteOverlay) { deleteOverlay.classList.add("is-open"); deleteOverlay.setAttribute("aria-hidden", "false"); }
+        }
+
+        function closeDeleteConfirm() {
+          if (pendingDelete && pendingDelete.button) pendingDelete.button.disabled = false;
+          pendingDelete = null;
+          if (deletePasswordInput) deletePasswordInput.value = "";
+          if (deleteMsg) deleteMsg.textContent = "";
+          if (deleteOverlay) { deleteOverlay.classList.remove("is-open"); deleteOverlay.setAttribute("aria-hidden", "true"); }
+        }
+
+        function doDeleteAfterPassword() {
+          if (!pendingDelete || !deletePasswordInput) return;
+          var password = deletePasswordInput.value.trim();
+          if (!password) { if (deleteMsg) deleteMsg.textContent = "Enter your password."; return; }
+          if (deleteSubmitBtn) deleteSubmitBtn.disabled = true;
+          if (deleteMsg) deleteMsg.textContent = "Verifying…";
+          fetch("/api/employee/verify-password", {
+            method: "POST",
+            headers: getH(),
+            body: JSON.stringify({ password: password })
+          })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+              if (!res.ok) {
+                if (deleteMsg) deleteMsg.textContent = res.d.error || "Incorrect password";
+                if (deleteSubmitBtn) deleteSubmitBtn.disabled = false;
+                return;
+              }
+              if (deleteMsg) deleteMsg.textContent = "Deleting…";
+              var url = pendingDelete.type === "tower" ? "/api/towers/" + pendingDelete.id : "/api/units/" + pendingDelete.id;
+              return fetch(url, { method: "DELETE", headers: getH() })
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); });
+            })
+            .then(function (res) {
+              if (deleteSubmitBtn) deleteSubmitBtn.disabled = false;
+              var wasType = pendingDelete && pendingDelete.type;
+              closeDeleteConfirm();
+              if (res && res.ok) {
+                adminUnitsCache = null;
+                loadTowers();
+                refreshManageProperties();
+              } else if (res && !res.ok) {
+                alert(res.d.error || (wasType === "tower" ? "Failed to delete tower" : "Failed to delete unit"));
+              }
+            })
+            .catch(function () {
+              if (deleteSubmitBtn) deleteSubmitBtn.disabled = false;
+              if (deleteMsg) deleteMsg.textContent = "Network error";
+            });
+        }
+
+        if (deleteOverlay) {
+          if (deleteCloseBtn) deleteCloseBtn.addEventListener("click", closeDeleteConfirm);
+          if (deleteCancelBtn) deleteCancelBtn.addEventListener("click", closeDeleteConfirm);
+          deleteOverlay.addEventListener("click", function (e) { if (e.target === deleteOverlay) closeDeleteConfirm(); });
+          document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape" && deleteOverlay.classList.contains("is-open")) closeDeleteConfirm();
+          });
+        }
+        if (deleteSubmitBtn) deleteSubmitBtn.addEventListener("click", doDeleteAfterPassword);
+        if (deletePasswordInput) deletePasswordInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter") { e.preventDefault(); doDeleteAfterPassword(); }
+        });
+
         function bindManageDeleteHandlers() {
           listEl.querySelectorAll("[data-delete-tower]").forEach(function (btn) {
             btn.onclick = function () {
               var towerId = btn.getAttribute("data-tower-id");
-              if (!towerId || !window.confirm("Delete this tower and all its units? This cannot be undone.")) return;
-              btn.disabled = true;
-              fetch("/api/towers/" + towerId, { method: "DELETE", headers: getH() })
-                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-                .then(function (res) {
-                  if (res.ok) { loadTowers(); refreshManageProperties(); }
-                  else { alert(res.d.error || "Failed to delete tower"); btn.disabled = false; }
-                })
-                .catch(function () { alert("Network error"); btn.disabled = false; });
+              if (!towerId) return;
+              openDeleteConfirm("tower", towerId, btn);
             };
           });
           listEl.querySelectorAll("[data-delete-unit]").forEach(function (btn) {
             btn.onclick = function () {
               var unitId = btn.getAttribute("data-unit-id");
-              if (!unitId || !window.confirm("Delete this unit? This cannot be undone.")) return;
-              btn.disabled = true;
-              fetch("/api/units/" + unitId, { method: "DELETE", headers: getH() })
-                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-                .then(function (res) {
-                  if (res.ok) { adminUnitsCache = null; loadTowers(); refreshManageProperties(); }
-                  else { alert(res.d.error || "Failed to delete unit"); btn.disabled = false; }
-                })
-                .catch(function () { alert("Network error"); btn.disabled = false; });
+              if (!unitId) return;
+              openDeleteConfirm("unit", unitId, btn);
             };
           });
         }

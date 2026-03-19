@@ -1677,8 +1677,17 @@ label .required {
   padding: 2.5rem 0 2rem;
 }
 
+[data-page="owner-bookings"] .bookings-content {
+  max-width: none;
+  padding-top: 1.25rem;
+}
+
 .bookings-section {
   margin-bottom: 2rem;
+}
+
+[data-page="owner-bookings"] .bookings-section {
+  margin-bottom: 1.25rem;
 }
 
 .bookings-section:first-child {
@@ -1690,6 +1699,11 @@ label .required {
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--text);
+}
+
+[data-page="owner-bookings"] .bookings-section-title {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
 }
 
 .bookings-list {
@@ -3479,4 +3493,155 @@ label .required {
   justify-content: space-between;
   align-items: center;
   gap: 0.5rem;
+}
+
+/* Owner Bookings — Additional Charges + Calendar */
+[data-page="owner-bookings"] .owner-bookings-panel {
+  min-height: 0;
+  padding: 1.1rem 1.35rem;
+  margin-bottom: 1.25rem;
+}
+[data-page="owner-bookings"] .owner-bookings-panel:last-of-type {
+  margin-bottom: 0;
+}
+[data-page="owner-bookings"] .owner-bookings-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+.owner-bookings-panel .panel-subtitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.875rem;
+}
+[data-page="owner-bookings"] .owner-bookings-panel + .owner-bookings-panel {
+  margin-top: 0;
+}
+.owner-charge-label {
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+.owner-charge-select {
+  width: 100%;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+.owner-charge-form-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 0.5rem;
+  margin-bottom: 0.65rem;
+}
+.owner-charge-form-row input {
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.85rem;
+  outline: none;
+}
+.owner-charge-form-row input[type="number"] { width: 70px; text-align: center; }
+.owner-charge-form-row input[type="number"][name="unit_price"] { width: 90px; text-align: right; }
+.owner-charge-list { margin-top: 0.75rem; }
+.owner-charge-list .owner-charge-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 0.9rem;
+}
+.owner-charge-total {
+  margin-top: 0.5rem;
+  text-align: right;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.owner-calendar { display: grid; gap: 1rem; }
+.owner-calendar .calendar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: 500;
+  font-size: 0.95rem;
+}
+.owner-calendar .calendar-actions { display: flex; gap: 0.5rem; }
+.owner-calendar .calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+.owner-calendar .calendar-day {
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  text-align: center;
+  padding: 0.35rem 0;
+}
+.owner-calendar .calendar-cell {
+  background: rgba(255, 255, 255, 0.14);
+  border-radius: 10px;
+  min-height: 42px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 0.45rem 0.5rem;
+  position: relative;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+.owner-calendar .calendar-cell.muted { opacity: 0.55; }
+.owner-calendar .calendar-cell.has-bookings {
+  background: rgba(255, 255, 255, 0.28);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+.owner-calendar .calendar-cell.selected {
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateY(-1px);
+}
+.owner-calendar .calendar-cell:hover {
+  background: rgba(255, 255, 255, 0.22);
+}
+.owner-calendar .calendar-cell .badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.62rem;
+  font-weight: 600;
+}
+.owner-calendar .calendar-details { margin-top: 1rem; }
+.owner-calendar .calendar-details__title {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.owner-calendar-list .owner-calendar-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  margin-bottom: 0.35rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s ease;
+}
+.owner-calendar-list .owner-calendar-list-item:hover {
+  background: rgba(255, 255, 255, 0.12);
 }

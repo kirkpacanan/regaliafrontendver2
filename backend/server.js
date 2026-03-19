@@ -5097,6 +5097,23 @@ app.put("/api/employee/profile", optionalAuth, async (req, res) => {
   }
 });
 
+// ---------------- Verify password (for destructive actions) ----------------
+app.post("/api/employee/verify-password", optionalAuth, async (req, res) => {
+  if (!req.user) return res.status(401).json({ error: "Not authenticated" });
+  const password = req.body && req.body.password;
+  if (!password) return res.status(400).json({ error: "Password required" });
+  try {
+    const [rows] = await db.promise().query("SELECT password FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+    if (!rows.length) return res.status(404).json({ error: "User not found" });
+    const match = await bcrypt.compare(password, rows[0].password);
+    if (!match) return res.status(400).json({ error: "Incorrect password" });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
 // ---------------- Change password ----------------
 app.put("/api/employee/password", optionalAuth, async (req, res) => {
   if (!req.user) return res.status(401).json({ error: "Not authenticated" });
