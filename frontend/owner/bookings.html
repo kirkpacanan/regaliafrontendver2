@@ -409,21 +409,87 @@
                 paymentHtml = "<p><strong>Payment method:</strong> " + escapeHtml(pm) + "</p>";
               }
 
+              function normGuests(booking) {
+                var gs = booking && Array.isArray(booking.guests) ? booking.guests.filter(Boolean) : [];
+                if (gs.length) return gs;
+                // Fallback to legacy single-guest fields.
+                return [{
+                  full_name: booking.guest_name || "",
+                  permanent_address: booking.permanent_address || "",
+                  age: booking.age || "",
+                  nationality: booking.nationality || "",
+                  relation_to_owner: booking.relation_to_owner || "",
+                  occupation: booking.occupation || "",
+                  email: booking.email || "",
+                  contact_number: booking.contact_number || "",
+                  id_document: booking.id_document || null
+                }];
+              }
+
+              function renderGuestCard(g, idx) {
+                var name = g.full_name || g.guest_name || "-";
+                var addr = g.permanent_address || "-";
+                var age = g.age || "-";
+                var nat = g.nationality || "-";
+                var rel = g.relation_to_owner || "-";
+                var occ = g.occupation || "-";
+                var email = g.email || "-";
+                var contact = g.contact_number || "-";
+                var idDoc = g.id_document || null;
+                var idHtml = idDoc
+                  ? "<p><strong>ID document:</strong></p><img src=\"" + escapeHtml(idDoc) + "\" alt=\"ID document\" class=\"booking-payment-proof-img\" style=\"max-width:100%;border-radius:8px;\" />"
+                  : "<p style=\"opacity:.7;\"><strong>ID document:</strong> Not provided</p>";
+
+                return (
+                  "<div class=\"booking-detail-block\">" +
+                    "<h4>Guest " + (idx + 1) + "</h4>" +
+                    "<p><strong>Name:</strong> " + escapeHtml(name) + "</p>" +
+                    "<p><strong>Address:</strong> " + escapeHtml(addr) + "</p>" +
+                    "<p><strong>Age:</strong> " + escapeHtml(age) + " &nbsp; <strong>Nationality:</strong> " + escapeHtml(nat) + "</p>" +
+                    "<p><strong>Relation to owner:</strong> " + escapeHtml(rel) + "</p>" +
+                    "<p><strong>Occupation:</strong> " + escapeHtml(occ) + "</p>" +
+                    "<p><strong>Email:</strong> " + escapeHtml(email) + "</p>" +
+                    "<p><strong>Contact:</strong> " + escapeHtml(contact) + "</p>" +
+                    idHtml +
+                  "</div>"
+                );
+              }
+
+              var guests = normGuests(b);
+              var guestsHtml = guests.map(function (g, idx) { return renderGuestCard(g, idx); }).join("");
+
+              function normTime(t) {
+                if (!t) return "";
+                var s = String(t).trim();
+                // Accept "HH:MM", "HH:MM:SS", or "1970-01-01THH:MM:SS..."
+                var m = s.match(/(\d{2}:\d{2})(?::\d{2})?/);
+                return m ? m[1] : s;
+              }
+              function num(n) {
+                var x = Number(n);
+                return isNaN(x) ? 0 : x;
+              }
+              var stdIn = normTime(b.check_in_time) || "";
+              var stdOut = normTime(b.check_out_time) || "";
+              var reqIn = normTime(b.requested_check_in_time) || "";
+              var reqOut = normTime(b.requested_check_out_time) || "";
+              var earlyH = num(b.early_checkin_hours);
+              var lateH = num(b.early_checkout_hours);
+
+              var arrivalLabel = earlyH > 0 ? ("Early check-in (" + earlyH + "h)") : "Regular time";
+              var departLabel = lateH > 0 ? ("Late checkout (" + lateH + "h)") : "Regular time";
+              var arrivalTimeText = (reqIn || stdIn) ? (reqIn || stdIn) : "-";
+              var departTimeText = (reqOut || stdOut) ? (reqOut || stdOut) : "-";
+
               var html =
                 "<div class=\"booking-detail-grid\">" +
-                  "<div class=\"booking-detail-block\"><h4>Personal information</h4>" +
-                    "<p><strong>Name:</strong> " + escapeHtml(b.guest_name) + "</p>" +
-                    "<p><strong>Address:</strong> " + escapeHtml(b.permanent_address) + "</p>" +
-                    "<p><strong>Age:</strong> " + escapeHtml(b.age) + " &nbsp; <strong>Nationality:</strong> " + escapeHtml(b.nationality) + "</p>" +
-                    "<p><strong>Relation to owner:</strong> " + escapeHtml(b.relation_to_owner) + "</p>" +
-                    "<p><strong>Occupation:</strong> " + escapeHtml(b.occupation) + "</p>" +
-                    "<p><strong>Email:</strong> " + escapeHtml(b.email) + "</p>" +
-                    "<p><strong>Contact:</strong> " + escapeHtml(b.contact_number) + "</p>" +
-                  "</div>" +
+                  guestsHtml +
                   "<div class=\"booking-detail-block\"><h4>Unit &amp; stay</h4>" +
                     "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +
                     "<p><strong>Inclusive dates:</strong> " + escapeHtml(b.inclusive_dates) + "</p>" +
                     "<p><strong>Check-in:</strong> " + formatDate(b.check_in_date) + " &nbsp; <strong>Check-out:</strong> " + formatDate(b.check_out_date) + "</p>" +
+                    "<p><strong>Arrival time:</strong> " + escapeHtml(arrivalTimeText) + " <span style=\"opacity:.75;\">(" + escapeHtml(arrivalLabel) + ")</span></p>" +
+                    "<p><strong>Departure time:</strong> " + escapeHtml(departTimeText) + " <span style=\"opacity:.75;\">(" + escapeHtml(departLabel) + ")</span></p>" +
                     "<p><strong>Purpose of stay:</strong> " + escapeHtml(b.purpose_of_stay) + "</p>" +
                     "<p><strong>Paid:</strong> " + escapeHtml(b.paid_yes_no) + (b.amount_paid ? " - " + escapeHtml(b.amount_paid) : "") + "</p>" +
                     "<p><strong>Booking platform:</strong> " + escapeHtml(b.booking_platform) + "</p>" +
