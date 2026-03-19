@@ -243,6 +243,21 @@
             <button type="submit" class="btn ghost settings-save">Add unit</button>
           </form>
         </section>
+
+        <section class="panel panel--collapsible" data-manage-properties>
+          <button type="button" class="panel-collapsible__head" data-manage-properties-toggle aria-expanded="true" aria-controls="manage-properties-body" id="manage-properties-toggle">
+            <span class="panel-collapsible__title">Manage properties</span>
+            <span class="panel-collapsible__chevron" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </span>
+          </button>
+          <p class="panel-subtitle muted panel-collapsible__hint">View and delete towers and units. Deleting a tower removes all its units.</p>
+          <div class="panel-collapsible__body" id="manage-properties-body" data-manage-properties-body>
+            <div class="manage-properties-list" data-manage-properties-list>
+              <p class="manage-properties-empty muted" data-manage-properties-empty>Loading…</p>
+            </div>
+          </div>
+        </section>
         </div>
       </main>
 
@@ -425,6 +440,7 @@
             e.target.reset();
             adminUnitsCache = null;
             loadTowers();
+            if (window.refreshManageProperties) window.refreshManageProperties();
             setTimeout(function () { msg.textContent = ""; }, 1500);
           }).catch(function () { msg.textContent = "Network error"; });
       });
@@ -451,6 +467,7 @@
             adminUnitsCache = null;
             var tid = document.querySelector("[data-tower-select]");
             loadTowers().then(function () { if (tid && tid.value) refreshUnitTemplateOptionsForTower(tid.value); });
+            if (window.refreshManageProperties) window.refreshManageProperties();
             setTimeout(function () { msg.textContent = ""; }, 1500);
           }).catch(function () { msg.textContent = "Network error"; });
       });
@@ -621,6 +638,129 @@
         var saved = localStorage.getItem("theme_color") || "default";
         applyTheme(saved);
       })();
+
+      (function managePropertiesSection() {
+        var card = document.querySelector("[data-manage-properties]");
+        var toggle = document.querySelector("[data-manage-properties-toggle]");
+        var listEl = document.querySelector("[data-manage-properties-list]");
+        var emptyEl = document.querySelector("[data-manage-properties-empty]");
+        var MANAGE_COLLAPSED_KEY = "admin_properties_manage_collapsed";
+
+        function applyCollapsed(collapsed) {
+          if (!card || !toggle) return;
+          card.classList.toggle("panel--collapsible-collapsed", collapsed);
+          toggle.setAttribute("aria-expanded", collapsed ? "false" : "true");
+        }
+        try { if (localStorage.getItem(MANAGE_COLLAPSED_KEY) === "1") applyCollapsed(true); } catch (e) {}
+        if (toggle) toggle.addEventListener("click", function () {
+          var next = !card.classList.contains("panel--collapsible-collapsed");
+          applyCollapsed(next);
+          try { localStorage.setItem(MANAGE_COLLAPSED_KEY, next ? "1" : ""); } catch (e2) {}
+        });
+
+        function renderList(towers, units) {
+          if (!listEl) return;
+          var byTower = {};
+          (units || []).forEach(function (u) {
+            var tid = String(u.tower_id != null ? u.tower_id : "");
+            if (!byTower[tid]) byTower[tid] = [];
+            byTower[tid].push(u);
+          });
+          if (!towers || towers.length === 0) {
+            emptyEl.textContent = "No towers yet. Add a tower above.";
+            emptyEl.style.display = "block";
+            listEl.querySelectorAll(".manage-properties-tower").forEach(function (n) { n.remove(); });
+            return;
+          }
+          emptyEl.style.display = "none";
+          var fragment = document.createDocumentFragment();
+          towers.forEach(function (t) {
+            var tid = String(t.tower_id);
+            var towerUnits = byTower[tid] || [];
+            var towerRow = document.createElement("div");
+            towerRow.className = "manage-properties-tower";
+            towerRow.setAttribute("data-tower-id", tid);
+            var name = esc(t.tower_name || "Tower") + (t.number_floors ? " (" + t.number_floors + " floors)" : "");
+            towerRow.innerHTML =
+              "<div class=\"manage-properties-tower__head\">" +
+              "<span class=\"manage-properties-tower__name\">" + name + "</span>" +
+              "<button type=\"button\" class=\"btn danger manage-properties-btn-delete\" data-delete-tower data-tower-id=\"" + esc(tid) + "\" aria-label=\"Delete tower\">Delete tower</button>" +
+              "</div>" +
+              "<ul class=\"manage-properties-units\" data-tower-units=\"" + esc(tid) + "\"></ul>";
+            var ul = towerRow.querySelector("[data-tower-units]");
+            towerUnits.forEach(function (u) {
+              var li = document.createElement("li");
+              li.className = "manage-properties-unit";
+              li.setAttribute("data-unit-id", String(u.unit_id));
+              var label = (u.unit_type || "Unit") + " " + (u.unit_number || u.unit_id || "—");
+              if (u.unit_size != null && u.unit_size !== "") label += " · " + u.unit_size + " sqm";
+              li.innerHTML =
+                "<span class=\"manage-properties-unit__label\">" + esc(label) + "</span>" +
+                "<button type=\"button\" class=\"btn danger manage-properties-btn-delete\" data-delete-unit data-unit-id=\"" + esc(String(u.unit_id)) + "\" aria-label=\"Delete unit\">Delete unit</button>";
+              ul.appendChild(li);
+            });
+            if (towerUnits.length === 0) {
+              var emptyLi = document.createElement("li");
+              emptyLi.className = "manage-properties-unit manage-properties-unit--empty";
+              emptyLi.textContent = "No units";
+              ul.appendChild(emptyLi);
+            }
+            fragment.appendChild(towerRow);
+          });
+          listEl.querySelectorAll(".manage-properties-tower").forEach(function (n) { n.remove(); });
+          listEl.insertBefore(fragment, emptyEl);
+        }
+
+        function refreshManageProperties() {
+          Promise.all([
+            fetch("/api/towers", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }),
+            fetch("/api/units", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; })
+          ]).then(function (results) {
+            var towers = results[0] || [];
+            var units = results[1] || [];
+            adminUnitsCache = units;
+            renderList(towers, units);
+            bindManageDeleteHandlers();
+          }).catch(function () {
+            if (emptyEl) { emptyEl.textContent = "Could not load properties."; emptyEl.style.display = "block"; }
+          });
+        }
+
+        function bindManageDeleteHandlers() {
+          listEl.querySelectorAll("[data-delete-tower]").forEach(function (btn) {
+            btn.onclick = function () {
+              var towerId = btn.getAttribute("data-tower-id");
+              if (!towerId || !window.confirm("Delete this tower and all its units? This cannot be undone.")) return;
+              btn.disabled = true;
+              fetch("/api/towers/" + towerId, { method: "DELETE", headers: getH() })
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                .then(function (res) {
+                  if (res.ok) { loadTowers(); refreshManageProperties(); }
+                  else { alert(res.d.error || "Failed to delete tower"); btn.disabled = false; }
+                })
+                .catch(function () { alert("Network error"); btn.disabled = false; });
+            };
+          });
+          listEl.querySelectorAll("[data-delete-unit]").forEach(function (btn) {
+            btn.onclick = function () {
+              var unitId = btn.getAttribute("data-unit-id");
+              if (!unitId || !window.confirm("Delete this unit? This cannot be undone.")) return;
+              btn.disabled = true;
+              fetch("/api/units/" + unitId, { method: "DELETE", headers: getH() })
+                .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                .then(function (res) {
+                  if (res.ok) { adminUnitsCache = null; loadTowers(); refreshManageProperties(); }
+                  else { alert(res.d.error || "Failed to delete unit"); btn.disabled = false; }
+                })
+                .catch(function () { alert("Network error"); btn.disabled = false; });
+            };
+          });
+        }
+
+        refreshManageProperties();
+        window.refreshManageProperties = refreshManageProperties;
+      })();
+
       loadTowers();
     </script>
     <script>
