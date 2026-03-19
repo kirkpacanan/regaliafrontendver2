@@ -225,6 +225,7 @@
         var submitRejectBtn = document.querySelector("[data-submit-reject]");
 
         var allowedUnitIds = new Set();
+        var allowedUnitsById = {};
         var bookings = [];
         var activeBookingId = null;
         var activeBookingUnitId = null;
@@ -420,6 +421,17 @@
                 // 1) Preferred: guests array (or guests JSON string).
                 var rawGuests = booking ? booking.guests : null;
                 if (typeof rawGuests === "string") rawGuests = safeParseJson(rawGuests);
+                // Sometimes returned as an object keyed by index: { "0": {...}, "1": {...} }
+                if (rawGuests && !Array.isArray(rawGuests) && typeof rawGuests === "object") {
+                  var objKeys = Object.keys(rawGuests);
+                  var maybeIdx = objKeys.every(function (k) { return /^\d+$/.test(k); });
+                  if (maybeIdx) {
+                    rawGuests = objKeys
+                      .map(function (k) { return { k: Number(k), v: rawGuests[k] }; })
+                      .sort(function (a, b) { return a.k - b.k; })
+                      .map(function (p) { return p.v; });
+                  }
+                }
                 var gs = Array.isArray(rawGuests) ? rawGuests.filter(Boolean) : [];
                 if (gs.length) return gs;
 
@@ -428,6 +440,15 @@
                 for (var k = 0; k < altKeys.length; k++) {
                   var v = booking ? booking[altKeys[k]] : null;
                   if (typeof v === "string") v = safeParseJson(v);
+                  if (v && !Array.isArray(v) && typeof v === "object") {
+                    var ok = Object.keys(v).every(function (kk) { return /^\d+$/.test(kk); });
+                    if (ok) {
+                      v = Object.keys(v)
+                        .map(function (kk) { return { k: Number(kk), v: v[kk] }; })
+                        .sort(function (a, b) { return a.k - b.k; })
+                        .map(function (p) { return p.v; });
+                    }
+                  }
                   if (Array.isArray(v) && v.filter(Boolean).length) return v.filter(Boolean);
                 }
 
@@ -507,10 +528,17 @@
                 var x = Number(n);
                 return isNaN(x) ? 0 : x;
               }
-              var stdIn = normTime(b.check_in_time) || "";
-              var stdOut = normTime(b.check_out_time) || "";
-              var reqIn = normTime(b.requested_check_in_time) || "";
-              var reqOut = normTime(b.requested_check_out_time) || "";
+              // Standard times should come from the owner's unit (set in "Make booking link").
+              var unitMeta = (uid != null && allowedUnitsById && allowedUnitsById[uid]) ? allowedUnitsById[uid] : null;
+              var stdIn = normTime((unitMeta && unitMeta.check_in_time) || b.check_in_time) || "";
+              var stdOut = normTime((unitMeta && unitMeta.check_out_time) || b.check_out_time) || "";
+
+              // Requested times can come from the booking record OR from the booking intent.
+              var reqIn =
+                normTime(b.requested_check_in_time || b.requested_checkin_time || b.requested_arrival_time || b.arrival_time || b.requested_cin_time) || "";
+              var reqOut =
+                normTime(b.requested_check_out_time || b.requested_checkout_time || b.requested_departure_time || b.departure_time || b.requested_cout_time) || "";
+
               var earlyH = num(b.early_checkin_hours);
               var lateH = num(b.early_checkout_hours);
 
@@ -532,8 +560,8 @@
                     "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +
                     "<p><strong>Inclusive dates:</strong> " + escapeHtml(b.inclusive_dates) + "</p>" +
                     "<p><strong>Check-in:</strong> " + formatDate(b.check_in_date) + " &nbsp; <strong>Check-out:</strong> " + formatDate(b.check_out_date) + "</p>" +
-                    "<p><strong>Arrival time:</strong> " + escapeHtml(arrivalTimeText) + arrivalStdHint + arrivalMetaHint + "</p>" +
-                    "<p><strong>Departure time:</strong> " + escapeHtml(departTimeText) + departStdHint + departMetaHint + "</p>" +
+                    "<p><strong>Arrival time:</strong> <span data-arrival-time>" + escapeHtml(arrivalTimeText) + "</span>" + arrivalStdHint + arrivalMetaHint + "</p>" +
+                    "<p><strong>Departure time:</strong> <span data-departure-time>" + escapeHtml(departTimeText) + "</span>" + departStdHint + departMetaHint + "</p>" +
                     "<p><strong>Purpose of stay:</strong> " + escapeHtml(b.purpose_of_stay) + "</p>" +
                     "<p><strong>Paid:</strong> " + escapeHtml(b.paid_yes_no) + (b.amount_paid ? " - " + escapeHtml(b.amount_paid) : "") + "</p>" +
                     "<p><strong>Booking platform:</strong> " + escapeHtml(b.booking_platform) + "</p>" +
@@ -546,6 +574,23 @@
                 "</div>";
 
               detailBody.innerHTML = html;
+
+              // If booking didn't include requested times, try to load from booking intent token.
+              if ((!reqIn || !reqOut) && (b.booking_intent_token || b.booking_intent || b.intent_token)) {
+                var tok = b.booking_intent_token || b.booking_intent || b.intent_token;
+                fetch(API + "/booking-intents/" + encodeURIComponent(tok), { headers: getAuthHeaders() })
+                  .then(function (r) { return r.ok ? r.json() : null; })
+                  .then(function (intent) {
+                    if (!intent || !detailBody) return;
+                    var ri = normTime(intent.requested_check_in_time || intent.requested_checkin_time || intent.requested_check_in || intent.requested_cin_time) || "";
+                    var ro = normTime(intent.requested_check_out_time || intent.requested_checkout_time || intent.requested_check_out || intent.requested_cout_time) || "";
+                    var at = detailBody.querySelector("[data-arrival-time]");
+                    var dt = detailBody.querySelector("[data-departure-time]");
+                    if (at && ri) at.textContent = ri;
+                    if (dt && ro) dt.textContent = ro;
+                  })
+                  .catch(function () {});
+              }
 
               if (detailActions) {
                 detailActions.style.display = "flex";
@@ -640,12 +685,16 @@
             .then(function (r) { return r.ok ? r.json() : []; })
             .then(function (rows) {
               allowedUnitIds = new Set();
+              allowedUnitsById = {};
               (rows || []).forEach(function (u) {
                 var uid = u && u.unit_id != null && u.unit_id !== "" ? Number(u.unit_id) : null;
-                if (uid != null) allowedUnitIds.add(uid);
+                if (uid != null) {
+                  allowedUnitIds.add(uid);
+                  allowedUnitsById[uid] = u;
+                }
               });
             })
-            .catch(function () { allowedUnitIds = new Set(); });
+            .catch(function () { allowedUnitIds = new Set(); allowedUnitsById = {}; });
         }
 
         function loadBookings() {
