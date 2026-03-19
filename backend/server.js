@@ -2490,6 +2490,66 @@ async function syncOwnerPrimaryUnit(dbConn, ownerEmployeeId) {
   }
 }
 
+function ownerValidIdBufferToPayload(buf) {
+  if (buf == null) return null;
+  const b = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+  if (!b.length) return null;
+  let mime = "image/jpeg";
+  if (b[0] === 0xff && b[1] === 0xd8) mime = "image/jpeg";
+  else if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) mime = "image/png";
+  else if (b.slice(0, 5).toString("utf8") === "%PDF-") mime = "application/pdf";
+  else if (b[0] === 0x47 && b[1] === 0x49) mime = "image/gif";
+  else if (b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46) mime = "image/webp";
+  return {
+    mime_type: mime,
+    data_url: `data:${mime};base64,${b.toString("base64")}`,
+  };
+}
+
+/** Admin: view owner’s uploaded valid ID (photo / PDF) */
+app.get("/api/owners/:id/valid-id", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Admins only" });
+    const id = Number(req.params.id);
+    const adminId = req.user.employee_id;
+    const [[own]] = await db.promise().query(
+      `SELECT e.employee_id FROM EMPLOYEE e
+       WHERE e.employee_id = ? AND e.created_by_employee_id = ?
+         AND ` + OWNER_ROLE_EXISTS_SQL,
+      [id, adminId]
+    );
+    if (!own) return res.status(404).json({ error: "Owner not found" });
+    let row = null;
+    try {
+      const [[r]] = await db.promise().query(
+        "SELECT valid_id FROM OWNER WHERE employee_id = ? LIMIT 1",
+        [id]
+      );
+      row = r;
+    } catch (e) {
+      if (e.code !== "ER_BAD_FIELD_ERROR") throw e;
+    }
+    if (!row || row.valid_id == null) {
+      const oid = await getOwnerIdForEmployee(id);
+      if (oid) {
+        const [[r2]] = await db.promise().query(
+          "SELECT valid_id FROM OWNER WHERE owner_id = ? LIMIT 1",
+          [oid]
+        );
+        row = r2;
+      }
+    }
+    if (!row || row.valid_id == null) return res.json({ has_valid_id: false });
+    const payload = ownerValidIdBufferToPayload(row.valid_id);
+    if (!payload) return res.json({ has_valid_id: false });
+    res.json({ has_valid_id: true, mime_type: payload.mime_type, data_url: payload.data_url });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to load valid ID" });
+  }
+});
+
 app.get("/api/owners/:id/units", optionalAuth, async (req, res) => {
   try {
     if (!req.user || !isCondoAdminRole(req.user.role))

@@ -285,39 +285,63 @@
           </button>
         </div>
         <div class="assign-sidebar__body assign-sidebar__body--scroll">
-          <div data-owner-sidebar-units-mode>
-            <div class="assign-sidebar__employee">
-              <div class="assign-sidebar__avatar-wrap">
-                <img class="assign-sidebar__avatar" id="ownerSidebarAvatar" src="" alt="" />
+          <div data-owner-sidebar-units-mode class="owner-detail-layout">
+            <div class="owner-detail-profile-card">
+              <div class="assign-sidebar__employee">
+                <div class="assign-sidebar__avatar-wrap">
+                  <img class="assign-sidebar__avatar" id="ownerSidebarAvatar" src="" alt="" />
+                </div>
+                <h4 class="assign-sidebar__name" id="ownerSidebarName">—</h4>
+                <p class="assign-sidebar__role" id="ownerSidebarUser">—</p>
+                <p class="assign-sidebar__id" id="ownerSidebarId">ID: REG-000000</p>
               </div>
-              <h4 class="assign-sidebar__name" id="ownerSidebarName">—</h4>
-              <p class="assign-sidebar__role" id="ownerSidebarUser">—</p>
-              <p class="assign-sidebar__id" id="ownerSidebarId">ID: REG-000000</p>
+              <div class="owner-detail-actions">
+                <button type="button" class="owner-detail-btn owner-detail-btn--secondary" data-owner-edit-toggle>Edit details</button>
+                <button type="button" class="owner-detail-btn owner-detail-btn--danger" data-owner-delete-full>Delete owner</button>
+              </div>
             </div>
-            <div class="assign-sidebar__actions-row">
-              <button type="button" class="submit-button ghost" data-owner-edit-toggle>Edit details</button>
-              <button type="button" class="submit-button danger" data-owner-delete-full>Delete owner</button>
-            </div>
-            <p class="assign-sidebar__label">Assigned units</p>
-            <p class="panel-subtitle muted" style="margin: -0.35rem 0 0.5rem; font-size: 0.75rem">Same condo, different towers — pick a tower below, then select one or more units.</p>
-            <ul class="owner-sidebar__unit-list" data-owner-units-list></ul>
-            <p class="assign-sidebar__label">Assign units</p>
-            <label class="modal-form" style="display: grid; gap: 0.35rem; margin: 0">
-              <span style="font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--accent-1); font-weight: 600">Tower</span>
-              <select class="modal-form select" data-owner-tower-pick style="padding: 0.55rem; border-radius: 10px; border: 1px solid rgba(79,127,132,0.3)">
-                <option value="">— Select tower —</option>
-              </select>
-            </label>
-            <p class="panel-subtitle muted" style="margin: -0.15rem 0 0.35rem; font-size: 0.72rem; line-height: 1.35">Each unit can belong to only one owner. Units already assigned elsewhere appear below but can’t be selected.</p>
-            <div class="owner-unit-pick-grid" data-owner-units-checkboxes></div>
-            <button type="button" class="submit-button full" data-owner-add-units>Add selected units</button>
-            <div class="settings-msg" data-owner-assign-msg style="min-height: 1em; margin-top: 0.5rem; font-size: 0.8rem"></div>
+
+            <section class="owner-detail-panel" aria-labelledby="owner-assigned-heading">
+              <div class="owner-detail-panel__head">
+                <h4 class="owner-detail-panel__title" id="owner-assigned-heading">Assigned units</h4>
+                <p class="owner-detail-panel__desc">Units linked to this owner. Unassign to free a unit for someone else.</p>
+              </div>
+              <ul class="owner-sidebar__unit-list" data-owner-units-list></ul>
+            </section>
+
+            <section class="owner-detail-panel owner-detail-panel--assign" aria-labelledby="owner-assign-heading">
+              <div class="owner-detail-panel__head">
+                <h4 class="owner-detail-panel__title" id="owner-assign-heading">Assign more units</h4>
+                <p class="owner-detail-panel__desc">Choose a tower, then tick units to add. Each unit can only belong to one owner.</p>
+              </div>
+              <div class="owner-detail-field">
+                <label class="owner-detail-field__label" for="owner-tower-select">Tower</label>
+                <div class="owner-detail-select-wrap">
+                  <select id="owner-tower-select" class="owner-detail-select" data-owner-tower-pick>
+                    <option value="">Select a tower…</option>
+                  </select>
+                </div>
+              </div>
+              <div class="owner-unit-pick-shell">
+                <div class="owner-unit-pick-grid" data-owner-units-checkboxes></div>
+              </div>
+              <button type="button" class="submit-button full owner-detail-assign-cta" data-owner-add-units>Add selected units</button>
+              <p class="owner-detail-assign-msg settings-msg" data-owner-assign-msg></p>
+            </section>
           </div>
           <div data-owner-sidebar-edit-mode hidden>
             <button type="button" class="submit-button ghost full" style="margin-bottom: 1rem" data-owner-back-units>← Back to units</button>
             <p class="assign-sidebar__label" style="margin-top: 0">Edit account</p>
             <div class="owner-edit-panel owner-edit-panel--sidebar">
-              <label>Owner ID <input type="text" data-edit-owner-id readonly aria-readonly="true" tabindex="0" title="Read-only account ID" /></label>
+              <div class="owner-valid-id-view" data-owner-valid-id-section>
+                <span class="owner-valid-id-view__title">Valid ID (photo / document)</span>
+                <p class="owner-valid-id-view__hint muted">Uploaded when this owner was registered.</p>
+                <div data-owner-valid-id-loading class="owner-valid-id-view__state muted">Loading…</div>
+                <div data-owner-valid-id-empty class="owner-valid-id-view__state muted" hidden>No photo ID on file.</div>
+                <img data-owner-valid-id-img class="owner-valid-id-view__img" alt="Owner valid ID" hidden />
+                <iframe data-owner-valid-id-pdf class="owner-valid-id-view__pdf" title="Valid ID (PDF)" hidden></iframe>
+                <a class="owner-valid-id-view__open" data-owner-valid-id-open href="#" target="_blank" rel="noopener noreferrer" hidden>Open in new tab</a>
+              </div>
               <label>Full name <input type="text" data-edit-full-name /></label>
               <label>Email <input type="email" data-edit-email /></label>
               <label>Contact <input type="text" data-edit-contact /></label>
@@ -512,6 +536,59 @@
           .catch(function () { ownersCache = []; renderOwners([]); });
       }
 
+      function loadOwnerValidIdInEdit(employeeId) {
+        var loading = document.querySelector("[data-owner-valid-id-loading]");
+        var empty = document.querySelector("[data-owner-valid-id-empty]");
+        var imgEl = document.querySelector("[data-owner-valid-id-img]");
+        var pdfEl = document.querySelector("[data-owner-valid-id-pdf]");
+        var openLink = document.querySelector("[data-owner-valid-id-open]");
+        if (!loading || !empty || !imgEl || !pdfEl) return;
+        loading.hidden = false;
+        loading.textContent = "Loading…";
+        empty.hidden = true;
+        imgEl.hidden = true;
+        pdfEl.hidden = true;
+        imgEl.removeAttribute("src");
+        pdfEl.removeAttribute("src");
+        if (openLink) {
+          openLink.hidden = true;
+          openLink.removeAttribute("href");
+        }
+        var h = {};
+        try {
+          var t = localStorage.getItem("token");
+          if (t) h.Authorization = "Bearer " + t;
+        } catch (e) {}
+        fetch("/api/owners/" + employeeId + "/valid-id", { headers: h })
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (d) {
+            loading.hidden = true;
+            if (!d || !d.has_valid_id || !d.data_url) {
+              empty.hidden = false;
+              empty.textContent = "No photo ID on file.";
+              return;
+            }
+            if (d.mime_type === "application/pdf") {
+              pdfEl.src = d.data_url;
+              pdfEl.hidden = false;
+            } else {
+              imgEl.src = d.data_url;
+              imgEl.hidden = false;
+            }
+            if (openLink) {
+              openLink.href = d.data_url;
+              openLink.hidden = false;
+            }
+          })
+          .catch(function () {
+            loading.hidden = true;
+            empty.hidden = false;
+            empty.textContent = "Could not load ID document.";
+          });
+      }
+
       function setOwnerSidebarMode(units) {
         var u = document.querySelector("[data-owner-sidebar-units-mode]");
         var e = document.querySelector("[data-owner-sidebar-edit-mode]");
@@ -546,11 +623,9 @@
         if (img) img.src = "https://api.dicebear.com/7.x/avataaars/svg?seed=" + encodeURIComponent(o.full_name || employeeId);
         var nm = document.getElementById("ownerSidebarName"); if (nm) nm.textContent = o.full_name || "—";
         var us = document.getElementById("ownerSidebarUser"); if (us) us.textContent = "@" + (o.username || "—") + " · " + (o.contact_number || "—");
-        var regId = "REG-" + String(employeeId).padStart(6, "0");
-        var rid = document.getElementById("ownerSidebarId"); if (rid) rid.textContent = "ID: " + regId;
-        var idEdit = document.querySelector("[data-edit-owner-id]");
-        if (idEdit) idEdit.value = regId;
+        var rid = document.getElementById("ownerSidebarId"); if (rid) rid.textContent = "ID: REG-" + String(employeeId).padStart(6, "0");
         document.querySelector("[data-edit-full-name]").value = o.full_name || "";
+        loadOwnerValidIdInEdit(employeeId);
         document.querySelector("[data-edit-email]").value = o.email || "";
         document.querySelector("[data-edit-contact]").value = o.contact_number || "";
         document.querySelector("[data-edit-username]").value = o.username || "";
@@ -564,7 +639,8 @@
             var ul = document.querySelector("[data-owner-units-list]");
             if (!ul) return;
             if (!units.length) {
-              ul.innerHTML = "<li class=\"panel-subtitle muted\" style=\"list-style:none;padding:0.5rem 0\">No units yet. Choose a tower below and add units.</li>";
+              ul.innerHTML =
+                "<li class=\"owner-detail-empty-units\" role=\"status\">No units assigned yet. Use <strong>Assign more units</strong> below.</li>";
             } else {
               ul.innerHTML = units.map(function (u) {
                 var label = (u.tower_name || "Tower") + " — Unit " + (u.unit_number || u.unit_id);
@@ -585,7 +661,7 @@
         var sel = document.querySelector("[data-owner-tower-pick]");
         var cur = sel.value;
         fetch("/api/towers", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (towers) {
-          sel.innerHTML = "<option value=\"\">— Select tower —</option>";
+          sel.innerHTML = "<option value=\"\">Select a tower…</option>";
           (towers || []).forEach(function (t) {
             var opt = document.createElement("option");
             opt.value = t.tower_id;
@@ -626,7 +702,7 @@
             }
             if (takenByOther.length) {
               parts.push(
-                "<div class=\"owner-unit-taken-heading muted\" style=\"font-size:0.72rem;text-transform:uppercase;letter-spacing:0.04em;margin:0.65rem 0 0.35rem\">Already assigned to another owner</div>" +
+                "<div class=\"owner-unit-taken-subhead\" role=\"presentation\">Unavailable — other owner</div>" +
                   takenByOther
                     .map(function (u) {
                       var name = escapeHtml((u.assigned_owner_name || "Another owner").trim() || "Another owner");
@@ -643,17 +719,19 @@
             }
             if (!parts.length) {
               box.innerHTML =
-                "<span class=\"muted\" style=\"font-size:0.85rem\">No units to assign in this tower (empty, or all are already on this owner’s list).</span>";
+                "<div class=\"owner-detail-callout owner-detail-callout--neutral\"><p>No units to pick here — this tower is empty or every unit is already on this owner’s list.</p></div>";
               return;
             }
             if (!selectable.length && takenByOther.length) {
               parts.unshift(
-                "<span class=\"muted\" style=\"font-size:0.85rem;display:block;margin-bottom:0.35rem\">No units available here — every unit in this tower is already linked to another owner.</span>"
+                "<div class=\"owner-detail-callout owner-detail-callout--info\"><p>Every unit in this tower is already assigned to another owner. Pick another tower or unassign a unit first.</p></div>"
               );
             }
             box.innerHTML = parts.join("");
           })
-          .catch(function () { box.innerHTML = "<span class=\"muted\">Failed to load units.</span>"; });
+          .catch(function () {
+            box.innerHTML = "<div class=\"owner-detail-callout owner-detail-callout--warn\"><p>Could not load units. Try again.</p></div>";
+          });
       }
 
       document.querySelector("[data-owner-tower-pick]").addEventListener("change", function () {
