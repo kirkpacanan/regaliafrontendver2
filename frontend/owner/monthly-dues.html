@@ -115,21 +115,44 @@
         var vm = sel && sel.value ? sel.value : "all";
         var hint = document.querySelector("[data-dues-hint]");
         if (hint) hint.textContent = vm === "all" ? "Showing all months." : "Showing dues that apply to " + vm + ".";
-        fetch("/api/monthly-dues", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).then(function (rows) {
-          var tb = document.querySelector("[data-dues-list]");
-          var empty = document.querySelector("[data-empty]");
-          tb.querySelectorAll("[data-row]").forEach(function (x) { x.remove(); });
-          if (!Array.isArray(rows) || rows.length === 0) {
+        var tb = document.querySelector("[data-dues-list]");
+        var empty = document.querySelector("[data-empty]");
+        if (!tb) return;
+        tb.querySelectorAll("[data-row]").forEach(function (x) { x.remove(); });
+
+        // Load owner's assigned units, then filter dues to those unit_ids.
+        Promise.all([
+          fetch("/api/properties", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+          fetch("/api/monthly-dues", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+        ]).then(function (res) {
+          var props = Array.isArray(res[0]) ? res[0] : [];
+          var rows = Array.isArray(res[1]) ? res[1] : [];
+
+          var unitIds = new Set(
+            props
+              .map(function (u) { return u && u.unit_id != null && u.unit_id !== "" ? Number(u.unit_id) : null; })
+              .filter(function (x) { return x != null && !isNaN(x); })
+          );
+
+          var filtered = rows
+            .filter(function (d) {
+              var uid = d && d.unit_id != null && d.unit_id !== "" ? Number(d.unit_id) : null;
+              return uid != null && unitIds.has(uid);
+            })
+            .filter(function (d) { return dueApplies(d, vm); });
+
+          if (!filtered.length) {
             if (empty) empty.style.display = "";
             return;
           }
           if (empty) empty.style.display = "none";
-          rows.filter(function (d) { return dueApplies(d, vm); }).forEach(function (d) {
+
+          filtered.forEach(function (d) {
             var tr = document.createElement("tr");
             tr.dataset.row = "1";
             var amt = d.amount != null ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
             var st = (d.status && String(d.status).toLowerCase() === "paid") ? "Paid" : "Pending";
-            tr.innerHTML = "<td>" + esc(d.unit_label || "Your unit") + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>" + esc(st) + "</td>";
+            tr.innerHTML = "<td>" + esc(d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit")) + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>" + esc(st) + "</td>";
             tb.appendChild(tr);
           });
           if (tb.querySelectorAll("[data-row]").length === 0 && empty) empty.style.display = "";
