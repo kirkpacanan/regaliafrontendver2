@@ -80,7 +80,9 @@
 
         <section class="panel">
           <h3>Your assigned units</h3>
-          <div class="properties-list" data-owner-properties style="max-height: calc(100vh - 260px); overflow-y: auto; padding-right: 6px;"></div>
+          <p class="panel-subtitle muted" style="margin-top: 0.25rem;">Units are grouped by availability. Occupied means there is an active confirmed stay (guest checked in and not yet checked out).</p>
+          <div class="owner-properties-summary" data-owner-summary></div>
+          <div class="properties-list owner-properties-list" data-owner-properties style="max-height: calc(100vh - 340px); overflow-y: auto; padding-right: 6px;"></div>
           <div class="settings-msg" data-load-msg style="margin-top: 12px;"></div>
         </section>
       </main>
@@ -303,6 +305,7 @@
       }
 
       var listEl = document.querySelector("[data-owner-properties]");
+      var summaryEl = document.querySelector("[data-owner-summary]");
       var loadMsg = document.querySelector("[data-load-msg]");
       var overlay = document.querySelector("[data-edit-overlay]");
       var closeBtn = document.querySelector("[data-edit-close]");
@@ -866,81 +869,169 @@
         closeEdit();
       });
 
-      function render(units) {
+      function buildUnitCard(u, isOccupied) {
+        var card = document.createElement("div");
+        card.className = "property-card property-card--clickable property-card--employee-style" + (isOccupied ? " property-card--occupied" : " property-card--available");
+        var img = firstImg(u);
+        var media = "<div class=\"property-card__media\">" + (img ? "<img src=\"" + esc(img) + "\" alt=\"\" />" : "<span class=\"property-card__placeholder\"></span>") + "</div>";
+        var meta = [u.unit_type, u.unit_size ? u.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
+        var statusBadge = "<span class=\"property-card__status-badge property-card__status-badge--" + (isOccupied ? "occupied" : "available") + "\">" + (isOccupied ? "Occupied" : "Available") + "</span>";
+
+        var urls = [];
+        try {
+          var raw = u.image_urls;
+          var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+          if (Array.isArray(arr)) {
+            urls = arr
+              .map(function (x) {
+                if (!x) return "";
+                if (typeof x === "string") return x;
+                return x.url || x.src || "";
+              })
+              .filter(function (s) { return !!s; })
+              .slice(0, 4);
+          }
+        } catch (e) {}
+
+        var thumbsHtml = "";
+        if (urls.length) {
+          thumbsHtml =
+            "<div style=\"margin-top:10px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;\">";
+          for (var ti = 0; ti < 4; ti++) {
+            var t = urls[ti] || "";
+            thumbsHtml +=
+              "<div style=\"border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.12);aspect-ratio:1;display:flex;align-items:center;justify-content:center;\">" +
+              (t
+                ? "<img src=\"" + esc(t) + "\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover;display:block;\" />"
+                : "<span style=\"opacity:0.45;font-size:0.8rem\">—</span>") +
+              "</div>";
+          }
+          thumbsHtml += "</div>";
+        }
+
+        card.innerHTML =
+          media +
+          "<div class=\"property-card__body\">" +
+            statusBadge +
+            "<h4 class=\"property-card__name\">" + esc(u.unit_number || String(u.unit_id)) + "</h4>" +
+            "<p class=\"property-card__role\">" + esc(u.tower_name || "—") + "</p>" +
+            "<div class=\"property-card__meta\"><span>" + esc(meta) + "</span></div>" +
+            thumbsHtml +
+          "</div>";
+
+        card.addEventListener("click", function () {
+          openUnitActions(u);
+        });
+        return card;
+      }
+
+      var houseIconSvg = "<svg viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z\"></path><polyline points=\"9 22 9 12 15 12 15 22\"></polyline></svg>";
+
+      function renderSummaryCards(availableCount, occupiedCount) {
+        if (!summaryEl) return;
+        summaryEl.innerHTML =
+          "<div class=\"owner-stat-card owner-stat-card--available\">" +
+            "<div class=\"owner-stat-card__icon\">" + houseIconSvg + "</div>" +
+            "<div class=\"owner-stat-card__content\">" +
+              "<span class=\"owner-stat-card__label\">Available units</span>" +
+              "<span class=\"owner-stat-card__count\">" + availableCount + "</span>" +
+            "</div>" +
+          "</div>" +
+          "<div class=\"owner-stat-card owner-stat-card--occupied\">" +
+            "<div class=\"owner-stat-card__icon\">" + houseIconSvg + "</div>" +
+            "<div class=\"owner-stat-card__content\">" +
+              "<span class=\"owner-stat-card__label\">Occupied units</span>" +
+              "<span class=\"owner-stat-card__count\">" + occupiedCount + "</span>" +
+            "</div>" +
+          "</div>";
+      }
+
+      function render(units, occupiedUnitIds) {
         if (!listEl) return;
         listEl.innerHTML = "";
+        var occupiedSet = occupiedUnitIds && typeof occupiedUnitIds.has === "function" ? occupiedUnitIds : new Set();
+        var available = [];
+        var occupied = [];
+        if (units && units.length) {
+          units.forEach(function (u) {
+            var uid = u && u.unit_id != null ? Number(u.unit_id) : null;
+            if (uid != null && occupiedSet.has(uid)) occupied.push(u);
+            else available.push(u);
+          });
+        }
+        if (summaryEl) renderSummaryCards(available.length, occupied.length);
+
         if (!units || !units.length) {
           listEl.innerHTML = "<div class=\"notif-empty\" style=\"padding: 12px;\">No units assigned yet.</div>";
           return;
         }
-        units.forEach(function (u) {
-          var card = document.createElement("div");
-          card.className = "property-card property-card--clickable property-card--employee-style";
-          var img = firstImg(u);
-          var media = "<div class=\"property-card__media\">" + (img ? "<img src=\"" + esc(img) + "\" alt=\"\" />" : "<span class=\"property-card__placeholder\"></span>") + "</div>";
-          var meta = [u.unit_type, u.unit_size ? u.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
 
-          // 4 photo thumbnails on the card (matches the "4 slots" editor behavior).
-          var urls = [];
-          try {
-            var raw = u.image_urls;
-            var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
-            if (Array.isArray(arr)) {
-              urls = arr
-                .map(function (x) {
-                  if (!x) return "";
-                  if (typeof x === "string") return x;
-                  return x.url || x.src || "";
-                })
-                .filter(function (s) { return !!s; })
-                .slice(0, 4);
-            }
-          } catch (e) {}
-
-          var thumbsHtml = "";
-          if (urls.length) {
-            thumbsHtml =
-              "<div style=\"margin-top:10px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;\">";
-            for (var ti = 0; ti < 4; ti++) {
-              var t = urls[ti] || "";
-              thumbsHtml +=
-                "<div style=\"border-radius:12px;overflow:hidden;background:rgba(255,255,255,0.12);aspect-ratio:1;display:flex;align-items:center;justify-content:center;\">" +
-                (t
-                  ? "<img src=\"" + esc(t) + "\" alt=\"\" style=\"width:100%;height:100%;object-fit:cover;display:block;\" />"
-                  : "<span style=\"opacity:0.45;font-size:0.8rem\">—</span>") +
-                "</div>";
-            }
-            thumbsHtml += "</div>";
-          }
-
-          card.innerHTML =
-            media +
-            "<div class=\"property-card__body\">" +
-              "<h4 class=\"property-card__name\">" + esc(u.unit_number || String(u.unit_id)) + "</h4>" +
-              "<p class=\"property-card__role\">" + esc(u.tower_name || "—") + "</p>" +
-              "<div class=\"property-card__meta\"><span>" + esc(meta) + "</span></div>" +
-              thumbsHtml +
-            "</div>";
-
-          card.addEventListener("click", function () {
-            openUnitActions(u);
+        function appendSection(title, list, sectionClass) {
+          if (list.length === 0) return;
+          var section = document.createElement("div");
+          section.className = "owner-units-section " + (sectionClass || "");
+          var heading = document.createElement("h4");
+          heading.className = "owner-units-section__title";
+          heading.textContent = title;
+          section.appendChild(heading);
+          var grid = document.createElement("div");
+          grid.className = "owner-units-grid";
+          list.forEach(function (u) {
+            grid.appendChild(buildUnitCard(u, sectionClass === "owner-units-section--occupied"));
           });
-          listEl.appendChild(card);
+          section.appendChild(grid);
+          listEl.appendChild(section);
+        }
+
+        appendSection("Available units (" + available.length + ")", available, "owner-units-section--available");
+        appendSection("Occupied units (" + occupied.length + ")", occupied, "owner-units-section--occupied");
+      }
+
+      function getOccupiedUnitIds(bookings) {
+        var occupied = new Set();
+        if (!bookings || !Array.isArray(bookings)) return occupied;
+        var today = new Date();
+        var todayStr = today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
+        var todayTime = new Date(todayStr + "T12:00:00").getTime();
+        bookings.forEach(function (b) {
+          var status = (b.status || "").toLowerCase();
+          if (status !== "confirmed") return;
+          if (b.checked_out_at) return;
+          var ci = b.check_in_date ? String(b.check_in_date).slice(0, 10) : "";
+          var co = b.check_out_date ? String(b.check_out_date).slice(0, 10) : "";
+          if (!ci || !co) return;
+          var ciTime = new Date(ci + "T12:00:00").getTime();
+          var coTime = new Date(co + "T12:00:00").getTime();
+          if (todayTime >= ciTime && todayTime < coTime) {
+            var uid = b.unit_id != null ? Number(b.unit_id) : null;
+            if (uid != null && !isNaN(uid)) occupied.add(uid);
+          }
         });
+        return occupied;
       }
 
       function load() {
         if (loadMsg) loadMsg.textContent = "Loading…";
         if (isOfflineOwnerDemo()) {
-          render(getOfflineDemoUnits());
+          render(getOfflineDemoUnits(), new Set());
           if (loadMsg)
             loadMsg.textContent = "Offline demo: sample unit below — open it to edit details (saved in this browser only).";
           return Promise.resolve();
         }
-        return fetch("/api/properties", { headers: getH(false) })
-          .then(function (r) { return r.ok ? r.json() : []; })
-          .then(function (rows) { render(rows || []); if (loadMsg) loadMsg.textContent = ""; })
-          .catch(function () { if (loadMsg) loadMsg.textContent = "Failed to load properties."; render([]); });
+        return Promise.all([
+          fetch("/api/properties", { headers: getH(false) }).then(function (r) { return r.ok ? r.json() : []; }),
+          fetch("/api/bookings", { headers: getH(false) }).then(function (r) { return r.ok ? r.json() : []; })
+        ])
+          .then(function (res) {
+            var rows = res[0] || [];
+            var bookings = res[1] || [];
+            var unitIds = new Set((rows || []).map(function (u) { return u && u.unit_id != null ? Number(u.unit_id) : null; }).filter(Boolean));
+            var ownerBookings = (bookings || []).filter(function (b) { var uid = b.unit_id != null ? Number(b.unit_id) : null; return uid != null && unitIds.has(uid); });
+            var occupiedIds = getOccupiedUnitIds(ownerBookings);
+            render(rows, occupiedIds);
+            if (loadMsg) loadMsg.textContent = "";
+          })
+          .catch(function () { if (loadMsg) loadMsg.textContent = "Failed to load properties."; render([], new Set()); });
       }
 
       form.addEventListener("submit", function (e) {

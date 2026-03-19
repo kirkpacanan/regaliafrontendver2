@@ -1275,6 +1275,118 @@ label .required {
   color: #c8ffe2;
 }
 
+/* Owner properties: summary stat cards (glass style) */
+.owner-properties-summary {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+.owner-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  backdrop-filter: blur(8px);
+}
+.owner-stat-card__icon {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+.owner-stat-card__icon svg {
+  width: 26px;
+  height: 26px;
+}
+.owner-stat-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 0;
+}
+.owner-stat-card__label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+.owner-stat-card__count {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+.owner-stat-card--available .owner-stat-card__icon {
+  background: rgba(122, 203, 89, 0.35);
+}
+.owner-stat-card--occupied .owner-stat-card__icon {
+  background: rgba(255, 180, 100, 0.35);
+}
+@media (max-width: 520px) {
+  .owner-properties-summary {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Owner properties: Available / Occupied sections */
+.owner-properties-list {
+  display: block;
+}
+.owner-units-section {
+  margin-bottom: 1.75rem;
+}
+.owner-units-section:last-child {
+  margin-bottom: 0;
+}
+.owner-units-section__title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+.owner-units-section--available .owner-units-section__title {
+  color: rgba(200, 255, 220, 0.95);
+}
+.owner-units-section--occupied .owner-units-section__title {
+  color: rgba(255, 220, 180, 0.95);
+}
+.owner-units-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1rem;
+}
+.property-card__status-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 999px;
+  margin-bottom: 0.5rem;
+}
+.property-card__status-badge--available {
+  background: rgba(122, 203, 89, 0.25);
+  color: rgba(200, 255, 220, 0.98);
+  border: 1px solid rgba(122, 203, 89, 0.4);
+}
+.property-card__status-badge--occupied {
+  background: rgba(255, 180, 100, 0.22);
+  color: rgba(255, 235, 200, 0.98);
+  border: 1px solid rgba(255, 180, 100, 0.4);
+}
+
 .link-field {
   display: flex;
   gap: 0.5rem;
