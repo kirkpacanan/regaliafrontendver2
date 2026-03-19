@@ -454,7 +454,17 @@
                 if (gs.length) return gs;
 
                 // 2) Common alternates: guests_json / guest_list / additional_guests (array or JSON string).
-                var altKeys = ["guests_json", "guest_list", "additional_guests", "other_guests"];
+                var altKeys = [
+                  "guests_json",
+                  "guest_list",
+                  "additional_guests",
+                  "other_guests",
+                  "guest_details",
+                  "guests_details",
+                  "guest_information",
+                  "guest_infos",
+                  "guests_info"
+                ];
                 for (var k = 0; k < altKeys.length; k++) {
                   var v = booking ? booking[altKeys[k]] : null;
                   if (typeof v === "string") v = safeParseJson(v);
@@ -547,7 +557,14 @@
                 numOr0(b.guest_count) ||
                 0;
 
-              var hasMultipleGuests = guests && guests.length > 1;
+              // Normalize guest "slots" so the stepper works even when API returns only Guest 1.
+              var totalGuestSlots =
+                Math.max(declaredPax || 0, guests && guests.length ? guests.length : 0) ||
+                (guests && guests.length ? guests.length : 1);
+              var guestSlots = [];
+              for (var gi = 0; gi < totalGuestSlots; gi++) guestSlots.push(guests && guests[gi] ? guests[gi] : null);
+
+              var hasMultipleGuests = totalGuestSlots > 1;
               var missingGuestsHint =
                 declaredPax > 1 && (!guests || guests.length < declaredPax)
                   ? "<p style=\"margin:0 0 0.75rem; opacity:.75; font-size:0.85rem;\">This booking indicates <strong>" +
@@ -640,16 +657,22 @@
 
                 var idx = 0;
                 function clamp(i) {
-                  if (!guests || !guests.length) return 0;
-                  return Math.max(0, Math.min(guests.length - 1, i));
+                  return Math.max(0, Math.min(totalGuestSlots - 1, i));
                 }
                 function render(i) {
                   idx = clamp(i);
-                  var g = guests && guests.length ? guests[idx] : null;
-                  host.innerHTML = g ? renderGuestCard(g, idx) : "<p style=\"opacity:.75; margin:0;\">No guest details available.</p>";
-                  if (indicator) indicator.textContent = "Guest " + (idx + 1) + " of " + (guests && guests.length ? guests.length : 1);
+                  var g = guestSlots[idx];
+                  host.innerHTML = g
+                    ? renderGuestCard(g, idx)
+                    : (
+                        "<div class=\"booking-detail-block\" style=\"background: rgba(79, 127, 132, 0.05);\">" +
+                          "<h4>Guest " + (idx + 1) + "</h4>" +
+                          "<p style=\"margin:0; opacity:.75;\">No details were returned for this guest.</p>" +
+                        "</div>"
+                      );
+                  if (indicator) indicator.textContent = "Guest " + (idx + 1) + " of " + totalGuestSlots;
                   if (prevBtn) prevBtn.disabled = idx <= 0;
-                  if (nextBtn) nextBtn.disabled = !guests || idx >= guests.length - 1;
+                  if (nextBtn) nextBtn.disabled = idx >= totalGuestSlots - 1;
                 }
                 if (prevBtn) prevBtn.addEventListener("click", function () { render(idx - 1); });
                 if (nextBtn) nextBtn.addEventListener("click", function () { render(idx + 1); });
