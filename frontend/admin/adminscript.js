@@ -32,14 +32,18 @@
     }
     function setStat(el, val) { if (el) el.textContent = val; }
 
+    function toArray(val) {
+      if (Array.isArray(val)) return val;
+      return [];
+    }
     Promise.all([
-      fetch(API + "/properties", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }),
-      fetch(API + "/employees", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }),
-      fetch(API + "/owners", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; })
+      fetch(API + "/properties", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json().then(toArray) : []; }).catch(function () { return []; }),
+      fetch(API + "/employees", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json().then(toArray) : []; }).catch(function () { return []; }),
+      fetch(API + "/owners", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json().then(toArray) : []; }).catch(function () { return []; })
     ]).then(function (results) {
-      var properties = results[0] || [];
-      var employees = results[1] || [];
-      var owners = results[2] || [];
+      var properties = toArray(results[0]);
+      var employees = toArray(results[1]);
+      var owners = toArray(results[2]);
       setStat(totalPropEl, properties.length);
       setStat(staffCountEl, employees.length);
       setStat(ownersCountEl, owners.length);
