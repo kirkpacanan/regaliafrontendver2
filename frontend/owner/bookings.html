@@ -515,7 +515,43 @@
               }
 
               var guests = normGuests(b);
-              var guestsHtml = guests.map(function (g, idx) { return renderGuestCard(g, idx); }).join("");
+
+              function numOr0(v) {
+                var n = Number(v);
+                return isNaN(n) ? 0 : n;
+              }
+
+              var declaredPax =
+                numOr0(b.num_pax) ||
+                numOr0(b.pax) ||
+                numOr0(b.total_pax) ||
+                numOr0(b.number_of_guests) ||
+                numOr0(b.guest_count) ||
+                0;
+
+              var hasMultipleGuests = guests && guests.length > 1;
+              var missingGuestsHint =
+                declaredPax > 1 && (!guests || guests.length < declaredPax)
+                  ? "<p style=\"margin:0 0 0.75rem; opacity:.75; font-size:0.85rem;\">This booking indicates <strong>" +
+                      escapeHtml(String(declaredPax)) +
+                      " guest(s)</strong>, but only <strong>" +
+                      escapeHtml(String(guests ? guests.length : 0)) +
+                      "</strong> guest record(s) were returned. Ask admin to ensure all guest details are saved and returned by the booking API.</p>"
+                  : "";
+
+              var guestStepperHtml =
+                "<div class=\"booking-detail-block\" data-guest-stepper>" +
+                  "<h4>Guest details</h4>" +
+                  missingGuestsHint +
+                  (hasMultipleGuests
+                    ? "<div style=\"display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.6rem;\">" +
+                        "<button type=\"button\" class=\"submit-button ghost\" data-guest-prev style=\"padding:0.45rem 0.75rem; border-radius:12px;\">Prev</button>" +
+                        "<div style=\"font-weight:600; color:#2f5f67;\" data-guest-indicator></div>" +
+                        "<button type=\"button\" class=\"submit-button ghost\" data-guest-next style=\"padding:0.45rem 0.75rem; border-radius:12px;\">Next</button>" +
+                      "</div>"
+                    : "") +
+                  "<div data-guest-card-host></div>" +
+                "</div>";
 
               function normTime(t) {
                 if (!t) return "";
@@ -555,7 +591,7 @@
 
               var html =
                 "<div class=\"booking-detail-grid\">" +
-                  guestsHtml +
+                  guestStepperHtml +
                   "<div class=\"booking-detail-block\"><h4>Unit &amp; stay</h4>" +
                     "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +
                     "<p><strong>Inclusive dates:</strong> " + escapeHtml(b.inclusive_dates) + "</p>" +
@@ -574,6 +610,33 @@
                 "</div>";
 
               detailBody.innerHTML = html;
+
+              // Guest stepper wiring
+              (function initGuestStepper() {
+                if (!detailBody) return;
+                var host = detailBody.querySelector("[data-guest-card-host]");
+                if (!host) return;
+                var prevBtn = detailBody.querySelector("[data-guest-prev]");
+                var nextBtn = detailBody.querySelector("[data-guest-next]");
+                var indicator = detailBody.querySelector("[data-guest-indicator]");
+
+                var idx = 0;
+                function clamp(i) {
+                  if (!guests || !guests.length) return 0;
+                  return Math.max(0, Math.min(guests.length - 1, i));
+                }
+                function render(i) {
+                  idx = clamp(i);
+                  var g = guests && guests.length ? guests[idx] : null;
+                  host.innerHTML = g ? renderGuestCard(g, idx) : "<p style=\"opacity:.75; margin:0;\">No guest details available.</p>";
+                  if (indicator) indicator.textContent = "Guest " + (idx + 1) + " of " + (guests && guests.length ? guests.length : 1);
+                  if (prevBtn) prevBtn.disabled = idx <= 0;
+                  if (nextBtn) nextBtn.disabled = !guests || idx >= guests.length - 1;
+                }
+                if (prevBtn) prevBtn.addEventListener("click", function () { render(idx - 1); });
+                if (nextBtn) nextBtn.addEventListener("click", function () { render(idx + 1); });
+                render(0);
+              })();
 
               // If booking didn't include requested times, try to load from booking intent token.
               if ((!reqIn || !reqOut) && (b.booking_intent_token || b.booking_intent || b.intent_token)) {
