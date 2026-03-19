@@ -201,9 +201,9 @@
                   <option value="__custom__">Other (type your own)</option>
                 </select>
               </label>
-              <label class="settings-field" data-template-custom-type-wrap hidden>
+              <label class="settings-field manage-custom-unit-type" data-template-custom-type-wrap>
                 <span>Custom unit type</span>
-                <input type="text" name="unit_type_custom" data-template-unit-type-custom placeholder="e.g. Loft, Executive suite" />
+                <input type="text" name="unit_type_custom" data-template-unit-type-custom placeholder="e.g. Loft, Executive suite" disabled aria-disabled="true" />
               </label>
               <label class="settings-field"><span>Unit size (sqm)</span><input type="number" step="0.01" name="unit_size" placeholder="e.g. 45" required /></label>
               <div class="settings-msg" data-template-msg></div>
@@ -339,14 +339,18 @@
       var unitTemplateOptionsByKey = {};
       function syncTemplateCustomTypeVisibility() {
         var sel = document.querySelector("[data-template-unit-type-select]");
-        var wrap = document.querySelector("[data-template-custom-type-wrap]");
         var inp = document.querySelector("[data-template-unit-type-custom]");
-        if (!sel || !wrap) return;
+        if (!sel || !inp) return;
         var isCustom = sel.value === "__custom__";
-        wrap.hidden = !isCustom;
-        if (inp) {
-          if (isCustom) inp.setAttribute("required", "required");
-          else { inp.removeAttribute("required"); inp.value = ""; }
+        if (isCustom) {
+          inp.disabled = false;
+          inp.removeAttribute("aria-disabled");
+          inp.setAttribute("required", "required");
+        } else {
+          inp.disabled = true;
+          inp.setAttribute("aria-disabled", "true");
+          inp.removeAttribute("required");
+          inp.value = "";
         }
       }
       function getSavedTemplates() {
@@ -658,6 +662,9 @@
           try { localStorage.setItem(MANAGE_COLLAPSED_KEY, next ? "1" : ""); } catch (e2) {}
         });
 
+        var manageTrashSvg =
+          "<svg class=\"manage-properties-btn-delete__icon\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><polyline points=\"3 6 5 6 21 6\"></polyline><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2\"></path><line x1=\"10\" y1=\"11\" x2=\"10\" y2=\"17\"></line><line x1=\"14\" y1=\"11\" x2=\"14\" y2=\"17\"></line></svg>";
+
         function renderList(towers, units) {
           if (!listEl) return;
           var byTower = {};
@@ -684,7 +691,7 @@
             towerRow.innerHTML =
               "<div class=\"manage-properties-tower__head\">" +
               "<span class=\"manage-properties-tower__name\">" + name + "</span>" +
-              "<button type=\"button\" class=\"btn danger manage-properties-btn-delete\" data-delete-tower data-tower-id=\"" + esc(tid) + "\" aria-label=\"Delete tower\">Delete tower</button>" +
+              "<button type=\"button\" class=\"manage-properties-btn-delete manage-properties-btn-delete--tower\" data-delete-tower data-tower-id=\"" + esc(tid) + "\" aria-label=\"Delete tower\">" + manageTrashSvg + "<span>Delete tower</span></button>" +
               "</div>" +
               "<ul class=\"manage-properties-units\" data-tower-units=\"" + esc(tid) + "\"></ul>";
             var ul = towerRow.querySelector("[data-tower-units]");
@@ -696,7 +703,7 @@
               if (u.unit_size != null && u.unit_size !== "") label += " · " + u.unit_size + " sqm";
               li.innerHTML =
                 "<span class=\"manage-properties-unit__label\">" + esc(label) + "</span>" +
-                "<button type=\"button\" class=\"btn danger manage-properties-btn-delete\" data-delete-unit data-unit-id=\"" + esc(String(u.unit_id)) + "\" aria-label=\"Delete unit\">Delete unit</button>";
+                "<button type=\"button\" class=\"manage-properties-btn-delete manage-properties-btn-delete--unit\" data-delete-unit data-unit-id=\"" + esc(String(u.unit_id)) + "\" aria-label=\"Delete unit\">" + manageTrashSvg + "<span>Delete unit</span></button>";
               ul.appendChild(li);
             });
             if (towerUnits.length === 0) {
