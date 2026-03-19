@@ -275,6 +275,19 @@
       </div>
     </div>
 
+    <!-- Edit Owner modal (reuses the hidden sidebar edit block) -->
+    <div class="modal-overlay owner-edit-modal-overlay" data-owner-edit-modal tabindex="-1" aria-hidden="true">
+      <div class="modal-card modal-card--owner-edit">
+        <div class="modal-header">
+          <h2>Edit Owner</h2>
+          <button class="icon-button" type="button" data-close-owner-edit-modal aria-label="Close">
+            <svg viewBox="0 0 24 24"><line x1="6" y1="6" x2="18" y2="18"></line><line x1="6" y1="18" x2="18" y2="6"></line></svg>
+          </button>
+        </div>
+        <div class="modal-form modal-form--scroll" data-owner-edit-modal-body></div>
+      </div>
+    </div>
+
     <div class="assign-sidebar" id="ownerDetailSidebar" aria-hidden="true">
       <div class="assign-sidebar__backdrop" data-close-owner-sidebar></div>
       <div class="assign-sidebar__content" id="ownerDetailSidebarContent">
@@ -441,6 +454,10 @@
       var ownerForm = document.querySelector("[data-owner-form]");
       var ownerSidebar = document.getElementById("ownerDetailSidebar");
       var ownerSidebarContent = document.getElementById("ownerDetailSidebarContent");
+      var ownerEditModal = document.querySelector("[data-owner-edit-modal]");
+      var ownerEditModalBody = document.querySelector("[data-owner-edit-modal-body]");
+      var ownerEditMode = document.querySelector("[data-owner-sidebar-edit-mode]");
+      var ownerEditModeOriginalParent = ownerEditMode ? ownerEditMode.parentElement : null;
       var activeOwnerId = null;
       var assignedUnitIds = new Set();
       var validInput = document.querySelector("[data-valid-id-input]");
@@ -595,6 +612,28 @@
         if (u) u.hidden = !units;
         if (e) e.hidden = !!units;
       }
+
+      function openOwnerEditModal() {
+        if (!ownerEditModal || !ownerEditModalBody || !ownerEditMode) return;
+        // Ensure the editor is detached from the sidebar so it doesn't "appear down below".
+        if (ownerEditMode.parentElement !== ownerEditModalBody) ownerEditModalBody.appendChild(ownerEditMode);
+        ownerEditMode.hidden = false;
+        var backBtn = ownerEditMode.querySelector("[data-owner-back-units]");
+        if (backBtn) backBtn.hidden = true;
+        ownerEditModal.classList.add("is-open");
+        ownerEditModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeOwnerEditModal() {
+        if (!ownerEditModal || !ownerEditMode) return;
+        ownerEditModal.classList.remove("is-open");
+        ownerEditModal.setAttribute("aria-hidden", "true");
+        if (ownerEditModeOriginalParent) ownerEditModeOriginalParent.appendChild(ownerEditMode);
+        ownerEditMode.hidden = true;
+        var backBtn = ownerEditMode.querySelector("[data-owner-back-units]");
+        if (backBtn) backBtn.hidden = false;
+      }
+
       function openOwnerSidebar(employeeId) {
         activeOwnerId = employeeId;
         if (!ownerSidebar || !ownerSidebarContent) return;
@@ -614,6 +653,7 @@
           ownerSidebar.setAttribute("aria-hidden", "true");
           activeOwnerId = null;
           setOwnerSidebarMode(true);
+          if (ownerEditModal && ownerEditModal.classList.contains("is-open")) closeOwnerEditModal();
         }, 280);
       }
       function refreshOwnerSidebar(employeeId) {
@@ -778,10 +818,10 @@
           });
       });
       document.querySelector("[data-owner-edit-toggle]").addEventListener("click", function () {
-        setOwnerSidebarMode(false);
+        openOwnerEditModal();
       });
       var backUnits = document.querySelector("[data-owner-back-units]");
-      if (backUnits) backUnits.addEventListener("click", function () { setOwnerSidebarMode(true); });
+      if (backUnits) backUnits.addEventListener("click", function () { closeOwnerEditModal(); });
       document.querySelector("[data-owner-save-profile]").addEventListener("click", function () {
         if (!activeOwnerId) return;
         var msg = document.querySelector("[data-owner-edit-msg]");
@@ -801,7 +841,7 @@
             if (msg) msg.textContent = "Saved.";
             document.querySelector("[data-edit-password]").value = "";
             loadOwners();
-            setOwnerSidebarMode(true);
+            closeOwnerEditModal();
             setTimeout(function () { if (activeOwnerId) refreshOwnerSidebar(activeOwnerId); }, 300);
           })
           .catch(function () { if (msg) msg.textContent = "Error"; });
@@ -819,6 +859,24 @@
       });
       document.addEventListener("keydown", function (e) {
         if (e.key === "Escape" && ownerSidebar && ownerSidebar.classList.contains("is-open")) closeOwnerSidebar();
+      });
+
+      // Edit modal close controls
+      if (ownerEditModal) {
+        var ownerEditMousedownBackdrop = false;
+        ownerEditModal.addEventListener("mousedown", function (e) {
+          ownerEditMousedownBackdrop = e.target === ownerEditModal;
+        });
+        ownerEditModal.addEventListener("click", function (e) {
+          if (e.target === ownerEditModal && ownerEditMousedownBackdrop) closeOwnerEditModal();
+          ownerEditMousedownBackdrop = false;
+        });
+      }
+      document.querySelectorAll("[data-close-owner-edit-modal]").forEach(function (b) {
+        b.addEventListener("click", function () { closeOwnerEditModal(); });
+      });
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && ownerEditModal && ownerEditModal.classList.contains("is-open")) closeOwnerEditModal();
       });
 
       document.querySelector("[data-add-owner]").addEventListener("click", function () {
