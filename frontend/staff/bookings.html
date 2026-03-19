@@ -462,14 +462,79 @@
               if (!b || !staffDetailTitle || !staffDetailBody) return;
               staffDetailTitle.textContent = "Booking – " + (b.guest_name || "Guest") + " · " + (b.unit_number || "") + (b.tower_name ? " " + b.tower_name : "");
               var unitInfo = [b.unit_number, b.unit_type, b.tower_name].filter(Boolean).join(" · ") || "—";
-              var html = "<div class=\"booking-detail-grid\"><div class=\"booking-detail-block\"><h4>Personal information</h4>" +
-                "<p><strong>Name:</strong> " + escapeHtml(b.guest_name) + "</p>" +
-                "<p><strong>Address:</strong> " + escapeHtml(b.permanent_address) + "</p>" +
-                "<p><strong>Age:</strong> " + escapeHtml(b.age) + " &nbsp; <strong>Nationality:</strong> " + escapeHtml(b.nationality) + "</p>" +
-                "<p><strong>Email:</strong> " + escapeHtml(b.email) + "</p>" +
-                "<p><strong>Contact:</strong> " + escapeHtml(b.contact_number) + "</p>" +
-                (b.id_document ? "<p><strong>ID document:</strong></p><p><img src=\"" + b.id_document + "\" alt=\"ID document\" class=\"booking-payment-proof-img\" style=\"max-width:100%;border-radius:8px;\" /></p>" : "") +
-                "</div><div class=\"booking-detail-block\"><h4>Unit &amp; stay</h4>" +
+
+              function normGuests(booking) {
+                function safeParseJson(v) {
+                  if (!v || typeof v !== "string") return null;
+                  var s = v.trim();
+                  if (!s) return null;
+                  try { return JSON.parse(s); } catch (e) { return null; }
+                }
+                var rawGuests = booking ? booking.guests : null;
+                if (typeof rawGuests === "string") rawGuests = safeParseJson(rawGuests);
+                var gs = Array.isArray(rawGuests) ? rawGuests.filter(Boolean) : [];
+                if (gs.length) return gs;
+                return [{
+                  full_name: booking.guest_name || "",
+                  permanent_address: booking.permanent_address || "",
+                  age: booking.age || "",
+                  nationality: booking.nationality || "",
+                  relation_to_owner: booking.relation_to_owner || "",
+                  occupation: booking.occupation || "",
+                  email: booking.email || "",
+                  contact_number: booking.contact_number || "",
+                  id_document: booking.id_document || null
+                }];
+              }
+
+              var guests = normGuests(b);
+              var totalGuestSlots = guests && guests.length ? guests.length : 1;
+              var guestSlots = [];
+              for (var gi = 0; gi < totalGuestSlots; gi++) guestSlots.push(guests && guests[gi] ? guests[gi] : null);
+              var hasMultipleGuests = totalGuestSlots > 1;
+
+              function renderGuestBlock(g, idx) {
+                if (!g) return "<div class=\"booking-detail-block\"><h4>Guest " + (idx + 1) + "</h4><p style=\"opacity:.7;\">No guest details provided.</p></div>";
+                var name = g.full_name || g.guest_name || "";
+                var addr = g.permanent_address || "";
+                var age = g.age || "";
+                var nat = g.nationality || "";
+                var rel = g.relation_to_owner || g.relationship || "";
+                var occ = g.occupation || "";
+                var email = g.email || "";
+                var contact = g.contact_number || "";
+                var idDoc = g.id_document || null;
+                var idHtml = idDoc
+                  ? "<p><strong>ID document:</strong></p><p><img src=\"" + escapeHtml(idDoc) + "\" alt=\"ID document\" class=\"booking-payment-proof-img\" style=\"max-width:100%;border-radius:8px;\" /></p>"
+                  : "<p style=\"opacity:.7;\"><strong>ID document:</strong> Not provided</p>";
+                return "<div class=\"booking-detail-block\"><h4>Guest " + (idx + 1) + "</h4>" +
+                  "<p><strong>Name:</strong> " + escapeHtml(name) + "</p>" +
+                  "<p><strong>Address:</strong> " + escapeHtml(addr) + "</p>" +
+                  "<p><strong>Age:</strong> " + escapeHtml(age) + " &nbsp; <strong>Nationality:</strong> " + escapeHtml(nat) + "</p>" +
+                  (rel ? "<p><strong>Relation to owner:</strong> " + escapeHtml(rel) + "</p>" : "") +
+                  (occ ? "<p><strong>Occupation:</strong> " + escapeHtml(occ) + "</p>" : "") +
+                  "<p><strong>Email:</strong> " + escapeHtml(email) + "</p>" +
+                  "<p><strong>Contact:</strong> " + escapeHtml(contact) + "</p>" +
+                  idHtml +
+                "</div>";
+              }
+
+              var guestStepperHtml =
+                "<div class=\"booking-detail-block\" data-guest-stepper>" +
+                  "<h4>Guest details</h4>" +
+                  (hasMultipleGuests
+                    ? "<div style=\"display:flex; align-items:center; justify-content:space-between; gap:0.5rem; margin-bottom:0.6rem;\">" +
+                        "<button type=\"button\" class=\"btn ghost\" data-guest-prev style=\"padding:0.45rem 0.75rem; border-radius:12px;\">Prev</button>" +
+                        "<div style=\"font-weight:600; opacity:.9;\" data-guest-indicator></div>" +
+                        "<button type=\"button\" class=\"btn ghost\" data-guest-next style=\"padding:0.45rem 0.75rem; border-radius:12px;\">Next</button>" +
+                      "</div>"
+                    : "") +
+                  "<div data-guest-card-host></div>" +
+                "</div>";
+
+              var html = "<div class=\"booking-detail-grid\">" +
+                guestStepperHtml +
+                "<div class=\"booking-detail-block\"><h4>Unit &amp; stay</h4>" +
                 "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +
                 "<p><strong>Check-in:</strong> " + formatDate(b.check_in_date) + " &nbsp; <strong>Check-out:</strong> " + formatDate(b.check_out_date) + "</p>" +
                 "<p><strong>Paid:</strong> " + escapeHtml(b.paid_yes_no) + (b.amount_paid ? " – " + escapeHtml(b.amount_paid) : "") + "</p>" +
@@ -479,6 +544,27 @@
               if (b.signature_data) html += "<div class=\"booking-detail-block booking-detail-block--signature\"><h4>Signature</h4><img src=\"" + b.signature_data + "\" alt=\"Signature\" class=\"booking-signature-img\" style=\"max-width:100%;border-radius:8px;\" /></div>";
               html += "<div class=\"booking-detail-block\" id=\"staff-booking-charges\"><h4>Additional Charges</h4><div id=\"staff-booking-charges-content\"><p style=\"opacity:.6;\">Loading...</p></div></div>";
               staffDetailBody.innerHTML = html;
+
+              (function initGuestStepper() {
+                var host = staffDetailBody.querySelector("[data-guest-card-host]");
+                if (!host) return;
+                var prevBtn = staffDetailBody.querySelector("[data-guest-prev]");
+                var nextBtn = staffDetailBody.querySelector("[data-guest-next]");
+                var indicator = staffDetailBody.querySelector("[data-guest-indicator]");
+                var idx = 0;
+                function clamp(i) { return Math.max(0, Math.min(totalGuestSlots - 1, i)); }
+                function render(i) {
+                  idx = clamp(i);
+                  host.innerHTML = renderGuestBlock(guestSlots[idx], idx);
+                  if (indicator) indicator.textContent = "Guest " + (idx + 1) + " of " + totalGuestSlots;
+                  if (prevBtn) prevBtn.disabled = idx === 0;
+                  if (nextBtn) nextBtn.disabled = idx >= totalGuestSlots - 1;
+                }
+                if (prevBtn) prevBtn.addEventListener("click", function () { render(idx - 1); });
+                if (nextBtn) nextBtn.addEventListener("click", function () { render(idx + 1); });
+                render(0);
+              })();
+
               fetch((R && R.API ? R.API : "/api") + "/bookings/" + b.booking_id + "/charges", { headers: { "Authorization": "Bearer " + (localStorage.getItem("token") || "") } })
                 .then(function(r) { return r.ok ? r.json() : []; })
                 .then(function(charges) {

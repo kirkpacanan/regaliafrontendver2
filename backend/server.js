@@ -49,6 +49,91 @@ function isEmployeeRoleMgmt(roleType) {
   return u === "OWNER" || u === "ADMIN";
 }
 
+// ---------------- Unit Types (admin-managed) ----------------
+app.get("/api/unit-types", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Only administrators can view unit types" });
+    const adminId = Number(req.user.employee_id);
+    const [rows] = await db.promise().query(
+      `SELECT id, name, owner_employee_id
+       FROM UNIT_TYPE
+       WHERE owner_employee_id IS NULL OR owner_employee_id = ?
+       ORDER BY (owner_employee_id IS NULL) DESC, name ASC`,
+      [adminId]
+    );
+    res.json(rows || []);
+  } catch (err) {
+    if (err.code === "ER_NO_SUCH_TABLE")
+      return res.status(503).json({ error: "Run migrations/add_unit_types.sql to enable unit type management" });
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to fetch unit types" });
+  }
+});
+
+app.post("/api/unit-types", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Only administrators can add unit types" });
+    const adminId = Number(req.user.employee_id);
+    const nameRaw = req.body && req.body.name != null ? String(req.body.name) : "";
+    const name = nameRaw.trim();
+    if (!name) return res.status(400).json({ error: "name is required" });
+    if (name.length > 80) return res.status(400).json({ error: "name is too long" });
+
+    // Prevent duplicates (case-insensitive) within admin scope and global defaults.
+    const [[dup]] = await db.promise().query(
+      "SELECT 1 AS x FROM UNIT_TYPE WHERE LOWER(TRIM(name)) = LOWER(TRIM(?)) AND (owner_employee_id IS NULL OR owner_employee_id = ?) LIMIT 1",
+      [name, adminId]
+    );
+    if (dup) return res.status(409).json({ error: "Unit type already exists" });
+
+    const [r] = await db.promise().query(
+      "INSERT INTO UNIT_TYPE (name, owner_employee_id) VALUES (?, ?)",
+      [name, adminId]
+    );
+    res.status(201).json({ id: r.insertId, name, owner_employee_id: adminId });
+  } catch (err) {
+    if (err.code === "ER_NO_SUCH_TABLE")
+      return res.status(503).json({ error: "Run migrations/add_unit_types.sql to enable unit type management" });
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to add unit type" });
+  }
+});
+
+app.delete("/api/unit-types/:id", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Only administrators can remove unit types" });
+    const adminId = Number(req.user.employee_id);
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: "Not found" });
+
+    const [[row]] = await db.promise().query(
+      "SELECT id, name, owner_employee_id FROM UNIT_TYPE WHERE id = ? LIMIT 1",
+      [id]
+    );
+    if (!row) return res.status(404).json({ error: "Not found" });
+    if (row.owner_employee_id == null) return res.status(403).json({ error: "Default unit types cannot be removed" });
+    if (Number(row.owner_employee_id) !== adminId) return res.status(403).json({ error: "Not allowed" });
+
+    // Block deletion if used by any UNIT.
+    const [[used]] = await db.promise().query(
+      "SELECT 1 AS x FROM UNIT WHERE unit_type = ? LIMIT 1",
+      [row.name]
+    );
+    if (used) return res.status(409).json({ error: "Unit type is in use by existing units" });
+
+    await db.promise().query("DELETE FROM UNIT_TYPE WHERE id = ? AND owner_employee_id = ?", [id, adminId]);
+    res.json({ message: "Unit type removed" });
+  } catch (err) {
+    if (err.code === "ER_NO_SUCH_TABLE")
+      return res.status(503).json({ error: "Run migrations/add_unit_types.sql to enable unit type management" });
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to remove unit type" });
+  }
+});
+
 /** Matches EMPLOYEE_ROLE rows that count as resident owner (same logic as GET /api/owners list). */
 const OWNER_ROLE_EXISTS_SQL = `EXISTS (SELECT 1 FROM EMPLOYEE_ROLE r WHERE r.employee_id = e.employee_id AND r.status = 'active' AND (r.role_type = 'OWNER' OR UPPER(TRIM(r.role_type)) = 'OWNER'))`;
 
@@ -4224,12 +4309,28 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
       try {
         let unitIds = [];
         try {
-          const [mapRows] = await db.promise().query("SELECT unit_id FROM OWNER_UNIT WHERE owner_employee_id = ?", [req.user.employee_id]);
-          unitIds = (mapRows || []).map((r) => Number(r.unit_id)).filter((n) => n > 0);
+          // OWNER_UNIT schema varies across DBs (owner_id vs owner_employee_id vs employee_id).
+          const ownerCol = await getOwnerUnitOwnerColumnName();
+          const ownerVal = await getOwnerUnitOwnerValue(req.user.employee_id);
+          if (ownerVal != null) {
+            const unitColSet = await getOwnerUnitColumnSet();
+            const unitCol = unitColSet.unitCol || "unit_id";
+            const [mapRows] = await db.promise().query(
+              `SELECT ${unitCol} AS unit_id FROM OWNER_UNIT WHERE ${ownerCol} = ?`,
+              [ownerVal]
+            );
+            unitIds = (mapRows || []).map((r) => Number(r.unit_id)).filter((n) => n > 0);
+          }
         } catch (e) {
-          const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
-          const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
-          if (uid) unitIds = [uid];
+          unitIds = [];
+        }
+        if (!unitIds.length) {
+          // Fallback: older schema using EMPLOYEE.resident_unit_id
+          try {
+            const [[emp]] = await db.promise().query("SELECT resident_unit_id FROM EMPLOYEE WHERE employee_id = ?", [req.user.employee_id]);
+            const uid = emp && emp.resident_unit_id ? Number(emp.resident_unit_id) : null;
+            if (uid) unitIds = [uid];
+          } catch (e2) {}
         }
         if (unitIds.length) {
           const placeholders = unitIds.map(() => "?").join(",");
@@ -4270,7 +4371,8 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
       );
       rows = r || [];
     }
-    res.json((rows || []).map(row => {
+    // Attach paid_months (DB-backed) when table exists; otherwise empty arrays.
+    const list = (rows || []).map(row => {
       const dueDateStr = row.due_date && String(row.due_date).trim().slice(0, 10);
       let effectiveFrom = row.effective_from_month && String(row.effective_from_month).trim();
       if (!effectiveFrom && dueDateStr && dueDateStr.length >= 7) effectiveFrom = dueDateStr.slice(0, 7);
@@ -4280,11 +4382,78 @@ app.get("/api/monthly-dues", optionalAuth, async (req, res) => {
         effective_from_month: effectiveFrom || null,
         created_at: row.created_at && String(row.created_at).trim().slice(0, 10),
         unit_label: row.unit_id ? (row.tower_name ? row.tower_name + " – Unit " + (row.unit_number || row.unit_id) : "Unit " + (row.unit_number || row.unit_id)) : "General / Other",
+        paid_months: [],
       };
-    }));
+    });
+    try {
+      if (list.length) {
+        const ids = list.map((d) => Number(d.id)).filter((n) => Number.isInteger(n) && n > 0);
+        if (ids.length) {
+          const placeholders = ids.map(() => "?").join(",");
+          const [pmRows] = await db.promise().query(
+            `SELECT due_id, paid_month FROM MONTHLY_DUE_PAY WHERE due_id IN (${placeholders}) ORDER BY paid_month ASC`,
+            ids
+          );
+          const byId = {};
+          (pmRows || []).forEach((r) => {
+            const id = Number(r.due_id);
+            const m = r.paid_month ? String(r.paid_month).slice(0, 7) : null;
+            if (!id || !m) return;
+            if (!byId[id]) byId[id] = [];
+            byId[id].push(m);
+          });
+          list.forEach((d) => { d.paid_months = byId[Number(d.id)] || []; });
+        }
+      }
+    } catch (e) {
+      // ignore when MONTHLY_DUE_PAY doesn't exist yet
+    }
+    res.json(list);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message || "Failed to fetch monthly dues" });
+  }
+});
+
+// Admin: toggle paid month record for a due.
+app.post("/api/monthly-dues/:id/toggle-paid", optionalAuth, async (req, res) => {
+  try {
+    if (!req.user || !isCondoAdminRole(req.user.role))
+      return res.status(403).json({ error: "Only administrators can mark dues as paid" });
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(404).json({ error: "Not found" });
+    const { month } = req.body || {};
+    const key = month && /^\d{4}-\d{2}$/.test(String(month).trim()) ? String(month).trim() : null;
+    if (!key) return res.status(400).json({ error: "month is required (YYYY-MM)" });
+
+    // Ensure due belongs to this admin scope.
+    const ownerId = req.user.employee_id;
+    const [[due]] = await db.promise().query(
+      "SELECT id FROM MONTHLY_DUE WHERE id = ? AND owner_employee_id = ? LIMIT 1",
+      [id, ownerId]
+    );
+    if (!due) return res.status(404).json({ error: "Not found" });
+
+    // Toggle row.
+    const [[existing]] = await db.promise().query(
+      "SELECT id FROM MONTHLY_DUE_PAY WHERE due_id = ? AND paid_month = ? LIMIT 1",
+      [id, key]
+    );
+    if (existing && existing.id) {
+      await db.promise().query("DELETE FROM MONTHLY_DUE_PAY WHERE id = ?", [existing.id]);
+      return res.json({ message: "Marked unpaid", paid: false, month: key });
+    }
+    await db.promise().query(
+      "INSERT INTO MONTHLY_DUE_PAY (due_id, paid_month, paid_by_employee_id, paid_at) VALUES (?, ?, ?, NOW())",
+      [id, key, ownerId]
+    );
+    res.json({ message: "Marked paid", paid: true, month: key });
+  } catch (err) {
+    if (err.code === "ER_NO_SUCH_TABLE") {
+      return res.status(503).json({ error: "Run migrations/add_monthly_due_pay.sql to enable paid tracking" });
+    }
+    console.error(err);
+    res.status(500).json({ error: err.message || "Failed to toggle paid" });
   }
 });
 

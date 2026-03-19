@@ -192,19 +192,19 @@
               <label class="settings-field"><span>Unit type</span>
                 <select name="unit_type" data-template-unit-type-select required>
                   <option value="">— Select —</option>
-                  <option value="Studio Type">Studio Type</option>
-                  <option value="1 Bedroom">1 Bedroom</option>
-                  <option value="2 Bedroom">2 Bedroom</option>
-                  <option value="3 Bedroom">3 Bedroom</option>
-                  <option value="Penthouse">Penthouse</option>
-                  <option value="Duplex">Duplex</option>
-                  <option value="__custom__">Other (type your own)</option>
                 </select>
               </label>
-              <label class="settings-field manage-custom-unit-type" data-template-custom-type-wrap>
-                <span>Custom unit type</span>
-                <input type="text" name="unit_type_custom" data-template-unit-type-custom placeholder="e.g. Loft, Executive suite" disabled aria-disabled="true" />
-              </label>
+              <div class="settings-field" style="margin-top:-0.25rem;">
+                <span style="font-size:0.78rem;color:var(--muted);font-weight:500;">Manage unit types</span>
+                <div data-unit-type-manager style="display:flex;flex-direction:column;gap:8px;">
+                  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                    <input type="text" data-unit-type-new placeholder="Add new unit type (e.g. Loft)" style="flex:1;min-width:220px;" />
+                    <button type="button" class="btn ghost" data-unit-type-add>Add</button>
+                  </div>
+                  <div data-unit-type-list style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+                  <div class="settings-msg" data-unit-type-msg></div>
+                </div>
+              </div>
               <label class="settings-field"><span>Unit size (sqm)</span><input type="number" step="0.01" name="unit_size" placeholder="e.g. 45" required /></label>
               <div class="settings-msg" data-template-msg></div>
               <button type="submit" class="btn ghost settings-save">Save template</button>
@@ -337,21 +337,105 @@
       var UNIT_TEMPLATES_KEY = "admin_unit_templates_v1";
       var adminUnitsCache = null;
       var unitTemplateOptionsByKey = {};
-      function syncTemplateCustomTypeVisibility() {
+      var unitTypesCache = [];
+      function loadUnitTypes() {
+        return fetch("/api/unit-types", { headers: getH() })
+          .then(function (r) { return r.ok ? r.json() : Promise.reject(new Error("Failed")); })
+          .then(function (rows) { unitTypesCache = Array.isArray(rows) ? rows : []; return unitTypesCache; })
+          .catch(function () { unitTypesCache = []; return unitTypesCache; });
+      }
+      function renderUnitTypes() {
         var sel = document.querySelector("[data-template-unit-type-select]");
-        var inp = document.querySelector("[data-template-unit-type-custom]");
-        if (!sel || !inp) return;
-        var isCustom = sel.value === "__custom__";
-        if (isCustom) {
-          inp.disabled = false;
-          inp.removeAttribute("aria-disabled");
-          inp.setAttribute("required", "required");
-        } else {
-          inp.disabled = true;
-          inp.setAttribute("aria-disabled", "true");
-          inp.removeAttribute("required");
-          inp.value = "";
+        var listEl = document.querySelector("[data-unit-type-list]");
+        if (sel) {
+          var current = sel.value;
+          sel.innerHTML = "<option value=\"\">— Select —</option>";
+          (unitTypesCache || []).forEach(function (t) {
+            var opt = document.createElement("option");
+            opt.value = t.name;
+            opt.textContent = t.name;
+            opt.dataset.unitTypeId = String(t.id);
+            opt.dataset.deletable = t.owner_employee_id != null ? "1" : "";
+            sel.appendChild(opt);
+          });
+          // Bottom option to add new
+          var addOpt = document.createElement("option");
+          addOpt.value = "__add_new__";
+          addOpt.textContent = "Add new unit type…";
+          sel.appendChild(addOpt);
+          if (current && current !== "__add_new__") sel.value = current;
         }
+        if (listEl) {
+          listEl.innerHTML = "";
+          (unitTypesCache || []).forEach(function (t) {
+            var chip = document.createElement("div");
+            chip.style.cssText = "display:inline-flex;align-items:center;gap:8px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.18);";
+            chip.innerHTML = "<span style=\"font-size:0.85rem;\">" + esc(t.name) + "</span>";
+            if (t.owner_employee_id != null) {
+              var btn = document.createElement("button");
+              btn.type = "button";
+              btn.textContent = "×";
+              btn.setAttribute("aria-label", "Remove unit type " + t.name);
+              btn.style.cssText = "width:26px;height:26px;border-radius:999px;border:none;background:rgba(255,255,255,0.12);color:#fff;cursor:pointer;line-height:1;font-size:18px;";
+              btn.addEventListener("click", function () {
+                if (!window.confirm("Remove unit type \"" + t.name + "\"?")) return;
+                var msg = document.querySelector("[data-unit-type-msg]");
+                if (msg) msg.textContent = "Removing…";
+                fetch("/api/unit-types/" + encodeURIComponent(t.id), { method: "DELETE", headers: getH() })
+                  .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+                  .then(function (res) {
+                    if (!res.ok) { if (msg) msg.textContent = (res.d && res.d.error) ? res.d.error : "Failed"; return; }
+                    if (msg) msg.textContent = "Removed.";
+                    return loadUnitTypes().then(function () {
+                      renderUnitTypes();
+                      adminUnitsCache = null;
+                      refreshUnitTemplateOptionsForTower(document.querySelector("[data-template-tower-select]") ? document.querySelector("[data-template-tower-select]").value : "");
+                      setTimeout(function () { if (msg) msg.textContent = ""; }, 1200);
+                    });
+                  })
+                  .catch(function () { if (msg) msg.textContent = "Failed"; });
+              });
+              chip.appendChild(btn);
+            }
+            listEl.appendChild(chip);
+          });
+        }
+      }
+      function initUnitTypes() {
+        var sel = document.querySelector("[data-template-unit-type-select]");
+        var addBtn = document.querySelector("[data-unit-type-add]");
+        var input = document.querySelector("[data-unit-type-new]");
+        var msg = document.querySelector("[data-unit-type-msg]");
+        function addType(name) {
+          var nm = String(name || "").trim();
+          if (!nm) return;
+          if (msg) msg.textContent = "Adding…";
+          fetch("/api/unit-types", { method: "POST", headers: getH(), body: JSON.stringify({ name: nm }) })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+              if (!res.ok) { if (msg) msg.textContent = (res.d && res.d.error) ? res.d.error : "Failed"; return; }
+              if (input) input.value = "";
+              return loadUnitTypes().then(function () {
+                renderUnitTypes();
+                if (sel) sel.value = nm;
+                if (msg) msg.textContent = "Added.";
+                setTimeout(function () { if (msg) msg.textContent = ""; }, 1200);
+              });
+            })
+            .catch(function () { if (msg) msg.textContent = "Failed"; });
+        }
+        if (addBtn) addBtn.addEventListener("click", function () { addType(input ? input.value : ""); });
+        if (input) input.addEventListener("keydown", function (e) { if (e.key === "Enter") { e.preventDefault(); addType(input.value); } });
+        if (sel) {
+          sel.addEventListener("change", function () {
+            if (sel.value === "__add_new__") {
+              var nm = window.prompt("New unit type name:");
+              if (!nm) { sel.value = ""; return; }
+              addType(nm);
+            }
+          });
+        }
+        loadUnitTypes().then(function () { renderUnitTypes(); });
       }
       function getSavedTemplates() {
         try { return JSON.parse(localStorage.getItem(UNIT_TEMPLATES_KEY) || "[]"); } catch (e) { return []; }
@@ -475,9 +559,7 @@
             setTimeout(function () { msg.textContent = ""; }, 1500);
           }).catch(function () { msg.textContent = "Network error"; });
       });
-      var tplTypeSel = document.querySelector("[data-template-unit-type-select]");
-      if (tplTypeSel) tplTypeSel.addEventListener("change", syncTemplateCustomTypeVisibility);
-      syncTemplateCustomTypeVisibility();
+      initUnitTypes();
 
       (function collapsibleTemplateCard() {
         var card = document.querySelector("[data-template-card]");
@@ -563,7 +645,6 @@
             var fd = new FormData(templateForm);
             var towerId = fd.get("tower_id");
             var unitType = fd.get("unit_type");
-            if (unitType === "__custom__") unitType = (fd.get("unit_type_custom") || "").trim();
             var unitSize = fd.get("unit_size");
 
             if (!towerId || !unitType || unitSize === "" || unitSize == null) {
@@ -587,7 +668,6 @@
             if (templateMsg) templateMsg.textContent = "Template saved!";
             setTimeout(function () { if (templateMsg) templateMsg.textContent = ""; }, 1200);
             templateForm.reset();
-            syncTemplateCustomTypeVisibility();
             refreshTemplateDeleteSelect();
 
             if (unitTowerSel && String(unitTowerSel.value) === String(towerId)) {

@@ -95,6 +95,21 @@
             </table>
           </div>
         </section>
+
+        <section class="panel dues-paid-panel" data-dues-paid-section aria-label="Paid for this month">
+          <h3 class="dues-paid-section__title" data-dues-paid-title>Paid for this month</h3>
+          <p class="panel-subtitle muted" data-dues-paid-subtitle>Dues marked paid by management for the selected month.</p>
+          <div class="payment-placeholder-table">
+            <table class="payment-table dues-table dues-table--paid" aria-label="Paid dues for this month">
+              <thead>
+                <tr><th>Unit</th><th>Amount</th><th>Due</th><th>Status</th></tr>
+              </thead>
+              <tbody data-dues-paid-list>
+                <tr data-dues-paid-empty><td colspan="4" class="payment-placeholder-cell"><span class="payment-placeholder-message" data-dues-paid-empty-msg>None paid for this month.</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
       </main>
     </div>
 
@@ -198,6 +213,12 @@
         }
         return v || "—";
       }
+      function isPaidForMonth(d, yyyyMm) {
+        if (!d) return false;
+        var key = String(yyyyMm || "").trim().slice(0, 7);
+        var arr = Array.isArray(d.paid_months) ? d.paid_months : [];
+        return arr.some(function (m) { return String(m || "").trim().slice(0, 7) === key; });
+      }
       function render() {
         var sel = document.querySelector("[data-dues-view-month]");
         var vm = sel && sel.value ? sel.value : "all";
@@ -207,6 +228,9 @@
         var empty = document.querySelector("[data-empty]");
         if (!tb) return;
         tb.querySelectorAll("[data-row]").forEach(function (x) { x.remove(); });
+        var paidTb = document.querySelector("[data-dues-paid-list]");
+        var paidEmpty = document.querySelector("[data-dues-paid-empty]");
+        if (paidTb) paidTb.querySelectorAll("[data-paid-row]").forEach(function (x) { x.remove(); });
 
         // Load owner's assigned units, then filter dues to those unit_ids.
         Promise.all([
@@ -222,27 +246,54 @@
               .filter(function (x) { return x != null && !isNaN(x); })
           );
 
-          var filtered = rows
+          var scoped = rows
             .filter(function (d) {
               var uid = d && d.unit_id != null && d.unit_id !== "" ? Number(d.unit_id) : null;
               return uid != null && unitIds.has(uid);
-            })
-            .filter(function (d) { return dueApplies(d, vm); });
+            });
+
+          var viewMonth = vm;
+          if (viewMonth === "all") {
+            var now = new Date();
+            viewMonth = now.getFullYear() + "-" + pad(now.getMonth() + 1);
+          }
+
+          var filtered = scoped.filter(function (d) { return dueApplies(d, vm); }).filter(function (d) { return !isPaidForMonth(d, viewMonth); });
+          var paid = vm === "all" ? [] : scoped.filter(function (d) { return dueApplies(d, vm) && isPaidForMonth(d, viewMonth); });
 
           if (!filtered.length) {
             if (empty) empty.style.display = "";
-            return;
-          }
-          if (empty) empty.style.display = "none";
+          } else {
+            if (empty) empty.style.display = "none";
 
-          filtered.forEach(function (d) {
-            var tr = document.createElement("tr");
-            tr.dataset.row = "1";
-            var amt = d.amount != null ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
-            var st = (d.status && String(d.status).toLowerCase() === "paid") ? "Paid" : "Pending";
-            tr.innerHTML = "<td>" + esc(d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit")) + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>" + esc(st) + "</td>";
-            tb.appendChild(tr);
-          });
+            filtered.forEach(function (d) {
+              var tr = document.createElement("tr");
+              tr.dataset.row = "1";
+              var amt = d.amount != null ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
+              var st = "Pending";
+              tr.innerHTML = "<td>" + esc(d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit")) + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>" + esc(st) + "</td>";
+              tb.appendChild(tr);
+            });
+          }
+
+          // Paid panel (read-only)
+          var paidSection = document.querySelector("[data-dues-paid-section]");
+          if (paidSection) paidSection.style.display = vm === "all" ? "none" : "";
+          var paidTitle = document.querySelector("[data-dues-paid-title]");
+          if (paidTitle) paidTitle.textContent = vm === "all" ? "Paid for this month" : ("Paid for " + vm);
+          var paidEmptyMsg = document.querySelector("[data-dues-paid-empty-msg]");
+          if (paidEmptyMsg) paidEmptyMsg.textContent = vm === "all" ? "—" : (paid.length ? "" : ("None paid for " + vm + "."));
+          if (paidEmpty) paidEmpty.style.display = paid.length ? "none" : "";
+          if (paidTb) {
+            paid.forEach(function (d) {
+              var tr = document.createElement("tr");
+              tr.dataset.paidRow = "1";
+              var amt = d.amount != null ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
+              tr.innerHTML = "<td>" + esc(d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit")) + "</td><td>" + amt + "</td><td>" + esc(formatDue(d)) + "</td><td>Paid</td>";
+              paidTb.appendChild(tr);
+            });
+          }
+
           if (tb.querySelectorAll("[data-row]").length === 0 && empty) empty.style.display = "";
         });
       }

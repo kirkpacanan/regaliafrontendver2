@@ -505,16 +505,6 @@
       })();
 
       var STORAGE_KEY = "regalia_monthly_dues";
-      var PAID_MONTHS_KEY = "regalia_monthly_dues_paid";
-      function getPaidMonthsStorage() {
-        try {
-          var raw = localStorage.getItem(PAID_MONTHS_KEY);
-          return raw ? JSON.parse(raw) : {};
-        } catch (e) { return {}; }
-      }
-      function setPaidMonthsStorage(obj) {
-        try { localStorage.setItem(PAID_MONTHS_KEY, JSON.stringify(obj)); } catch (e) {}
-      }
       function getAuthHeaders(json) {
         var h = {};
         try { var t = localStorage.getItem("token"); if (t) h.Authorization = "Bearer " + t; } catch (e) {}
@@ -526,11 +516,9 @@
           .then(function (r) { return r.ok ? r.json() : []; })
           .then(function (apiDues) {
             if (Array.isArray(apiDues)) {
-              var savedPaid = getPaidMonthsStorage();
               return apiDues.map(function (d) {
                 var rawDue = d.due_date ? String(d.due_date).replace(/T.*/, "").trim() : null;
                 var id = String(d.id);
-                var paidMonths = Array.isArray(savedPaid[id]) ? savedPaid[id] : (Array.isArray(d.paid_months) ? d.paid_months : []);
                 return {
                   id: id,
                   unit_id: d.unit_id != null ? String(d.unit_id) : null,
@@ -539,7 +527,7 @@
                   due_date: normalizeDueDateToYyyyMmDd(rawDue) || (rawDue && rawDue.length >= 10 ? rawDue.slice(0, 10) : rawDue),
                   effective_from_month: d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month).trim()) ? String(d.effective_from_month).trim() : null,
                   recurring: d.recurring !== false,
-                  paid_months: paidMonths,
+                  paid_months: Array.isArray(d.paid_months) ? d.paid_months : [],
                   created_at: d.created_at ? String(d.created_at).replace(/T.*/, "").slice(0, 10) : null
                 };
               });
@@ -853,21 +841,24 @@
               var now = new Date();
               viewMonth = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0");
             }
-            loadDues().then(function (dues) {
-              var d = dues.find(function (x) { return String(x.id) === id; });
-              if (!d) return;
-              normalizePaidMonths(d);
-              if (!Array.isArray(d.paid_months)) d.paid_months = [];
-              var idx = d.paid_months.indexOf(viewMonth);
-              if (idx >= 0) d.paid_months.splice(idx, 1);
-              else d.paid_months.push(viewMonth);
-              d.paid_months.sort();
-              var saved = getPaidMonthsStorage();
-              saved[id] = d.paid_months;
-              setPaidMonthsStorage(saved);
-              if (getViewMonth() === "all" && dueAppliesToMonth(d, viewMonth)) setViewMonth(viewMonth);
-              renderDues(dues);
-            });
+            fetch("/api/monthly-dues/" + encodeURIComponent(id) + "/toggle-paid", {
+              method: "POST",
+              headers: getAuthHeaders(true),
+              body: JSON.stringify({ month: viewMonth })
+            })
+              .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+              .then(function (res) {
+                if (!res.ok) throw new Error(res.d && res.d.error ? res.d.error : "Failed");
+                loadDues().then(function (dues) {
+                  // If viewing all months, jump to the month we just toggled (matches old behavior).
+                  if (getViewMonth() === "all") setViewMonth(viewMonth);
+                  renderDues(dues);
+                });
+              })
+              .catch(function (err) {
+                alert(err && err.message ? err.message : "Could not update paid status.");
+                loadDues().then(function (dues) { renderDues(dues); });
+              });
             return;
           }
           var removeBtn = e.target.closest("[data-dues-remove]");
