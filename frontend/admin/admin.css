@@ -3281,32 +3281,32 @@ label .required {
   gap: 0.5rem;
   padding: 0.55rem 1.05rem;
   font-size: 0.85rem;
-  font-weight: 600;
+  font-weight: 700;
   font-family: inherit;
   line-height: 1.2;
   border-radius: 14px;
   cursor: pointer;
-  color: rgba(255, 255, 255, 0.82);
-  border: 1px solid rgba(255, 140, 140, 0.55);
-  background: rgba(255, 255, 255, 0.08);
+  color: rgba(88, 24, 24, 0.92);
+  border: 1px solid rgba(255, 96, 96, 0.65);
+  background: rgba(255, 255, 255, 0.18);
   box-shadow: none;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 
 .manage-properties-btn-delete__icon {
   flex-shrink: 0;
-  opacity: 1;
+  opacity: 0.95;
   stroke: currentColor;
 }
 
 .manage-properties-btn-delete:hover:not(:disabled) {
-  color: #ffffff;
-  border-color: rgba(255, 140, 140, 0.85);
-  background: rgba(255, 255, 255, 0.12);
+  color: rgba(66, 12, 12, 0.98);
+  border-color: rgba(255, 96, 96, 0.92);
+  background: rgba(255, 255, 255, 0.28);
 }
 
 .manage-properties-btn-delete:active:not(:disabled) {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.34);
 }
 
 .manage-properties-btn-delete:focus {
@@ -3314,7 +3314,7 @@ label .required {
 }
 
 .manage-properties-btn-delete:focus-visible {
-  outline: 2px solid rgba(255, 140, 140, 0.9);
+  outline: 2px solid rgba(255, 96, 96, 0.95);
   outline-offset: 3px;
 }
 
@@ -3370,4 +3370,113 @@ label .required {
   opacity: 0.45;
   cursor: not-allowed;
   pointer-events: none;
+}
+
+/* Owner dashboard — compact layout and spacing */
+[data-page="owner-dashboard"] .main > .owner-dashboard-welcome {
+  min-height: 0;
+  padding: 1rem 1.35rem 0.75rem;
+  margin-bottom: 1.25rem;
+}
+[data-page="owner-dashboard"] .owner-dashboard-welcome h2 {
+  margin: 0 0 0.25rem;
+  font-size: 1.25rem;
+}
+[data-page="owner-dashboard"] .owner-dashboard-welcome .panel-subtitle {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.owner-dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 640px) {
+  .owner-dashboard-stats {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+}
+.owner-dashboard-stats .stat-card {
+  min-width: 0;
+  padding: 1rem 1.1rem;
+  gap: 0.65rem;
+}
+.owner-dashboard-stats .icon-tile {
+  width: 36px;
+  height: 36px;
+}
+.owner-dashboard-stats .icon-tile svg {
+  width: 20px;
+  height: 20px;
+}
+.owner-dashboard-stats .label {
+  font-size: 0.8rem;
+}
+.owner-dashboard-stats .value {
+  font-size: 1.35rem;
+}
+.owner-dashboard-stats .value--small {
+  font-size: 1rem;
+}
+
+.owner-dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+@media (max-width: 880px) {
+  .owner-dashboard-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+}
+
+[data-page="owner-dashboard"] .owner-dashboard-panel {
+  min-height: 0;
+  padding: 1.15rem 1.35rem;
+}
+[data-page="owner-dashboard"] .owner-dashboard-panel h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+[data-page="owner-dashboard"] .owner-dashboard-panel .panel-subtitle {
+  margin: 0 0 0.75rem;
+  font-size: 0.825rem;
+}
+[data-page="owner-dashboard"] .owner-dashboard-panel > p:last-of-type {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+.owner-dashboard-list,
+.owner-dashboard-dues-summary {
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin-top: 0;
+}
+.owner-dashboard-list .owner-dashboard-item,
+.owner-dashboard-dues-summary .owner-dashboard-item {
+  padding: 0.4rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.owner-dashboard-list .owner-dashboard-item:last-child,
+.owner-dashboard-dues-summary .owner-dashboard-item:last-child {
+  border-bottom: none;
+}
+.owner-dashboard-loading,
+.owner-dashboard-empty {
+  display: block;
+  padding: 0.4rem 0;
+  font-size: 0.875rem;
+}
+.owner-dashboard-dues-summary .owner-dashboard-item {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
 }

@@ -76,10 +76,70 @@
             </div>
           </div>
         </header>
-        <section class="panel">
+        <section class="panel owner-dashboard-welcome">
           <h2>Welcome</h2>
-          <p class="panel-subtitle muted">Management posts monthly dues for your unit. Open <strong>Monthly Dues</strong> to see amounts, due dates, and status.</p>
-          <p style="margin-top:1.5rem;"><a href="./monthly-dues.html" class="btn-primary" style="display:inline-block;padding:0.65rem 1.25rem;text-decoration:none;border-radius:8px;">View monthly dues</a></p>
+          <p class="panel-subtitle muted">Overview of your units, bookings, and dues. Use the links below to manage details.</p>
+        </section>
+
+        <div class="owner-dashboard-stats" data-owner-dashboard-stats>
+          <div class="stat-card">
+            <div class="icon-tile">
+              <svg viewBox="0 0 24 24"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-6h6v6"></path></svg>
+            </div>
+            <div>
+              <div class="label">My units</div>
+              <div class="value" data-dash-units-count>—</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-tile">
+              <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="16" y1="2" x2="16" y2="6"></line></svg>
+            </div>
+            <div>
+              <div class="label">Pending bookings</div>
+              <div class="value" data-dash-pending-bookings>—</div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="icon-tile icon-tile--text">
+              <svg viewBox="0 0 24 24" class="icon-tile-peso"><text x="12" y="18" text-anchor="middle" font-size="14">₱</text></svg>
+            </div>
+            <div>
+              <div class="label">Next due</div>
+              <div class="value value--small" data-dash-next-due>—</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="owner-dashboard-grid">
+          <section class="panel owner-dashboard-panel" data-dash-properties-panel>
+            <h3>Your units</h3>
+            <p class="panel-subtitle muted">Units assigned to you by management.</p>
+            <div class="owner-dashboard-list" data-dash-units-list>
+              <span class="owner-dashboard-loading" data-dash-units-loading>Loading…</span>
+              <span class="owner-dashboard-empty muted" data-dash-units-empty style="display:none;">No units assigned yet.</span>
+            </div>
+            <p style="margin-top:1rem;"><a href="./properties.html" class="btn-primary" style="display:inline-block;padding:0.65rem 1.25rem;text-decoration:none;border-radius:8px;">View properties</a></p>
+          </section>
+          <section class="panel owner-dashboard-panel" data-dash-bookings-panel>
+            <h3>Bookings</h3>
+            <p class="panel-subtitle muted">Recent and upcoming booking requests for your units.</p>
+            <div class="owner-dashboard-list" data-dash-bookings-list>
+              <span class="owner-dashboard-loading" data-dash-bookings-loading>Loading…</span>
+              <span class="owner-dashboard-empty muted" data-dash-bookings-empty style="display:none;">No bookings yet.</span>
+            </div>
+            <p style="margin-top:1rem;"><a href="./bookings.html" class="btn-primary" style="display:inline-block;padding:0.65rem 1.25rem;text-decoration:none;border-radius:8px;">View all bookings</a></p>
+          </section>
+        </div>
+
+        <section class="panel owner-dashboard-panel" data-dash-dues-panel>
+          <h3>Monthly dues</h3>
+          <p class="panel-subtitle muted">Dues assigned to your unit(s).</p>
+          <div class="owner-dashboard-dues-summary" data-dash-dues-summary>
+            <span class="owner-dashboard-loading" data-dash-dues-loading>Loading…</span>
+            <span class="owner-dashboard-empty muted" data-dash-dues-empty style="display:none;">No dues for your unit yet.</span>
+          </div>
+          <p style="margin-top:1rem;"><a href="./monthly-dues.html" class="btn-primary" style="display:inline-block;padding:0.65rem 1.25rem;text-decoration:none;border-radius:8px;">View monthly dues</a></p>
         </section>
       </main>
     </div>
@@ -317,6 +377,133 @@
       document.querySelector("[data-logout-link]").addEventListener("click", function () {
         try { var tc = localStorage.getItem("theme_color"); localStorage.clear(); if (tc) localStorage.setItem("theme_color", tc); } catch (e) {}
       });
+
+      (function loadDashboard() {
+        function esc(s) { var d = document.createElement("div"); d.textContent = s || ""; return d.innerHTML; }
+        function pad(n) { return String(n).padStart(2, "0"); }
+
+        var unitsCountEl = document.querySelector("[data-dash-units-count]");
+        var pendingBookingsEl = document.querySelector("[data-dash-pending-bookings]");
+        var nextDueEl = document.querySelector("[data-dash-next-due]");
+        var unitsListEl = document.querySelector("[data-dash-units-list]");
+        var unitsLoadingEl = document.querySelector("[data-dash-units-loading]");
+        var unitsEmptyEl = document.querySelector("[data-dash-units-empty]");
+        var bookingsListEl = document.querySelector("[data-dash-bookings-list]");
+        var bookingsLoadingEl = document.querySelector("[data-dash-bookings-loading]");
+        var bookingsEmptyEl = document.querySelector("[data-dash-bookings-empty]");
+        var duesSummaryEl = document.querySelector("[data-dash-dues-summary]");
+        var duesLoadingEl = document.querySelector("[data-dash-dues-loading]");
+        var duesEmptyEl = document.querySelector("[data-dash-dues-empty]");
+
+        Promise.all([
+          fetch("/api/properties", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+          fetch("/api/bookings", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; }),
+          fetch("/api/monthly-dues", { headers: getH() }).then(function (r) { return r.ok ? r.json() : []; }).catch(function () { return []; })
+        ]).then(function (res) {
+          var properties = Array.isArray(res[0]) ? res[0] : [];
+          var bookings = Array.isArray(res[1]) ? res[1] : [];
+          var duesRows = Array.isArray(res[2]) ? res[2] : [];
+
+          var unitIds = new Set(
+            properties
+              .map(function (u) { return u && u.unit_id != null && u.unit_id !== "" ? Number(u.unit_id) : null; })
+              .filter(function (x) { return x != null && !isNaN(x); })
+          );
+
+          var myBookings = bookings.filter(function (b) {
+            var uid = b && b.unit_id != null ? Number(b.unit_id) : null;
+            return uid != null && unitIds.has(uid);
+          });
+          var pendingCount = myBookings.filter(function (b) { return String(b.status || "").toLowerCase() === "pending"; }).length;
+
+          var myDues = duesRows.filter(function (d) {
+            var uid = d && d.unit_id != null && d.unit_id !== "" ? Number(d.unit_id) : null;
+            return uid != null && unitIds.has(uid);
+          });
+
+          var now = new Date();
+          var currentYm = now.getFullYear() + "-" + pad(now.getMonth() + 1);
+          function dueApplies(d, yyyyMm) {
+            if (!d) return false;
+            var eff = d.effective_from_month && /^\d{4}-\d{2}$/.test(String(d.effective_from_month)) ? String(d.effective_from_month).trim() : (d.due_date && d.due_date.length >= 7 ? d.due_date.slice(0, 7) : null);
+            return eff && yyyyMm >= eff;
+          }
+          function isPaidForMonth(d, yyyyMm) {
+            if (!d) return false;
+            var key = String(yyyyMm || "").trim().slice(0, 7);
+            var arr = Array.isArray(d.paid_months) ? d.paid_months : [];
+            return arr.some(function (m) { return String(m || "").trim().slice(0, 7) === key; });
+          }
+          var unpaidDues = myDues.filter(function (d) { return dueApplies(d, currentYm) && !isPaidForMonth(d, currentYm); });
+          var nextDue = unpaidDues[0];
+
+          if (unitsCountEl) unitsCountEl.textContent = properties.length;
+          if (pendingBookingsEl) pendingBookingsEl.textContent = String(pendingCount);
+          if (nextDueEl) {
+            if (!myDues.length) nextDueEl.textContent = "No dues";
+            else if (!nextDue) nextDueEl.textContent = "All paid";
+            else nextDueEl.textContent = nextDue.amount != null ? "₱ " + Number(nextDue.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
+          }
+
+          if (unitsListEl) {
+            if (unitsLoadingEl) unitsLoadingEl.style.display = "none";
+            if (unitsEmptyEl) unitsEmptyEl.style.display = properties.length ? "none" : "block";
+            if (properties.length) {
+              var items = properties.slice(0, 8).map(function (u) {
+                var label = u.unit_number ? ("Unit " + u.unit_number) : ("Unit " + (u.unit_id || "—"));
+                var tower = u.tower_name ? " · " + esc(u.tower_name) : "";
+                return "<div class=\"owner-dashboard-item\">" + esc(label) + tower + "</div>";
+              }).join("");
+              if (properties.length > 8) items += "<div class=\"owner-dashboard-item muted\">+ " + (properties.length - 8) + " more</div>";
+              unitsListEl.insertAdjacentHTML("beforeend", items);
+            }
+          }
+
+          if (bookingsListEl) {
+            if (bookingsLoadingEl) bookingsLoadingEl.style.display = "none";
+            var sorted = myBookings.slice().sort(function (a, b) {
+              var da = (a.check_in_date || a.created_at || "").toString();
+              var db = (b.check_in_date || b.created_at || "").toString();
+              return da.localeCompare(db);
+            });
+            if (!sorted.length) {
+              if (bookingsEmptyEl) bookingsEmptyEl.style.display = "block";
+            } else {
+              if (bookingsEmptyEl) bookingsEmptyEl.style.display = "none";
+              var statusLabel = function (s) { var t = String(s || "").toLowerCase(); if (t === "pending") return "Pending"; if (t === "confirmed") return "Confirmed"; if (t === "cancelled" || t === "rejected") return "Cancelled"; return s || "—"; };
+              var items = sorted.slice(0, 5).map(function (b) {
+                var guest = esc(b.guest_name || "Guest");
+                var ci = (b.check_in_date || "").toString().slice(0, 10);
+                var co = (b.check_out_date || "").toString().slice(0, 10);
+                var range = ci && co ? ci + " – " + co : (ci || co || "—");
+                var st = statusLabel(b.status);
+                return "<div class=\"owner-dashboard-item\"><span>" + guest + "</span> <span class=\"muted\">" + esc(range) + " · " + esc(st) + "</span></div>";
+              }).join("");
+              if (sorted.length > 5) items += "<div class=\"owner-dashboard-item muted\">+ " + (sorted.length - 5) + " more</div>";
+              bookingsListEl.insertAdjacentHTML("beforeend", items);
+            }
+          }
+
+          if (duesSummaryEl) {
+            if (duesLoadingEl) duesLoadingEl.style.display = "none";
+            if (!myDues.length) {
+              if (duesEmptyEl) duesEmptyEl.style.display = "block";
+            } else {
+              if (duesEmptyEl) duesEmptyEl.style.display = "none";
+              var toShow = unpaidDues.length ? unpaidDues.slice(0, 3) : myDues.slice(0, 3);
+              var label = unpaidDues.length ? "Pending" : "Dues overview";
+              var rows = toShow.map(function (d) {
+                var unitLabel = d.unit_label || (d.unit_number ? ("Unit " + d.unit_number) : "Your unit");
+                var amt = d.amount != null ? "₱ " + Number(d.amount).toLocaleString("en-PH", { minimumFractionDigits: 2 }) : "—";
+                var dueText = d.due_date && d.due_date.length >= 10 ? ("Day " + (parseInt(d.due_date.slice(8, 10), 10) || 1)) : (d.due_date || "—");
+                var st = isPaidForMonth(d, currentYm) ? "Paid" : "Pending";
+                return "<div class=\"owner-dashboard-item\"><span>" + esc(unitLabel) + " · " + dueText + "</span><span>" + amt + " " + esc(st) + "</span></div>";
+              }).join("");
+              duesSummaryEl.insertAdjacentHTML("beforeend", rows);
+            }
+          }
+        });
+      })();
     </script>
   </body>
 </html>
