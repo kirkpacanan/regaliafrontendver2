@@ -378,6 +378,65 @@ async function getAssignmentsForUnitIds(unitIds) {
   return map;
 }
 
+/** For guest booking form: get unit owner full_name and contact_number by unit_id (via OWNER_UNIT, fallback OWNER.unit_id). */
+async function getUnitOwnerInfo(unitId) {
+  const out = { owner_name: null, owner_contact: null };
+  const id = Number(unitId);
+  if (!id) return out;
+  try {
+    const ownerCol = await getOwnerUnitOwnerColumnName();
+    if (ownerCol === "owner_id") {
+      const [[row]] = await db.promise().query(
+        `SELECT o.full_name AS owner_name, o.contact_number AS owner_contact
+         FROM OWNER_UNIT ou INNER JOIN OWNER o ON o.owner_id = ou.owner_id
+         WHERE ou.unit_id = ? LIMIT 1`,
+        [id]
+      );
+      if (row) {
+        out.owner_name = row.owner_name != null ? String(row.owner_name).trim() : null;
+        out.owner_contact = row.owner_contact != null ? String(row.owner_contact).trim() : null;
+      }
+    } else {
+      const sc = ownerCol === "employee_id" ? "employee_id" : "owner_employee_id";
+      const [[row]] = await db.promise().query(
+        `SELECT o.full_name AS owner_name, o.contact_number AS owner_contact
+         FROM OWNER_UNIT ou INNER JOIN OWNER o ON o.employee_id = ou.${sc}
+         WHERE ou.unit_id = ? LIMIT 1`,
+        [id]
+      );
+      if (row) {
+        out.owner_name = row.owner_name != null ? String(row.owner_name).trim() : null;
+        out.owner_contact = row.owner_contact != null ? String(row.owner_contact).trim() : null;
+      }
+    }
+    if (out.owner_name == null && out.owner_contact == null) {
+      const [[fallback]] = await db.promise().query(
+        `SELECT full_name AS owner_name, contact_number AS owner_contact FROM OWNER WHERE unit_id = ? LIMIT 1`,
+        [id]
+      );
+      if (fallback) {
+        out.owner_name = fallback.owner_name != null ? String(fallback.owner_name).trim() : null;
+        out.owner_contact = fallback.owner_contact != null ? String(fallback.owner_contact).trim() : null;
+      }
+    }
+  } catch (e) {
+    console.error("[getUnitOwnerInfo]", e.message || e);
+    try {
+      const [[fallback]] = await db.promise().query(
+        `SELECT full_name AS owner_name, contact_number AS owner_contact FROM OWNER WHERE unit_id = ? LIMIT 1`,
+        [id]
+      );
+      if (fallback) {
+        out.owner_name = fallback.owner_name != null ? String(fallback.owner_name).trim() : null;
+        out.owner_contact = fallback.owner_contact != null ? String(fallback.owner_contact).trim() : null;
+      }
+    } catch (e2) {
+      // ignore
+    }
+  }
+  return out;
+}
+
 // Used when OWNER_UNIT.owner_id is NOT NULL (your ERD) but unit-assignment code was only inserting owner_employee_id.
 async function getOwnerIdForEmployee(ownerEmployeeId) {
   // 1) Try direct mapping
@@ -1389,9 +1448,7 @@ app.get("/api/units/:id", async (req, res) => {
     const unitId = Number(req.params.id);
     const [rows] = await db.promise().query(
       `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-        u.image_urls, u.price, t.tower_name, t.number_floors,
-        (SELECT o.full_name FROM OWNER o WHERE o.unit_id = u.unit_id LIMIT 1) AS owner_name,
-        (SELECT o.contact_number FROM OWNER o WHERE o.unit_id = u.unit_id LIMIT 1) AS owner_contact
+        u.image_urls, u.price, t.tower_name, t.number_floors
        FROM UNIT u
        LEFT JOIN TOWER t ON t.tower_id = u.tower_id
        WHERE u.unit_id = ?`,
@@ -1399,7 +1456,11 @@ app.get("/api/units/:id", async (req, res) => {
     );
     if (!rows || rows.length === 0)
       return res.status(404).json({ error: "Unit not found" });
-    res.json(rows[0]);
+    const unit = rows[0];
+    const ownerInfo = await getUnitOwnerInfo(unitId);
+    unit.owner_name = ownerInfo.owner_name;
+    unit.owner_contact = ownerInfo.owner_contact;
+    res.json(unit);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Failed to fetch unit" });
@@ -1979,14 +2040,15 @@ app.get("/api/booking-intents/:token", async (req, res) => {
 
     const [units] = await db.promise().query(
       `SELECT u.unit_id, u.tower_id, u.unit_number, u.floor_number, u.unit_type, u.unit_size, u.description,
-        u.image_urls, u.price, t.tower_name,
-        (SELECT o.full_name FROM OWNER o WHERE o.unit_id = u.unit_id LIMIT 1) AS owner_name,
-        (SELECT o.contact_number FROM OWNER o WHERE o.unit_id = u.unit_id LIMIT 1) AS owner_contact
+        u.image_urls, u.price, t.tower_name
        FROM UNIT u LEFT JOIN TOWER t ON t.tower_id = u.tower_id WHERE u.unit_id = ?`,
       [intent.unit_id]
     );
     const unit = units && units[0] ? units[0] : null;
     if (!unit) return res.status(404).json({ error: "Unit not found" });
+    const ownerInfo = await getUnitOwnerInfo(intent.unit_id);
+    unit.owner_name = ownerInfo.owner_name;
+    unit.owner_contact = ownerInfo.owner_contact;
 
     const feeLines = [];
     const ehIn = Number(intent.early_checkin_hours) || 0;
