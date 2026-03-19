@@ -147,6 +147,13 @@
     <script>
       (function gate() {
         try {
+          // Allow UI preview when opened directly from disk or demo mode.
+          var proto = String(window.location && window.location.protocol || "");
+          var search = String(window.location && window.location.search || "");
+          var hash = String(window.location && window.location.hash || "");
+          var demo = proto === "file:" || /[?#&]demo=1\b/.test(search) || hash === "#demo";
+          if (demo) return;
+
           if (!localStorage.getItem("token")) {
             window.location.replace("../index.html");
             return;
@@ -200,6 +207,13 @@
     <script>
       (function ownerBookings() {
         var API = "/api";
+        var isDemo = false;
+        try {
+          var qs = new URLSearchParams(window.location.search || "");
+          var h = String(window.location.hash || "");
+          var onFile = String(window.location.protocol || "") === "file:";
+          isDemo = onFile || qs.get("demo") === "1" || /(^#demo$|[?#&]demo=1\b)/.test(h) || h === "#demo";
+        } catch (e) {}
         var listNext7 = document.querySelector('[data-list="next7"]');
         var listMonth = document.querySelector('[data-list="month"]');
         var listLater = document.querySelector('[data-list="later"]');
@@ -227,6 +241,7 @@
         var allowedUnitIds = new Set();
         var allowedUnitsById = {};
         var bookings = [];
+        var bookingsById = {};
         var activeBookingId = null;
         var activeBookingUnitId = null;
         var rejectActionMode = "reject";
@@ -380,12 +395,15 @@
           activeBookingId = bookingId != null ? Number(bookingId) : null;
           if (!activeBookingId) return;
 
-          fetch(API + "/bookings/" + activeBookingId, { headers: getAuthHeaders() })
-            .then(function (r) {
-              if (!r.ok) throw new Error("Not found");
-              return r.json();
-            })
-            .then(function (b) {
+          var p = isDemo
+            ? Promise.resolve(bookingsById[String(activeBookingId)] || null)
+            : fetch(API + "/bookings/" + activeBookingId, { headers: getAuthHeaders() }).then(function (r) {
+                if (!r.ok) throw new Error("Not found");
+                return r.json();
+              });
+
+          p.then(function (b) {
+              if (!b) throw new Error("Not found");
               var uid = b && b.unit_id != null && b.unit_id !== "" ? Number(b.unit_id) : null;
               activeBookingUnitId = uid;
               if (uid == null || !allowedUnitIds.has(uid)) {
@@ -670,8 +688,7 @@
                 detailSidebar.setAttribute("aria-hidden", "false");
                 if (detailContent) requestAnimationFrame(function () { detailContent.classList.add("is-visible"); });
               }
-            })
-            .catch(function () {
+            }).catch(function () {
               alert("Could not load booking details.");
             });
         }
@@ -744,6 +761,20 @@
         }
 
         function loadAllowedUnits() {
+          if (isDemo) {
+            allowedUnitIds = new Set([231]);
+            allowedUnitsById = {
+              231: {
+                unit_id: 231,
+                unit_number: "231",
+                tower_name: "Abreeza Tower 1",
+                unit_type: "Studio Type",
+                check_in_time: "15:00",
+                check_out_time: "11:00"
+              }
+            };
+            return Promise.resolve();
+          }
           return fetch(API + "/properties", { headers: getAuthHeaders() })
             .then(function (r) { return r.ok ? r.json() : []; })
             .then(function (rows) {
@@ -761,6 +792,84 @@
         }
 
         function loadBookings() {
+          if (isDemo) {
+            function svgData(text, bg, fg) {
+              return (
+                "data:image/svg+xml;base64," +
+                btoa(
+                  '<svg xmlns="http://www.w3.org/2000/svg" width="700" height="420">' +
+                    '<rect width="100%" height="100%" fill="' + bg + '"/>' +
+                    '<text x="50%" y="50%" font-family="Arial" font-size="36" fill="' + fg + '" text-anchor="middle">' +
+                      text +
+                    "</text>" +
+                  "</svg>"
+                )
+              );
+            }
+
+            var demo = {
+              booking_id: 999001,
+              status: "pending",
+              unit_id: 231,
+              unit_number: "231",
+              unit_type: "Studio Type",
+              tower_name: "Abreeza Tower 1",
+              inclusive_dates: "2026-03-19 - 2026-03-24",
+              check_in_date: "2026-03-19",
+              check_out_date: "2026-03-24",
+              purpose_of_stay: "Family visit",
+              paid_yes_no: "Yes",
+              amount_paid: "8500.00",
+              booking_platform: "Airbnb",
+              payment_method: "upload",
+              payment_proof: svgData("Sample payment proof", "#e2f3f2", "#2f5f67"),
+              requested_check_in_time: "13:00",
+              requested_check_out_time: "12:30",
+              early_checkin_hours: 2,
+              early_checkout_hours: 1.5,
+              num_pax: 3,
+              guests: [
+                {
+                  full_name: "Guest One",
+                  permanent_address: "Davao City",
+                  age: "29",
+                  nationality: "Filipino",
+                  relation_to_owner: "Friend",
+                  occupation: "Designer",
+                  email: "guest1@example.com",
+                  contact_number: "+63 900 000 0001",
+                  id_document: svgData("Sample ID (Guest 1)", "#1e9db1", "#ffffff")
+                },
+                {
+                  full_name: "Guest Two",
+                  permanent_address: "Cebu City",
+                  age: "31",
+                  nationality: "Filipino",
+                  relation_to_owner: "Sibling",
+                  occupation: "Engineer",
+                  email: "guest2@example.com",
+                  contact_number: "+63 900 000 0002",
+                  id_document: svgData("Sample ID (Guest 2)", "#f3f8f8", "#2f5f67")
+                },
+                {
+                  full_name: "Guest Three",
+                  permanent_address: "Tagum City",
+                  age: "26",
+                  nationality: "Filipino",
+                  relation_to_owner: "Colleague",
+                  occupation: "Teacher",
+                  email: "guest3@example.com",
+                  contact_number: "+63 900 000 0003",
+                  id_document: svgData("Sample ID (Guest 3)", "#fff7ed", "#92400e")
+                }
+              ]
+            };
+
+            bookings = [demo];
+            bookingsById = { "999001": demo };
+            renderBookings();
+            return Promise.resolve();
+          }
           return fetch(API + "/bookings", { headers: getAuthHeaders() })
             .then(function (r) { return r.ok ? r.json() : []; })
             .then(function (data) {
@@ -769,10 +878,15 @@
                 var uid = b && b.unit_id != null && b.unit_id !== "" ? Number(b.unit_id) : null;
                 return uid != null && allowedUnitIds.has(uid);
               });
+              bookingsById = {};
+              bookings.forEach(function (b) {
+                if (b && b.booking_id != null) bookingsById[String(b.booking_id)] = b;
+              });
               renderBookings();
             })
             .catch(function () {
               bookings = [];
+              bookingsById = {};
               renderBookings();
             });
         }
@@ -804,9 +918,33 @@
         // Boot
         clearLists();
         if (emptyEl) emptyEl.style.display = "none";
+        if (isDemo) {
+          try {
+            var hdr = document.querySelector(".topbar h1");
+            if (hdr && !document.querySelector("[data-demo-badge]")) {
+              var badge = document.createElement("span");
+              badge.setAttribute("data-demo-badge", "");
+              badge.textContent = "DEMO MODE";
+              badge.style.marginLeft = "0.65rem";
+              badge.style.fontSize = "0.72rem";
+              badge.style.padding = "0.25rem 0.55rem";
+              badge.style.borderRadius = "999px";
+              badge.style.background = "rgba(255,255,255,0.18)";
+              badge.style.border = "1px solid rgba(255,255,255,0.22)";
+              badge.style.color = "#fff";
+              badge.style.fontWeight = "700";
+              badge.style.letterSpacing = "0.06em";
+              hdr.appendChild(badge);
+            }
+          } catch (e) {}
+        }
         Promise.resolve()
           .then(loadAllowedUnits)
-          .then(loadBookings);
+          .then(loadBookings)
+          .then(function () {
+            // Safety: if demo is on but nothing rendered, inject again.
+            if (isDemo && (!bookings || !bookings.length)) return loadBookings();
+          });
       })();
     </script>
   </body>
