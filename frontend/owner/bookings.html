@@ -410,8 +410,46 @@
               }
 
               function normGuests(booking) {
-                var gs = booking && Array.isArray(booking.guests) ? booking.guests.filter(Boolean) : [];
+                function safeParseJson(v) {
+                  if (!v || typeof v !== "string") return null;
+                  var s = v.trim();
+                  if (!s) return null;
+                  try { return JSON.parse(s); } catch (e) { return null; }
+                }
+
+                // 1) Preferred: guests array (or guests JSON string).
+                var rawGuests = booking ? booking.guests : null;
+                if (typeof rawGuests === "string") rawGuests = safeParseJson(rawGuests);
+                var gs = Array.isArray(rawGuests) ? rawGuests.filter(Boolean) : [];
                 if (gs.length) return gs;
+
+                // 2) Common alternates: guests_json / guest_list / additional_guests (array or JSON string).
+                var altKeys = ["guests_json", "guest_list", "additional_guests", "other_guests"];
+                for (var k = 0; k < altKeys.length; k++) {
+                  var v = booking ? booking[altKeys[k]] : null;
+                  if (typeof v === "string") v = safeParseJson(v);
+                  if (Array.isArray(v) && v.filter(Boolean).length) return v.filter(Boolean);
+                }
+
+                // 3) Heuristic: indexed guest fields (guest_name_0, email_1, id_document_2, etc.)
+                var byIdx = {};
+                if (booking && typeof booking === "object") {
+                  Object.keys(booking).forEach(function (key) {
+                    var m = key.match(/^(guest_name|full_name|permanent_address|age|nationality|relation_to_owner|occupation|email|contact_number|id_document)_(\d+)$/);
+                    if (!m) return;
+                    var field = m[1];
+                    var idx = Number(m[2]);
+                    if (isNaN(idx)) return;
+                    if (!byIdx[idx]) byIdx[idx] = {};
+                    byIdx[idx][field === "guest_name" ? "full_name" : field] = booking[key];
+                  });
+                }
+                var idxs = Object.keys(byIdx).map(function (x) { return Number(x); }).filter(function (n) { return !isNaN(n); }).sort(function (a, b) { return a - b; });
+                if (idxs.length) {
+                  var built = idxs.map(function (i) { return byIdx[i]; }).filter(Boolean);
+                  if (built.length) return built;
+                }
+
                 // Fallback to legacy single-guest fields.
                 return [{
                   full_name: booking.guest_name || "",
@@ -476,10 +514,16 @@
               var earlyH = num(b.early_checkin_hours);
               var lateH = num(b.early_checkout_hours);
 
-              var arrivalLabel = earlyH > 0 ? ("Early check-in (" + earlyH + "h)") : "Regular time";
-              var departLabel = lateH > 0 ? ("Late checkout (" + lateH + "h)") : "Regular time";
               var arrivalTimeText = (reqIn || stdIn) ? (reqIn || stdIn) : "-";
               var departTimeText = (reqOut || stdOut) ? (reqOut || stdOut) : "-";
+              var showStdIn = stdIn && reqIn && stdIn !== reqIn;
+              var showStdOut = stdOut && reqOut && stdOut !== reqOut;
+              var arrivalMeta = earlyH > 0 ? ("Early check-in: " + earlyH + "h") : "";
+              var departMeta = lateH > 0 ? ("Late checkout: " + lateH + "h") : "";
+              var arrivalStdHint = showStdIn ? (" <span style=\"opacity:.7;\">(Standard: " + escapeHtml(stdIn) + ")</span>") : "";
+              var departStdHint = showStdOut ? (" <span style=\"opacity:.7;\">(Standard: " + escapeHtml(stdOut) + ")</span>") : "";
+              var arrivalMetaHint = arrivalMeta ? (" <span style=\"opacity:.7;\">(" + escapeHtml(arrivalMeta) + ")</span>") : "";
+              var departMetaHint = departMeta ? (" <span style=\"opacity:.7;\">(" + escapeHtml(departMeta) + ")</span>") : "";
 
               var html =
                 "<div class=\"booking-detail-grid\">" +
@@ -488,8 +532,8 @@
                     "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +
                     "<p><strong>Inclusive dates:</strong> " + escapeHtml(b.inclusive_dates) + "</p>" +
                     "<p><strong>Check-in:</strong> " + formatDate(b.check_in_date) + " &nbsp; <strong>Check-out:</strong> " + formatDate(b.check_out_date) + "</p>" +
-                    "<p><strong>Arrival time:</strong> " + escapeHtml(arrivalTimeText) + " <span style=\"opacity:.75;\">(" + escapeHtml(arrivalLabel) + ")</span></p>" +
-                    "<p><strong>Departure time:</strong> " + escapeHtml(departTimeText) + " <span style=\"opacity:.75;\">(" + escapeHtml(departLabel) + ")</span></p>" +
+                    "<p><strong>Arrival time:</strong> " + escapeHtml(arrivalTimeText) + arrivalStdHint + arrivalMetaHint + "</p>" +
+                    "<p><strong>Departure time:</strong> " + escapeHtml(departTimeText) + departStdHint + departMetaHint + "</p>" +
                     "<p><strong>Purpose of stay:</strong> " + escapeHtml(b.purpose_of_stay) + "</p>" +
                     "<p><strong>Paid:</strong> " + escapeHtml(b.paid_yes_no) + (b.amount_paid ? " - " + escapeHtml(b.amount_paid) : "") + "</p>" +
                     "<p><strong>Booking platform:</strong> " + escapeHtml(b.booking_platform) + "</p>" +
