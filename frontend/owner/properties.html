@@ -138,6 +138,14 @@
             <div class="owner-bk-field-group">
               <label class="owner-bk-label">Guest name (primary booker) <input type="text" data-bk-guest-name placeholder="Full name" autocomplete="name" /></label>
             </div>
+            <div class="owner-bk-field-group">
+              <label class="owner-bk-label">Booking platform <input type="text" data-bk-platform placeholder="e.g. Airbnb, Booking.com, Agoda" autocomplete="off" /></label>
+              <p class="owner-bk-hint">Shown on the guest form as where they booked.</p>
+            </div>
+            <div class="owner-bk-field-group">
+              <label class="owner-bk-label">Nightly rate (₱) <input type="number" data-bk-nightly min="0" step="0.01" placeholder="e.g. 2500" /></label>
+              <p class="owner-bk-hint" data-bk-nightly-hint>Defaults to unit list price. Total stay = nights × this rate plus additional charges below.</p>
+            </div>
             <div class="owner-bk-field-group owner-bk-field-group--pax">
               <label class="owner-bk-label">Number of guests (pax) <input type="number" data-bk-pax min="1" step="1" value="1" /></label>
               <p class="owner-bk-hint" data-bk-max-pax-hint></p>
@@ -510,6 +518,16 @@
         if (exInp && !exInp.disabled) ex = parseInt(exInp.value, 10) || 0;
         var rEx = Number(setupUnit.extra_pax_rate_per_night) || 0;
         var nights = bookingSetupNights();
+        var nightlyInp = setupOverlay.querySelector("[data-bk-nightly]");
+        var nightly =
+          nightlyInp && String(nightlyInp.value).trim() !== ""
+            ? Number(nightlyInp.value)
+            : Number(setupUnit.price) || 0;
+        if (isNaN(nightly) || nightly < 0) nightly = 0;
+        var staySub = Math.round(nights * nightly * 100) / 100;
+        addLine(
+          "Accommodation: " + nights + " night(s) × ₱" + nightly.toFixed(2) + "/night = ₱" + staySub.toFixed(2)
+        );
         if (ex > 0) {
           if (rEx > 0) {
             var s3 = ex * rEx * nights;
@@ -517,12 +535,14 @@
             addLine("Beyond-max guests: " + ex + " × ₱" + rEx + "/night × " + nights + " night(s) = ₱" + s3.toFixed(2));
           } else addLine("Beyond-max guests: set extra guest ₱/night in Edit unit to apply this charge.", true);
         }
+        var addTot = document.createElement("div");
+        addTot.className = "owner-bk-fee-subtotal";
+        addTot.textContent = "Additional charges subtotal: ₱" + monetary.toFixed(2);
+        el.appendChild(addTot);
+        var grand = staySub + monetary;
         var tot = document.createElement("div");
         tot.className = "owner-bk-fee-total";
-        tot.textContent =
-          monetary > 0
-            ? "Total additional charges: ₱" + monetary.toFixed(2)
-            : "Total additional charges: ₱0.00";
+        tot.textContent = "Total amount (stay + additional): ₱" + grand.toFixed(2);
         el.appendChild(tot);
       }
 
@@ -562,6 +582,10 @@
         if (rco) rco.value = stdOutStr;
         var exP = setupOverlay.querySelector("[data-bk-extra-pax]");
         if (exP) exP.value = "0";
+        var plat = setupOverlay.querySelector("[data-bk-platform]");
+        if (plat) plat.value = "";
+        var night = setupOverlay.querySelector("[data-bk-nightly]");
+        if (night) night.value = u.price != null && u.price !== "" ? u.price : "";
         var msg = setupOverlay.querySelector("[data-bk-setup-msg]");
         if (msg) msg.textContent = "";
         updateBookingFeePreview();
@@ -570,7 +594,7 @@
       }
 
       if (setupOverlay) {
-        ["[data-bk-req-cin-time]", "[data-bk-req-cout-time]", "[data-bk-cin]", "[data-bk-cout]", "[data-bk-pax]", "[data-bk-extra-pax]"].forEach(function (sel) {
+        ["[data-bk-req-cin-time]", "[data-bk-req-cout-time]", "[data-bk-cin]", "[data-bk-cout]", "[data-bk-pax]", "[data-bk-extra-pax]", "[data-bk-nightly]"].forEach(function (sel) {
           var n = setupOverlay.querySelector(sel);
           if (n) n.addEventListener("input", updateBookingFeePreview);
           if (n) n.addEventListener("change", updateBookingFeePreview);
@@ -592,6 +616,18 @@
             if (!name) {
               var m2 = setupOverlay.querySelector("[data-bk-setup-msg]");
               if (m2) m2.textContent = "Enter the primary guest name.";
+              return;
+            }
+            var platformStr = ((setupOverlay.querySelector("[data-bk-platform]") || {}).value || "").trim();
+            if (!platformStr) {
+              var m2p = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m2p) m2p.textContent = "Enter the booking platform (e.g. Airbnb).";
+              return;
+            }
+            var nightlyVal = (setupOverlay.querySelector("[data-bk-nightly]") || {}).value;
+            if (nightlyVal === "" || nightlyVal == null || isNaN(Number(nightlyVal)) || Number(nightlyVal) < 0) {
+              var m2n = setupOverlay.querySelector("[data-bk-setup-msg]");
+              if (m2n) m2n.textContent = "Enter a valid nightly rate (₱), or set unit price in Edit unit.";
               return;
             }
             var basePax = parseInt((setupOverlay.querySelector("[data-bk-pax]") || {}).value, 10);
@@ -657,7 +693,9 @@
                 requested_check_in_time: reqInT,
                 requested_check_out_time: reqOutT,
                 early_checkin_hours: ehIn,
-                early_checkout_hours: ehOut
+                early_checkout_hours: ehOut,
+                booking_platform: platformStr,
+                nightly_rate: Number(nightlyVal)
               })
             })
               .then(function (r) {

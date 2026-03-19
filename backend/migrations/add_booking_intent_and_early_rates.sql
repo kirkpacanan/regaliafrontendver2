@@ -26,6 +26,6 @@ CREATE TABLE IF NOT EXISTS BOOKING_INTENT (
   KEY idx_booking_intent_unit (unit_id)
 );
 
--- Existing databases: add columns if missing
--- ALTER TABLE BOOKING_INTENT ADD COLUMN extra_pax INT NOT NULL DEFAULT 0;
--- ALTER TABLE BOOKING_INTENT ADD COLUMN extra_pax_rate_per_night_snapshot DECIMAL(10,2) NULL;
+-- Optional manual ALTERs (also applied on server startup):
+-- booking_platform, nightly_rate_snapshot, stay_nights_snapshot,
+-- stay_subtotal_snapshot, additional_charges_total_snapshot, grand_total_snapshot

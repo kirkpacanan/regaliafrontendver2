@@ -128,6 +128,12 @@ async function runStartupSchemaFixes() {
       for (const [col, ddl] of [
         ["extra_pax", "INT NOT NULL DEFAULT 0"],
         ["extra_pax_rate_per_night_snapshot", "DECIMAL(10,2) NULL"],
+        ["booking_platform", "VARCHAR(128) NOT NULL DEFAULT ''"],
+        ["nightly_rate_snapshot", "DECIMAL(10,2) NULL"],
+        ["stay_nights_snapshot", "INT NOT NULL DEFAULT 1"],
+        ["stay_subtotal_snapshot", "DECIMAL(12,2) NOT NULL DEFAULT 0"],
+        ["additional_charges_total_snapshot", "DECIMAL(12,2) NOT NULL DEFAULT 0"],
+        ["grand_total_snapshot", "DECIMAL(12,2) NOT NULL DEFAULT 0"],
       ]) {
         if (!(await colExists("BOOKING_INTENT", col))) {
           await db.promise().query(`ALTER TABLE \`BOOKING_INTENT\` ADD COLUMN \`${col}\` ${ddl}`);
@@ -1628,7 +1634,7 @@ app.post("/api/owner/booking-intents", optionalAuth, async (req, res) => {
     if (!ok) return res.status(403).json({ error: "Not allowed for this unit" });
 
     const [[unit]] = await db.promise().query(
-      "SELECT max_pax, check_in_time, check_out_time, early_checkin_rate_per_hour, early_checkout_rate_per_hour, extra_pax_rate_per_night FROM UNIT WHERE unit_id = ? LIMIT 1",
+      "SELECT max_pax, price, check_in_time, check_out_time, early_checkin_rate_per_hour, early_checkout_rate_per_hour, extra_pax_rate_per_night FROM UNIT WHERE unit_id = ? LIMIT 1",
       [uid]
     );
     if (!unit) return res.status(404).json({ error: "Unit not found" });
@@ -1713,6 +1719,26 @@ app.post("/api/owner/booking-intents", optionalAuth, async (req, res) => {
       }
     }
 
+    const platform = String(req.body.booking_platform || "").trim();
+    if (!platform) return res.status(400).json({ error: "Booking platform is required (e.g. Airbnb, Booking.com)" });
+    const stayNights = bookingIntentStayNights(cin, cout);
+    let nightlyRate =
+      req.body.nightly_rate !== undefined && req.body.nightly_rate !== null && String(req.body.nightly_rate).trim() !== ""
+        ? Number(req.body.nightly_rate)
+        : unit.price != null
+          ? Number(unit.price)
+          : NaN;
+    if (isNaN(nightlyRate) || nightlyRate < 0) {
+      return res.status(400).json({ error: "Enter a valid nightly rate (₱) for this stay, or set the unit price in Edit unit" });
+    }
+    const staySubtotal = Math.round(stayNights * nightlyRate * 100) / 100;
+    const addEarly = ehIn > 0 && rateIn > 0 ? ehIn * rateIn : 0;
+    const addLate = ehOut > 0 && rateOut > 0 ? ehOut * rateOut : 0;
+    const addExtra =
+      exBeyond > 0 && rateExtraNight != null && !isNaN(rateExtraNight) ? exBeyond * rateExtraNight * stayNights : 0;
+    const additionalSnap = Math.round((addEarly + addLate + addExtra) * 100) / 100;
+    const grandTotal = Math.round((staySubtotal + additionalSnap) * 100) / 100;
+
     const token = require("crypto").randomUUID();
     const expires = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000);
     await db.promise().query(
@@ -1720,8 +1746,11 @@ app.post("/api/owner/booking-intents", optionalAuth, async (req, res) => {
         public_token, unit_id, owner_employee_id, primary_guest_name, num_pax,
         check_in_date, check_out_date, early_checkin_hours, early_checkout_hours,
         rate_early_in_per_hour, rate_early_out_per_hour,
-        extra_pax, extra_pax_rate_per_night_snapshot, expires_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        extra_pax, extra_pax_rate_per_night_snapshot,
+        booking_platform, nightly_rate_snapshot, stay_nights_snapshot,
+        stay_subtotal_snapshot, additional_charges_total_snapshot, grand_total_snapshot,
+        expires_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         token,
         uid,
@@ -1736,6 +1765,12 @@ app.post("/api/owner/booking-intents", optionalAuth, async (req, res) => {
         ehOut > 0 ? rateOut : null,
         exBeyond,
         exBeyond > 0 ? rateExtraNight : null,
+        platform.slice(0, 128),
+        nightlyRate,
+        stayNights,
+        staySubtotal,
+        additionalSnap,
+        grandTotal,
         expires,
       ]
     );
@@ -1772,7 +1807,10 @@ app.get("/api/booking-intents/:token", async (req, res) => {
     const [[intent]] = await db.promise().query(
       `SELECT intent_id, unit_id, primary_guest_name, num_pax, check_in_date, check_out_date,
         early_checkin_hours, early_checkout_hours, rate_early_in_per_hour, rate_early_out_per_hour,
-        extra_pax, extra_pax_rate_per_night_snapshot, expires_at
+        extra_pax, extra_pax_rate_per_night_snapshot,
+        booking_platform, nightly_rate_snapshot, stay_nights_snapshot,
+        stay_subtotal_snapshot, additional_charges_total_snapshot, grand_total_snapshot,
+        expires_at
        FROM BOOKING_INTENT WHERE public_token = ? AND consumed_at IS NULL AND expires_at > NOW() LIMIT 1`,
       [token]
     );
@@ -1817,7 +1855,30 @@ app.get("/api/booking-intents/:token", async (req, res) => {
         return `${f.label}: ${f.hours} h × ₱${f.rate}/h = ₱${Number(f.subtotal).toFixed(2)}`;
       return `${f.label}: ${f.extra_pax} × ₱${f.rate_per_night}/night × ${f.nights} night(s) = ₱${Number(f.subtotal).toFixed(2)}`;
     });
-    const additionalTotal = feeLines.reduce((s, f) => s + Number(f.subtotal || 0), 0);
+    const additionalComputed = feeLines.reduce((s, f) => s + Number(f.subtotal || 0), 0);
+    const additionalTotal =
+      intent.additional_charges_total_snapshot != null && !Number.isNaN(Number(intent.additional_charges_total_snapshot))
+        ? Math.round(Number(intent.additional_charges_total_snapshot) * 100) / 100
+        : Math.round(additionalComputed * 100) / 100;
+    const stayNights =
+      intent.stay_nights_snapshot != null && Number(intent.stay_nights_snapshot) > 0
+        ? Number(intent.stay_nights_snapshot)
+        : nights;
+    const nightlyR =
+      intent.nightly_rate_snapshot != null && !Number.isNaN(Number(intent.nightly_rate_snapshot))
+        ? Number(intent.nightly_rate_snapshot)
+        : null;
+    const staySub =
+      intent.stay_subtotal_snapshot != null && !Number.isNaN(Number(intent.stay_subtotal_snapshot))
+        ? Math.round(Number(intent.stay_subtotal_snapshot) * 100) / 100
+        : nightlyR != null
+          ? Math.round(stayNights * nightlyR * 100) / 100
+          : 0;
+    const grandTotal =
+      intent.grand_total_snapshot != null && !Number.isNaN(Number(intent.grand_total_snapshot))
+        ? Math.round(Number(intent.grand_total_snapshot) * 100) / 100
+        : Math.round((staySub + additionalTotal) * 100) / 100;
+    const platform = String(intent.booking_platform || "").trim() || null;
 
     res.json({
       token,
@@ -1828,8 +1889,13 @@ app.get("/api/booking-intents/:token", async (req, res) => {
       extra_pax: exP,
       check_in_date: intent.check_in_date,
       check_out_date: intent.check_out_date,
+      booking_platform: platform,
+      stay_nights: stayNights,
+      nightly_rate: nightlyR,
+      stay_subtotal: staySub,
       fee_lines: feeLines,
-      additional_charges_total: Math.round(additionalTotal * 100) / 100,
+      additional_charges_total: additionalTotal,
+      grand_total: grandTotal,
       fee_summary:
         feeLines.length === 0
           ? "No early check-in, late checkout, or extra-guest charges."
@@ -2974,6 +3040,20 @@ app.post("/api/bookings", async (req, res) => {
       return res.status(400).json({ error: "unit_id, guest_name, and email required" });
     }
 
+    let finalBookingPlatform = booking_platform ? String(booking_platform).trim() : null;
+    let finalAmountPaid =
+      amount_paid != null && amount_paid !== "" ? String(amount_paid).trim() : null;
+    if (intentRow) {
+      const ip = String(intentRow.booking_platform || "").trim();
+      if (ip) finalBookingPlatform = ip;
+      if (
+        intentRow.grand_total_snapshot != null &&
+        !Number.isNaN(Number(intentRow.grand_total_snapshot))
+      ) {
+        finalAmountPaid = Number(intentRow.grand_total_snapshot).toFixed(2);
+      }
+    }
+
     await db.promise().query(
       `INSERT INTO BOOKING (
         unit_id, guest_name, permanent_address, age, nationality, relation_to_owner, occupation,
@@ -2998,8 +3078,8 @@ app.post("/api/bookings", async (req, res) => {
         effectiveCheckOut || null,
         purpose_of_stay ? String(purpose_of_stay).trim() : null,
         paid_yes_no ? String(paid_yes_no).trim() : null,
-        amount_paid != null && amount_paid !== "" ? String(amount_paid).trim() : null,
-        booking_platform ? String(booking_platform).trim() : null,
+        finalAmountPaid,
+        finalBookingPlatform,
         payment_method ? String(payment_method).trim() : null,
         finalIdDocument || null,
         payment_proof || null,

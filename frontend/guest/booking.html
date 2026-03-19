@@ -93,11 +93,49 @@
         box-shadow: 0 12px 22px rgba(0, 0, 0, 0.12);
       }
 
-      .guest-panel {
-        display: none;
+      .guest-panels-stack {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
       }
-      .guest-panel.is-active {
+      .guest-block {
         display: block;
+        padding-top: 0.25rem;
+      }
+      .guest-block + .guest-block {
+        padding-top: 1.25rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.18);
+      }
+      .guest-block-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: rgba(255, 255, 255, 0.95);
+        margin: 0 0 0.75rem;
+      }
+      .guest-block .field-row {
+        margin-bottom: 0.7rem;
+        gap: 0.85rem;
+      }
+      .guest-block .field-row:last-of-type {
+        margin-bottom: 0;
+      }
+      .guest-block .field-note {
+        margin: 0.35rem 0 0.5rem;
+      }
+      [data-add-guest] {
+        margin-top: 0.35rem;
+        align-self: flex-start;
+      }
+      [data-add-guest].is-hidden {
+        display: none !important;
+      }
+      .card-unit-photos {
+        margin: 0.65rem 0 1rem;
+      }
+      .card-unit-photos .image-grid {
+        margin: 0;
       }
 
       .unit-media-actions {
@@ -146,6 +184,10 @@
         font-weight: 600;
         margin-right: 0.35rem;
       }
+      .details .unit-media-actions {
+        margin-top: 1rem;
+        justify-content: center;
+      }
 
       .form {
         width: min(920px, 94vw);
@@ -180,6 +222,9 @@
       .field-group {
         display: grid;
         gap: 0.7rem;
+      }
+      .field-group[data-guest-section] {
+        gap: 1rem;
       }
 
       .field-group label {
@@ -270,6 +315,177 @@
         font-size: 0.82rem;
       }
 
+      .intent-booking-banner {
+        padding: 1.1rem 1.2rem 1.05rem;
+      }
+      .intent-banner-stay {
+        padding-bottom: 0.9rem;
+        margin-bottom: 0.85rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+      }
+      .intent-banner-stay-label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        opacity: 0.88;
+        margin-bottom: 0.4rem;
+        font-weight: 600;
+      }
+      .intent-banner-stay-dates {
+        font-size: 1rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+      .intent-banner-stay-note {
+        font-size: 0.78rem;
+        opacity: 0.9;
+        margin-top: 0.4rem;
+        line-height: 1.4;
+      }
+      .intent-banner-platform {
+        font-size: 0.84rem;
+        font-weight: 600;
+        margin: 0.5rem 0 0.75rem;
+        padding: 0.5rem 0.65rem;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+      }
+      .intent-banner-grand {
+        margin-top: 0.75rem;
+        padding: 0.75rem 0.85rem;
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        font-size: 1.05rem;
+        font-weight: 800;
+      }
+      .intent-banner-grand span:last-child {
+        font-variant-numeric: tabular-nums;
+      }
+      .field-group input.intent-readonly {
+        opacity: 0.95;
+        cursor: default;
+        background: rgba(255, 255, 255, 0.12);
+      }
+      .field-help-text {
+        font-size: 0.78rem;
+        line-height: 1.45;
+        color: rgba(255, 255, 255, 0.88);
+        margin: -0.15rem 0 0.65rem;
+        padding: 0.55rem 0.7rem;
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 10px;
+        border-left: 3px solid rgba(255, 255, 255, 0.35);
+      }
+      .field-help-text strong {
+        color: #fff;
+        font-weight: 600;
+      }
+      .field-prefill-hint {
+        font-size: 0.74rem;
+        line-height: 1.4;
+        color: rgba(255, 255, 255, 0.82);
+        margin: 0.35rem 0 0.5rem;
+        padding: 0.45rem 0.65rem;
+        background: rgba(30, 157, 177, 0.2);
+        border-radius: 8px;
+      }
+      .field-prefill-hint--inline {
+        margin-top: -0.25rem;
+        margin-bottom: 0.6rem;
+      }
+      .card-hint-text {
+        font-size: 0.74rem;
+        color: rgba(255, 255, 255, 0.8);
+        text-align: center;
+        margin: 0.5rem 0 0;
+        line-height: 1.4;
+        max-width: 36rem;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      .intent-banner-charges-title {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.09em;
+        opacity: 0.88;
+        margin-bottom: 0.55rem;
+        font-weight: 600;
+      }
+      .intent-banner-fees {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+      .intent-banner-fees li {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        font-size: 0.84rem;
+        line-height: 1.4;
+        padding: 0.35rem 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .intent-banner-fees li:last-child {
+        border-bottom: none;
+        padding-bottom: 0;
+      }
+      .intent-banner-fees .ib-fee-label {
+        flex: 1;
+        min-width: 0;
+      }
+      .intent-banner-fees .ib-fee-amt {
+        font-weight: 700;
+        flex-shrink: 0;
+        font-variant-numeric: tabular-nums;
+      }
+      .intent-banner-total {
+        margin-top: 0.65rem;
+        padding-top: 0.85rem;
+        border-top: 2px solid rgba(255, 255, 255, 0.28);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        font-size: 0.98rem;
+        font-weight: 700;
+      }
+      .intent-banner-total span:last-child {
+        font-size: 1.05rem;
+        font-variant-numeric: tabular-nums;
+      }
+      .intent-banner-foot {
+        margin: 0.9rem 0 0;
+        padding-top: 0.8rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.16);
+        font-size: 0.78rem;
+        opacity: 0.92;
+        line-height: 1.45;
+      }
+      .intent-banner-fees--empty .intent-banner-fee-empty {
+        display: block;
+        border-bottom: none;
+        padding: 0.15rem 0 0;
+        font-size: 0.82rem;
+        opacity: 0.92;
+      }
+      @media (max-width: 520px) {
+        .intent-banner-fees li {
+          flex-direction: column;
+          gap: 0.2rem;
+        }
+        .intent-banner-fees .ib-fee-amt {
+          align-self: flex-end;
+        }
+      }
+
       .signature-box {
         background: rgba(255, 255, 255, 0.14);
         border-radius: 14px;
@@ -355,6 +571,9 @@
         <div class="card-content" data-unit-content style="display: none;">
           <div class="details">
             <h2 data-unit>Unit</h2>
+            <div class="card-unit-photos">
+              <div class="image-grid" data-images></div>
+            </div>
             <div class="detail-grid">
               <div><span>Location:</span> <span data-location></span></div>
               <div><span>Price:</span> <span data-price></span></div>
@@ -362,19 +581,15 @@
               <div><span>Size:</span> <span data-size></span></div>
               <div><span>Description:</span> <span data-description></span></div>
             </div>
-          </div>
-          <div style="text-align: center;">
-            <button class="btn secondary" type="button" data-toggle-unit-media>
-              Show unit photos & booking link
-            </button>
-          </div>
-          <div class="unit-media" data-unit-media style="display: none;">
-            <div class="image-grid" data-images></div>
-            <div class="unit-media-actions" style="margin-top: 0.9rem;">
+            <div class="unit-media-actions">
               <input type="text" class="unit-media-link-input" data-unit-booking-link readonly />
               <button class="btn secondary" type="button" data-open-unit-booking>Open</button>
               <button class="btn secondary" type="button" data-copy-unit-booking>Copy</button>
             </div>
+            <p class="card-hint-text" data-card-link-hint>
+              Link to this booking page (for your records). <strong>Owner name &amp; number</strong> in the form below are the
+              <em>condo unit owner’s</em> contact — not the booking website’s support line.
+            </p>
           </div>
         </div>
         <div class="card-error" data-unit-error style="display: none;">No property selected. Use the link from the property listing.</div>
@@ -389,19 +604,13 @@
             </svg>
             Personal Information
           </div>
+          <p class="field-help-text" data-guest-section-help>
+            Enter each guest’s own details. Government ID must match the person named.
+          </p>
 
-          <div style="display:flex;gap:0.8rem;align-items:center;flex-wrap:wrap;">
-            <div style="font-size:0.8rem;color:rgba(255,255,255,0.92);text-transform:uppercase;letter-spacing:0.05em;font-weight:600;">
-              Guest
-            </div>
-            <select name="guest_selector" data-guest-selector>
-              <option value="0">Guest 1</option>
-              <option value="__add__">+ Add another guest</option>
-            </select>
-          </div>
-
-          <div data-guest-panels>
-            <div class="guest-panel is-active" data-guest-panel="0">
+          <div class="guest-panels-stack" data-guest-panels>
+            <div class="guest-block" data-guest-panel="0">
+              <div class="guest-block-title">Guest 1</div>
               <div class="field-row">
                 <input type="text" name="guest_name_0" placeholder="Name" required />
                 <input type="text" name="permanent_address_0" placeholder="Permanent Address" />
@@ -426,6 +635,7 @@
               </div>
             </div>
           </div>
+          <button class="btn secondary" type="button" data-add-guest>+ Add another guest</button>
         </div>
 
         <div class="field-group">
@@ -437,14 +647,31 @@
             </svg>
             Unit Details
           </div>
+          <p class="field-help-text">
+            <strong>Unit / tower</strong> — property you’re booking. <strong>Name of Owner</strong> and
+            <strong>Contact Number</strong> are the <em>unit owner’s</em> details on file with the condo (for front desk /
+            records), not your personal contact. <strong>Inclusive dates</strong> — summary of your stay period.
+          </p>
           <div class="field-row">
-            <input type="text" placeholder="Unit Number/Tower" data-prefill-unit readonly />
-            <input type="text" name="owner_name" placeholder="Name of Owner" />
+            <input type="text" placeholder="Unit Number/Tower" data-prefill-unit readonly aria-label="Unit and tower" />
+            <input type="text" name="owner_name" placeholder="Name of Owner" aria-label="Unit owner name" />
           </div>
+          <p class="field-prefill-hint field-prefill-hint--inline" data-hint-prefill-unit style="display: none">
+            Pre-filled: the unit you were invited to book.
+          </p>
           <div class="field-row">
-            <input type="text" name="owner_contact" placeholder="Contact Number/s" />
-            <input type="text" name="inclusive_dates" placeholder="Inclusive Dates (e.g. Nov 20 - Nov 27)" />
+            <input type="text" name="owner_contact" placeholder="Contact Number/s" aria-label="Unit owner contact" />
+            <input type="text" name="inclusive_dates" placeholder="Inclusive Dates (e.g. Nov 20 - Nov 27)" aria-label="Stay dates summary" />
           </div>
+          <p class="field-prefill-hint" data-hint-owner-contact style="display: none">
+            Pre-filled: this number reaches the <strong>unit owner</strong>, not the booking platform.
+          </p>
+          <p class="field-prefill-hint" data-hint-owner-name style="display: none">
+            Pre-filled: registered <strong>owner</strong> of this unit (condo records).
+          </p>
+          <p class="field-prefill-hint" data-hint-inclusive-dates style="display: none">
+            Pre-filled: your stay window (same as check-in / check-out below).
+          </p>
         </div>
 
         <div class="field-group">
@@ -455,10 +682,23 @@
             </svg>
             Length of Stay
           </div>
+          <p class="field-help-text" data-los-help-standard>
+            Choose your check-in and check-out dates, purpose of visit, and whether you already paid on a booking site.
+            <strong>Amount</strong> = what you paid (or expect to pay) on that platform; <strong>platform</strong> = e.g.
+            Airbnb, Booking.com.
+          </p>
+          <p class="field-help-text" data-los-help-intent style="display: none">
+            <strong>Check-in &amp; check-out</strong> — locked; your host set these. <strong>Inclusive dates</strong> (above)
+            match this stay. <strong>Total amount</strong> — full price your host calculated (nights + extra fees).
+            <strong>Booking platform</strong> — where you booked (e.g. Airbnb); locked to match your reservation.
+          </p>
           <div class="field-row">
             <input type="date" name="check_in_date" placeholder="Check-in date" />
             <input type="date" name="check_out_date" placeholder="Check-out date" />
           </div>
+          <p class="field-prefill-hint" data-hint-stay-dates style="display: none">
+            Pre-filled &amp; locked: stay dates chosen by your host (see summary box above).
+          </p>
           <div class="field-row">
             <input type="text" name="purpose_of_stay" placeholder="Purpose of Stay" />
             <div class="radio-group">
@@ -470,9 +710,13 @@
             </div>
           </div>
           <div class="field-row">
-            <input type="text" name="amount_paid" placeholder="If YES, how much did you pay?" />
-            <input type="text" name="booking_platform" placeholder="Which booking platform did you booked your stay?" />
+            <input type="text" name="amount_paid" placeholder="If YES, how much did you pay?" aria-label="Amount paid or total due" />
+            <input type="text" name="booking_platform" placeholder="Which booking platform did you booked your stay?" aria-label="Booking platform" />
           </div>
+          <p class="field-prefill-hint" data-hint-amount-platform style="display: none">
+            Pre-filled: <strong>Total due</strong> (stay + fees from your host). <strong>Platform</strong> — site where you
+            booked; contact that platform for payment issues, not the owner’s number for booking refunds.
+          </p>
         </div>
 
         <div class="field-group">
@@ -484,6 +728,10 @@
             </svg>
             Proof of Payment
           </div>
+          <p class="field-help-text">
+            Upload a screenshot or receipt if you already paid on a booking site. Choose <strong>Cash</strong> if you will
+            pay at the front desk.
+          </p>
           <div class="field-row">
             <select name="payment_method" data-payment-method>
               <option value="upload">Upload Proof</option>
@@ -553,22 +801,24 @@
       var intentToken = (urlParams.get("intent") || "").trim();
 
       function buildIntentGuestPanels(numPax, primaryGuestName) {
-        var selector = document.querySelector("[data-guest-selector]");
         var panelsWrap = document.querySelector("[data-guest-panels]");
-        if (!selector || !panelsWrap) return;
+        var addBtn = document.querySelector("[data-add-guest]");
+        if (!panelsWrap) return;
+        if (addBtn) {
+          addBtn.classList.add("is-hidden");
+          addBtn.style.display = "none";
+        }
         panelsWrap.innerHTML = "";
-        selector.innerHTML = "";
         var np = Math.min(Math.max(1, parseInt(String(numPax), 10) || 1), 20);
         for (var idx = 0; idx < np; idx++) {
-          var opt = document.createElement("option");
-          opt.value = String(idx);
-          opt.textContent = "Guest " + (idx + 1);
-          selector.appendChild(opt);
           var panel = document.createElement("div");
-          panel.className = "guest-panel" + (idx === 0 ? " is-active" : "");
+          panel.className = "guest-block";
           panel.setAttribute("data-guest-panel", String(idx));
           var emReq = idx === 0 ? " required" : "";
           panel.innerHTML =
+            '<div class="guest-block-title">Guest ' +
+            (idx + 1) +
+            "</div>" +
             '<div class="field-row">' +
             '<input type="text" name="guest_name_' +
             idx +
@@ -618,14 +868,16 @@
             var nameInp = panel.querySelector('[name="guest_name_0"]');
             if (nameInp) nameInp.value = String(primaryGuestName).trim();
           }
+          if (idx === 0) {
+            var gh = document.createElement("p");
+            gh.className = "field-prefill-hint field-prefill-hint--inline";
+            gh.textContent = primaryGuestName
+              ? "Name pre-filled by your host (primary booker). You must still add email, contact, address, and upload your ID below."
+              : "Complete all fields for Guest 1 including email and government ID.";
+            var gt = panel.querySelector(".guest-block-title");
+            if (gt) gt.insertAdjacentElement("afterend", gh);
+          }
         }
-        selector.addEventListener("change", function () {
-          var v = Number(selector.value);
-          if (isNaN(v)) return;
-          panelsWrap.querySelectorAll("[data-guest-panel]").forEach(function (p) {
-            p.classList.toggle("is-active", Number(p.getAttribute("data-guest-panel")) === v);
-          });
-        });
       }
 
       (function () {
@@ -637,8 +889,6 @@
         const errorEl = document.querySelector("[data-unit-error]");
         const imagesEl = document.querySelector("[data-images]");
         const prefillUnit = document.querySelector("[data-prefill-unit]");
-        const toggleUnitMediaBtn = document.querySelector("[data-toggle-unit-media]");
-        const unitMediaEl = document.querySelector("[data-unit-media]");
         const unitBookingLinkInput = document.querySelector("[data-unit-booking-link]");
         const openUnitBookingBtn = document.querySelector("[data-open-unit-booking]");
         const copyUnitBookingBtn = document.querySelector("[data-copy-unit-booking]");
@@ -692,12 +942,6 @@
           }
         }
 
-        if (toggleUnitMediaBtn && unitMediaEl) {
-          toggleUnitMediaBtn.addEventListener("click", function () {
-            if (!unitMediaEl) return;
-            unitMediaEl.style.display = unitMediaEl.style.display === "none" ? "" : "none";
-          });
-        }
         if (openUnitBookingBtn && unitBookingLinkInput) {
           openUnitBookingBtn.addEventListener("click", function () {
             var link = unitBookingLinkInput.value;
@@ -759,13 +1003,63 @@
               if (ownerNameEl) {
                 ownerNameEl.value = unit.owner_name || "";
                 ownerNameEl.readOnly = true;
+                ownerNameEl.classList.add("intent-readonly");
               }
               if (ownerContactEl) {
                 ownerContactEl.value = unit.owner_contact || "";
                 ownerContactEl.readOnly = true;
+                ownerContactEl.classList.add("intent-readonly");
               }
               if (prefillUnit) prefillUnit.value = (unit.unit_number || "") + (unit.tower_name ? " · " + unit.tower_name : "");
               if (unitBookingLinkInput) unitBookingLinkInput.value = window.location.href.split("?")[0] + "?intent=" + encodeURIComponent(intentToken);
+
+              if (cinEl) cinEl.classList.add("intent-readonly");
+              if (coutEl) coutEl.classList.add("intent-readonly");
+              if (incEl) incEl.classList.add("intent-readonly");
+
+              function showGuestPrefillHint(sel) {
+                var n = document.querySelector(sel);
+                if (n) n.style.display = "";
+              }
+              [
+                "[data-hint-prefill-unit]",
+                "[data-hint-owner-name]",
+                "[data-hint-owner-contact]",
+                "[data-hint-inclusive-dates]",
+                "[data-hint-stay-dates]",
+                "[data-hint-amount-platform]",
+              ].forEach(showGuestPrefillHint);
+              var losStd = document.querySelector("[data-los-help-standard]");
+              var losInt = document.querySelector("[data-los-help-intent]");
+              if (losStd) losStd.style.display = "none";
+              if (losInt) losInt.style.display = "block";
+              var gsh = document.querySelector("[data-guest-section-help]");
+              if (gsh) {
+                gsh.textContent =
+                  "Guest 1 name was set by your host. Add email, phone, address, and a government ID for every guest listed.";
+              }
+              var cardH = document.querySelector("[data-card-link-hint]");
+              if (cardH) {
+                cardH.innerHTML =
+                  "This link returns to this booking form. <strong>Owner name &amp; number</strong> below are the <em>unit owner’s</em> condo records — use them for building/front-desk matters, not for Airbnb/Booking.com refunds.";
+              }
+
+              var bpEl = formEl && formEl.querySelector('[name="booking_platform"]');
+              if (bpEl && payload.booking_platform) {
+                bpEl.value = String(payload.booking_platform);
+                bpEl.readOnly = true;
+                bpEl.classList.add("intent-readonly");
+              }
+              var amtEl = formEl && formEl.querySelector('[name="amount_paid"]');
+              if (amtEl && payload.grand_total != null) {
+                amtEl.value = Number(payload.grand_total).toFixed(2);
+                amtEl.readOnly = true;
+                amtEl.classList.add("intent-readonly");
+                amtEl.setAttribute(
+                  "title",
+                  "Total from your host: accommodation + additional charges"
+                );
+              }
 
               var gs = formEl && formEl.querySelector("[data-guest-section]");
               if (gs && gs.parentNode) {
@@ -773,16 +1067,136 @@
                 if (!prev || !prev.getAttribute || prev.getAttribute("data-intent-banner") !== "1") {
                   var banner = document.createElement("div");
                   banner.setAttribute("data-intent-banner", "1");
-                  banner.className = "undertaking";
+                  banner.className = "undertaking intent-booking-banner";
                   banner.style.marginBottom = "0.85rem";
-                  banner.textContent =
-                    "Stay: " +
-                    cinStr +
-                    " → " +
-                    coutStr +
-                    " (cannot be changed). " +
-                    (payload.fee_summary || "") +
-                    " Complete details and upload one valid ID per guest.";
+
+                  var stay = document.createElement("div");
+                  stay.className = "intent-banner-stay";
+                  var stayLab = document.createElement("div");
+                  stayLab.className = "intent-banner-stay-label";
+                  stayLab.textContent = "Your stay";
+                  var stayDates = document.createElement("div");
+                  stayDates.className = "intent-banner-stay-dates";
+                  stayDates.textContent = cinStr + "  →  " + coutStr;
+                  var stayNote = document.createElement("div");
+                  stayNote.className = "intent-banner-stay-note";
+                  stayNote.textContent =
+                    "Check-in and check-out dates are fixed by your host.";
+                  stay.appendChild(stayLab);
+                  stay.appendChild(stayDates);
+                  stay.appendChild(stayNote);
+                  banner.appendChild(stay);
+
+                  if (payload.booking_platform) {
+                    var platEl = document.createElement("div");
+                    platEl.className = "intent-banner-platform";
+                    platEl.textContent = "Booked via: " + String(payload.booking_platform);
+                    banner.appendChild(platEl);
+                  }
+
+                  var accTitle = document.createElement("div");
+                  accTitle.className = "intent-banner-charges-title";
+                  accTitle.textContent = "Accommodation";
+                  banner.appendChild(accTitle);
+                  var ulStay = document.createElement("ul");
+                  ulStay.className = "intent-banner-fees";
+                  var liStay = document.createElement("li");
+                  var lsL = document.createElement("span");
+                  lsL.className = "ib-fee-label";
+                  var lsA = document.createElement("span");
+                  lsA.className = "ib-fee-amt";
+                  var sn = Number(payload.stay_nights) || 1;
+                  var nr = Number(payload.nightly_rate) || 0;
+                  var ss = Number(payload.stay_subtotal) || 0;
+                  lsL.textContent =
+                    sn + " night" + (sn !== 1 ? "s" : "") + " × ₱" + nr.toFixed(2) + "/night";
+                  lsA.textContent = "₱" + ss.toFixed(2);
+                  liStay.appendChild(lsL);
+                  liStay.appendChild(lsA);
+                  ulStay.appendChild(liStay);
+                  banner.appendChild(ulStay);
+
+                  var chTitle = document.createElement("div");
+                  chTitle.className = "intent-banner-charges-title";
+                  chTitle.style.marginTop = "0.65rem";
+                  chTitle.textContent = "Additional charges";
+                  banner.appendChild(chTitle);
+
+                  var ul = document.createElement("ul");
+                  ul.className = "intent-banner-fees";
+                  var feeLines = payload.fee_lines || [];
+                  if (!feeLines.length) {
+                    ul.classList.add("intent-banner-fees--empty");
+                    var li0 = document.createElement("li");
+                    li0.className = "intent-banner-fee-empty";
+                    li0.textContent = "None (no early check-in, late checkout, or beyond-capacity guests).";
+                    ul.appendChild(li0);
+                  } else {
+                    feeLines.forEach(function (f) {
+                      var li = document.createElement("li");
+                      var lbl = document.createElement("span");
+                      lbl.className = "ib-fee-label";
+                      var amt = document.createElement("span");
+                      amt.className = "ib-fee-amt";
+                      if (f.hours != null) {
+                        lbl.textContent =
+                          f.label + " — " + f.hours + " hr × ₱" + f.rate + "/hr";
+                        amt.textContent = "₱" + Number(f.subtotal).toFixed(2);
+                      } else {
+                        lbl.textContent =
+                          f.label +
+                          " — " +
+                          f.extra_pax +
+                          " × ₱" +
+                          f.rate_per_night +
+                          "/night × " +
+                          f.nights +
+                          " night" +
+                          (Number(f.nights) !== 1 ? "s" : "");
+                        amt.textContent = "₱" + Number(f.subtotal).toFixed(2);
+                      }
+                      li.appendChild(lbl);
+                      li.appendChild(amt);
+                      ul.appendChild(li);
+                    });
+                  }
+                  banner.appendChild(ul);
+
+                  var subAdd = document.createElement("div");
+                  subAdd.className = "intent-banner-total";
+                  subAdd.style.borderTop = "none";
+                  subAdd.style.paddingTop = "0.35rem";
+                  subAdd.style.fontSize = "0.88rem";
+                  subAdd.style.fontWeight = "600";
+                  var saL = document.createElement("span");
+                  saL.textContent = "Additional charges subtotal";
+                  var saA = document.createElement("span");
+                  saA.textContent =
+                    "₱" +
+                    Number(
+                      payload.additional_charges_total != null ? payload.additional_charges_total : 0
+                    ).toFixed(2);
+                  subAdd.appendChild(saL);
+                  subAdd.appendChild(saA);
+                  banner.appendChild(subAdd);
+
+                  var grand = document.createElement("div");
+                  grand.className = "intent-banner-grand";
+                  var gL = document.createElement("span");
+                  gL.textContent = "Total amount due";
+                  var gA = document.createElement("span");
+                  gA.textContent =
+                    "₱" + Number(payload.grand_total != null ? payload.grand_total : 0).toFixed(2);
+                  grand.appendChild(gL);
+                  grand.appendChild(gA);
+                  banner.appendChild(grand);
+
+                  var foot = document.createElement("p");
+                  foot.className = "intent-banner-foot";
+                  foot.textContent =
+                    "Booking platform and total amount due are filled in below. Complete all fields and upload one valid government-issued ID per guest.";
+                  banner.appendChild(foot);
+
                   gs.parentNode.insertBefore(banner, gs);
                 }
               }
@@ -835,6 +1249,14 @@
               if (prefillUnit) prefillUnit.value = (unit.unit_number || "") + (unit.tower_name ? " · " + unit.tower_name : "");
               var formEl = document.querySelector("[data-booking-form]");
               if (formEl) formEl.dataset.unitId = unit.unit_id;
+
+              function showIf(sel, ok) {
+                var n = document.querySelector(sel);
+                if (n) n.style.display = ok ? "" : "none";
+              }
+              showIf("[data-hint-prefill-unit]", !!(prefillUnit && prefillUnit.value));
+              showIf("[data-hint-owner-name]", !!(ownerNameEl && ownerNameEl.value));
+              showIf("[data-hint-owner-contact]", !!(ownerContactEl && ownerContactEl.value));
             })
             .catch(function () {
               showError();
@@ -844,29 +1266,21 @@
 
       (function initGuests() {
         if (intentToken) return;
-        var selector = document.querySelector("[data-guest-selector]");
         var panelsWrap = document.querySelector("[data-guest-panels]");
-        if (!selector || !panelsWrap) return;
+        var addBtn = document.querySelector("[data-add-guest]");
+        if (!panelsWrap) return;
 
         var maxGuests = 6;
-        var existingPanels = panelsWrap.querySelectorAll("[data-guest-panel]").length;
-        var guestCount = existingPanels > 0 ? existingPanels : 1;
-
-        function setActiveGuest(idx) {
-          var panels = panelsWrap.querySelectorAll("[data-guest-panel]");
-          panels.forEach(function (p) {
-            var pIdx = Number(p.getAttribute("data-guest-panel"));
-            if (pIdx === idx) p.classList.add("is-active");
-            else p.classList.remove("is-active");
-          });
-        }
 
         function addGuestPanel(idx) {
           var isPrimary = idx === 0;
           var panel = document.createElement("div");
-          panel.className = "guest-panel";
+          panel.className = "guest-block";
           panel.setAttribute("data-guest-panel", String(idx));
           panel.innerHTML =
+            '<div class="guest-block-title">Guest ' +
+            (idx + 1) +
+            "</div>" +
             '<div class="field-row">' +
             '<input type="text" name="guest_name_' +
             idx +
@@ -914,37 +1328,16 @@
           panelsWrap.appendChild(panel);
         }
 
-        // Ensure guest 1 is active at start.
-        setActiveGuest(0);
-
-        selector.addEventListener("change", function () {
-          var val = selector.value;
-          if (val === "__add__") {
-            if (guestCount >= maxGuests) {
-              alert("Max guests reached.");
-              selector.value = "0";
-              setActiveGuest(0);
+        if (addBtn) {
+          addBtn.addEventListener("click", function () {
+            var n = panelsWrap.querySelectorAll("[data-guest-panel]").length;
+            if (n >= maxGuests) {
+              alert("Maximum " + maxGuests + " guests.");
               return;
             }
-            var newIdx = guestCount;
-            guestCount++;
-
-            addGuestPanel(newIdx);
-
-            var newOption = document.createElement("option");
-            newOption.value = String(newIdx);
-            newOption.textContent = "Guest " + String(newIdx + 1);
-            var addOpt = selector.querySelector('option[value="__add__"]');
-            if (addOpt) selector.insertBefore(newOption, addOpt);
-            else selector.appendChild(newOption);
-
-            selector.value = String(newIdx);
-            setActiveGuest(newIdx);
-          } else {
-            var idx = Number(val);
-            if (!isNaN(idx)) setActiveGuest(idx);
-          }
-        });
+            addGuestPanel(n);
+          });
+        }
       })();
 
       function getFormData() {
@@ -955,7 +1348,10 @@
           return el ? el.value.trim() : "";
         };
         var paidEl = form && form.querySelector("input[name=\"paid\"]:checked");
-        var panels = form && form.querySelectorAll("[data-guest-panel]");
+        var panels = form ? Array.prototype.slice.call(form.querySelectorAll("[data-guest-panel]")) : [];
+        panels.sort(function (a, b) {
+          return Number(a.getAttribute("data-guest-panel")) - Number(b.getAttribute("data-guest-panel"));
+        });
         var guests = [];
         var panelGet = function (panel, name) {
           var el = panel && panel.querySelector("[name=\"" + name + "\"]");
@@ -1077,15 +1473,24 @@
                   alert("Booking submitted. The owner will review and confirm or reject.");
                 }
                 if (form) form.reset();
-                // Reset guest UI back to Guest 1 after successful submit.
-                var guestSelector = document.querySelector("[data-guest-selector]");
-                if (guestSelector) guestSelector.value = "0";
-                var panels = document.querySelectorAll("[data-guest-panel]");
-                panels.forEach(function (p) {
-                  var pIdx = Number(p.getAttribute("data-guest-panel"));
-                  if (pIdx === 0) p.classList.add("is-active");
-                  else p.classList.remove("is-active");
-                });
+                var panelsWrap = document.querySelector("[data-guest-panels]");
+                var addGuestBtn = document.querySelector("[data-add-guest]");
+                if (panelsWrap && !intentToken) {
+                  while (panelsWrap.children.length > 1) {
+                    panelsWrap.removeChild(panelsWrap.lastChild);
+                  }
+                  var g0 = panelsWrap.querySelector("[data-guest-panel=\"0\"]");
+                  if (g0) {
+                    g0.querySelectorAll("input[type=\"text\"], input[type=\"email\"], input[type=\"file\"]").forEach(function (inp) {
+                      if (inp.type === "file") inp.value = "";
+                      else inp.value = "";
+                    });
+                  }
+                }
+                if (addGuestBtn && !intentToken) {
+                  addGuestBtn.classList.remove("is-hidden");
+                  addGuestBtn.style.display = "";
+                }
                 var canvas = document.querySelector("[data-signature]");
                 if (canvas) { var ctx = canvas.getContext("2d"); ctx.clearRect(0, 0, canvas.width, canvas.height); }
               })
