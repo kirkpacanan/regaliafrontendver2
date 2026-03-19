@@ -8,7 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="../admin/admin.css" />
   </head>
-  <body data-page="bookings">
+  <body data-page="owner-bookings">
     <div class="dashboard">
       <aside class="sidebar">
         <div class="brand"><img class="brand-logo" src="../logo.png" alt="Regalia" /></div>
@@ -159,7 +159,6 @@
         } catch (e) {}
       })();
     </script>
-    <script src="../admin/adminscript.js"></script>
     <script>
       (function ownerProfileUi() {
         try {
@@ -195,6 +194,397 @@
         }
         var out = document.querySelector("[data-logout-link]");
         if (out) out.addEventListener("click", function () { try { localStorage.clear(); } catch (e) {} });
+      })();
+    </script>
+
+    <script>
+      (function ownerBookings() {
+        var API = "/api";
+        var listNext7 = document.querySelector('[data-list="next7"]');
+        var listMonth = document.querySelector('[data-list="month"]');
+        var listLater = document.querySelector('[data-list="later"]');
+        var emptyEl = document.querySelector("[data-bookings-empty]");
+
+        var detailSidebar = document.querySelector("[data-booking-detail-sidebar]");
+        var detailContent = document.getElementById("bookingDetailSidebarContent");
+        var detailTitle = document.querySelector("[data-booking-detail-title]");
+        var detailBody = document.querySelector("[data-booking-detail-body]");
+        var detailActions = document.querySelector("[data-booking-detail-actions]");
+        var closeDetailBtns = document.querySelectorAll("[data-close-booking-detail]");
+        var confirmBtn = document.querySelector("[data-confirm-booking]");
+        var rejectBtn = document.querySelector("[data-reject-booking]");
+        var cancelBtn = document.querySelector("[data-cancel-booking]");
+        var checkoutBtn = document.querySelector("[data-checkout-booking]");
+        var deleteBtn = document.querySelector("[data-delete-booking]");
+
+        var rejectModal = document.querySelector("[data-reject-reason-modal]");
+        var rejectModalTitle = document.querySelector("[data-reject-modal-title]");
+        var rejectReasonInput = document.querySelector("[data-reject-reason]");
+        var closeRejectBtn = document.querySelector("[data-close-reject-modal]");
+        var cancelRejectBtn = document.querySelector("[data-cancel-reject]");
+        var submitRejectBtn = document.querySelector("[data-submit-reject]");
+
+        var allowedUnitIds = new Set();
+        var bookings = [];
+        var activeBookingId = null;
+        var activeBookingUnitId = null;
+        var rejectActionMode = "reject";
+
+        function getAuthHeaders(withJson) {
+          var h = {};
+          if (withJson) h["Content-Type"] = "application/json";
+          try {
+            var t = localStorage && localStorage.getItem("token");
+            if (t) h.Authorization = "Bearer " + t;
+          } catch (e) {}
+          return h;
+        }
+
+        function escapeHtml(s) {
+          if (s == null || s === undefined) return "";
+          var div = document.createElement("div");
+          div.textContent = String(s);
+          return div.innerHTML;
+        }
+
+        function getInitials(name) {
+          if (!name || !String(name).trim()) return "-";
+          var parts = String(name).trim().split(/\s+/);
+          if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+          return (parts[0][0] || "?").toUpperCase();
+        }
+
+        function formatDate(d) {
+          if (!d) return "-";
+          try {
+            var date = new Date(d);
+            return isNaN(date.getTime()) ? String(d) : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+          } catch (e) {
+            return String(d);
+          }
+        }
+
+        function getSection(checkIn) {
+          if (!checkIn) return "later";
+          var d = new Date(checkIn);
+          if (isNaN(d.getTime())) return "later";
+          var today = new Date();
+          today.setHours(0, 0, 0, 0);
+          var in7 = new Date(today);
+          in7.setDate(in7.getDate() + 7);
+          var endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          if (d >= today && d <= in7) return "next7";
+          if (d <= endOfMonth) return "month";
+          return "later";
+        }
+
+        function statusClass(s) {
+          if (s === "confirmed") return "booking-status--confirmed";
+          if (s === "rejected" || s === "cancelled") return "booking-status--rejected";
+          return "booking-status--pending";
+        }
+
+        function statusLabel(s) {
+          if (s === "confirmed") return "Confirmed";
+          if (s === "rejected" || s === "cancelled") return "Cancelled";
+          return "Pending";
+        }
+
+        function clearLists() {
+          if (listNext7) listNext7.innerHTML = "";
+          if (listMonth) listMonth.innerHTML = "";
+          if (listLater) listLater.innerHTML = "";
+        }
+
+        function renderList(container, list) {
+          if (!container) return;
+          container.innerHTML = "";
+          list.forEach(function (b) {
+            var card = document.createElement("button");
+            card.type = "button";
+            card.className = "booking-card";
+            card.dataset.bookingId = String(b.booking_id);
+            var dates = b.check_in_date && b.check_out_date
+              ? "Check-in: " + formatDate(b.check_in_date) + " - Check-out: " + formatDate(b.check_out_date)
+              : (b.inclusive_dates || "-");
+            var unitInfo = [b.unit_number, b.unit_type].filter(Boolean).join(" - ") || "Unit";
+            card.innerHTML =
+              "<div class=\"booking-card__left\">" +
+                "<div class=\"booking-card__avatar\">" + getInitials(b.guest_name) + "</div>" +
+                "<div class=\"booking-card__info\">" +
+                  "<p class=\"booking-card__name\">" + escapeHtml(b.guest_name) + " - " + escapeHtml(unitInfo) + "</p>" +
+                  "<p class=\"booking-card__dates\">" + escapeHtml(dates) + "</p>" +
+                "</div>" +
+              "</div>" +
+              "<div class=\"booking-card__status " + statusClass(b.status) + "\">" +
+                "<span class=\"booking-status-dot\"></span>" +
+                "<span>" + statusLabel(b.status) + "</span>" +
+              "</div>";
+            container.appendChild(card);
+          });
+        }
+
+        function renderBookings() {
+          clearLists();
+          var next7 = [];
+          var month = [];
+          var later = [];
+          bookings.forEach(function (b) {
+            var sec = getSection(b.check_in_date);
+            if (sec === "next7") next7.push(b);
+            else if (sec === "month") month.push(b);
+            else later.push(b);
+          });
+          renderList(listNext7, next7);
+          renderList(listMonth, month);
+          renderList(listLater, later);
+          if (emptyEl) emptyEl.style.display = bookings.length ? "none" : "block";
+        }
+
+        function closeDetailModal() {
+          if (detailContent) detailContent.classList.remove("is-visible");
+          setTimeout(function () {
+            if (detailSidebar) {
+              detailSidebar.classList.remove("is-open");
+              detailSidebar.setAttribute("aria-hidden", "true");
+            }
+            activeBookingId = null;
+            activeBookingUnitId = null;
+          }, 250);
+        }
+
+        function openRejectModal(isCancel) {
+          rejectActionMode = isCancel ? "cancel" : "reject";
+          if (rejectReasonInput) rejectReasonInput.value = "";
+          if (rejectModalTitle) rejectModalTitle.textContent = isCancel ? "Reason for cancellation" : "Reason for rejection";
+          if (submitRejectBtn) submitRejectBtn.textContent = isCancel ? "Cancel booking" : "Reject booking";
+          if (rejectModal) rejectModal.classList.add("is-open");
+        }
+
+        function closeRejectModal() {
+          if (rejectModal) rejectModal.classList.remove("is-open");
+        }
+
+        function assertAllowedActiveBooking() {
+          if (!activeBookingId || activeBookingUnitId == null) return false;
+          if (!allowedUnitIds.has(Number(activeBookingUnitId))) {
+            alert("You don't have access to this booking.");
+            closeDetailModal();
+            return false;
+          }
+          return true;
+        }
+
+        function openDetailModal(bookingId) {
+          activeBookingId = bookingId != null ? Number(bookingId) : null;
+          if (!activeBookingId) return;
+
+          fetch(API + "/bookings/" + activeBookingId, { headers: getAuthHeaders() })
+            .then(function (r) {
+              if (!r.ok) throw new Error("Not found");
+              return r.json();
+            })
+            .then(function (b) {
+              var uid = b && b.unit_id != null && b.unit_id !== "" ? Number(b.unit_id) : null;
+              activeBookingUnitId = uid;
+              if (uid == null || !allowedUnitIds.has(uid)) {
+                alert("You don't have access to this booking.");
+                activeBookingId = null;
+                activeBookingUnitId = null;
+                return;
+              }
+
+              if (!detailTitle || !detailBody) return;
+              detailTitle.textContent =
+                "Booking - " + (b.guest_name || "Guest") + " - " + (b.unit_number || "") + (b.tower_name ? " " + b.tower_name : "");
+              var unitInfo = [b.unit_number, b.unit_type, b.tower_name].filter(Boolean).join(" - ") || "-";
+
+              var paymentHtml = "";
+              if (b.payment_method === "upload" && b.payment_proof) {
+                paymentHtml =
+                  "<p><strong>Payment method:</strong> Online</p>" +
+                  "<img src=\"" + escapeHtml(b.payment_proof) + "\" alt=\"Payment proof\" class=\"booking-payment-proof-img\" />";
+              } else {
+                var pm = b.payment_method === "cash" || !b.payment_method ? "Cash" : b.payment_method;
+                paymentHtml = "<p><strong>Payment method:</strong> " + escapeHtml(pm) + "</p>";
+              }
+
+              var html =
+                "<div class=\"booking-detail-grid\">" +
+                  "<div class=\"booking-detail-block\"><h4>Personal information</h4>" +
+                    "<p><strong>Name:</strong> " + escapeHtml(b.guest_name) + "</p>" +
+                    "<p><strong>Address:</strong> " + escapeHtml(b.permanent_address) + "</p>" +
+                    "<p><strong>Age:</strong> " + escapeHtml(b.age) + " &nbsp; <strong>Nationality:</strong> " + escapeHtml(b.nationality) + "</p>" +
+                    "<p><strong>Relation to owner:</strong> " + escapeHtml(b.relation_to_owner) + "</p>" +
+                    "<p><strong>Occupation:</strong> " + escapeHtml(b.occupation) + "</p>" +
+                    "<p><strong>Email:</strong> " + escapeHtml(b.email) + "</p>" +
+                    "<p><strong>Contact:</strong> " + escapeHtml(b.contact_number) + "</p>" +
+                  "</div>" +
+                  "<div class=\"booking-detail-block\"><h4>Unit &amp; stay</h4>" +
+                    "<p><strong>Unit:</strong> " + escapeHtml(unitInfo) + "</p>" +
+                    "<p><strong>Inclusive dates:</strong> " + escapeHtml(b.inclusive_dates) + "</p>" +
+                    "<p><strong>Check-in:</strong> " + formatDate(b.check_in_date) + " &nbsp; <strong>Check-out:</strong> " + formatDate(b.check_out_date) + "</p>" +
+                    "<p><strong>Purpose of stay:</strong> " + escapeHtml(b.purpose_of_stay) + "</p>" +
+                    "<p><strong>Paid:</strong> " + escapeHtml(b.paid_yes_no) + (b.amount_paid ? " - " + escapeHtml(b.amount_paid) : "") + "</p>" +
+                    "<p><strong>Booking platform:</strong> " + escapeHtml(b.booking_platform) + "</p>" +
+                    paymentHtml +
+                  "</div>" +
+                  "<div class=\"booking-detail-block booking-detail-block--status\"><h4>Status</h4>" +
+                    "<p><strong>" + statusLabel(b.status) + "</strong></p>" +
+                    (b.rejection_reason ? "<p class=\"booking-rejection-reason\"><strong>Reason:</strong> " + escapeHtml(b.rejection_reason) + "</p>" : "") +
+                  "</div>" +
+                "</div>";
+
+              detailBody.innerHTML = html;
+
+              if (detailActions) {
+                detailActions.style.display = "flex";
+                if (confirmBtn) confirmBtn.style.display = b.status === "pending" ? "inline-flex" : "none";
+                if (rejectBtn) rejectBtn.style.display = b.status === "pending" ? "inline-flex" : "none";
+                if (cancelBtn) cancelBtn.style.display = b.status === "confirmed" ? "inline-flex" : "none";
+                var canCheckout = b.status === "confirmed" && b.checked_in_at && !b.checked_out_at;
+                if (checkoutBtn) checkoutBtn.style.display = canCheckout ? "inline-flex" : "none";
+                if (deleteBtn) deleteBtn.style.display = "inline-flex";
+              }
+
+              if (detailSidebar) {
+                detailSidebar.classList.add("is-open");
+                detailSidebar.setAttribute("aria-hidden", "false");
+                if (detailContent) requestAnimationFrame(function () { detailContent.classList.add("is-visible"); });
+              }
+            })
+            .catch(function () {
+              alert("Could not load booking details.");
+            });
+        }
+
+        function confirmBooking() {
+          if (!assertAllowedActiveBooking()) return;
+          fetch(API + "/bookings/" + activeBookingId + "/confirm", { method: "PUT", headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); }); })
+            .then(function () {
+              closeDetailModal();
+              loadBookings();
+            })
+            .catch(function (err) { alert(err.message || "Failed to confirm."); });
+        }
+
+        function checkoutBooking() {
+          if (!assertAllowedActiveBooking()) return;
+          fetch(API + "/bookings/" + activeBookingId + "/check-out", { method: "POST", headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); }); })
+            .then(function () {
+              closeDetailModal();
+              loadBookings();
+            })
+            .catch(function (err) { alert(err.message || "Failed to check out."); });
+        }
+
+        function deleteBooking() {
+          if (!assertAllowedActiveBooking()) return;
+          if (!confirm("Permanently delete this booking? This cannot be undone.")) return;
+          fetch(API + "/bookings/" + activeBookingId, { method: "DELETE", headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); }); })
+            .then(function () {
+              closeDetailModal();
+              loadBookings();
+            })
+            .catch(function (err) { alert(err.message || "Failed to delete."); });
+        }
+
+        function submitReject() {
+          if (!assertAllowedActiveBooking()) return;
+          var reason = rejectReasonInput && rejectReasonInput.value.trim();
+          if (!reason) {
+            alert("Please provide a reason.");
+            if (rejectReasonInput) rejectReasonInput.focus();
+            return;
+          }
+          var isCancelAction = rejectActionMode === "cancel";
+          if (submitRejectBtn) {
+            submitRejectBtn.disabled = true;
+            submitRejectBtn.textContent = isCancelAction ? "Cancelling..." : "Rejecting...";
+          }
+          fetch(API + "/bookings/" + activeBookingId + "/reject", {
+            method: "PUT",
+            headers: getAuthHeaders(true),
+            body: JSON.stringify({ reason: reason })
+          })
+            .then(function (r) { return r.ok ? r.json() : r.json().then(function (e) { throw new Error(e.error || "Failed"); }); })
+            .then(function () {
+              closeRejectModal();
+              closeDetailModal();
+              loadBookings();
+            })
+            .catch(function (err) { alert(err.message || (isCancelAction ? "Failed to cancel." : "Failed to reject.")); })
+            .finally(function () {
+              if (submitRejectBtn) {
+                submitRejectBtn.disabled = false;
+                submitRejectBtn.textContent = isCancelAction ? "Cancel booking" : "Reject booking";
+              }
+            });
+        }
+
+        function loadAllowedUnits() {
+          return fetch(API + "/properties", { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (rows) {
+              allowedUnitIds = new Set();
+              (rows || []).forEach(function (u) {
+                var uid = u && u.unit_id != null && u.unit_id !== "" ? Number(u.unit_id) : null;
+                if (uid != null) allowedUnitIds.add(uid);
+              });
+            })
+            .catch(function () { allowedUnitIds = new Set(); });
+        }
+
+        function loadBookings() {
+          return fetch(API + "/bookings", { headers: getAuthHeaders() })
+            .then(function (r) { return r.ok ? r.json() : []; })
+            .then(function (data) {
+              var all = Array.isArray(data) ? data : [];
+              bookings = all.filter(function (b) {
+                var uid = b && b.unit_id != null && b.unit_id !== "" ? Number(b.unit_id) : null;
+                return uid != null && allowedUnitIds.has(uid);
+              });
+              renderBookings();
+            })
+            .catch(function () {
+              bookings = [];
+              renderBookings();
+            });
+        }
+
+        // List click handlers (event delegation)
+        [listNext7, listMonth, listLater].forEach(function (listEl) {
+          if (!listEl) return;
+          listEl.addEventListener("click", function (e) {
+            var card = e.target.closest(".booking-card");
+            if (!card || !card.dataset.bookingId) return;
+            openDetailModal(card.dataset.bookingId);
+          });
+        });
+
+        closeDetailBtns.forEach(function (btn) { btn.addEventListener("click", closeDetailModal); });
+        if (detailSidebar && detailSidebar.querySelector(".assign-sidebar__backdrop")) {
+          detailSidebar.querySelector(".assign-sidebar__backdrop").addEventListener("click", closeDetailModal);
+        }
+        if (confirmBtn) confirmBtn.addEventListener("click", confirmBooking);
+        if (rejectBtn) rejectBtn.addEventListener("click", function () { openRejectModal(false); });
+        if (cancelBtn) cancelBtn.addEventListener("click", function () { openRejectModal(true); });
+        if (checkoutBtn) checkoutBtn.addEventListener("click", checkoutBooking);
+        if (deleteBtn) deleteBtn.addEventListener("click", deleteBooking);
+        if (closeRejectBtn) closeRejectBtn.addEventListener("click", closeRejectModal);
+        if (cancelRejectBtn) cancelRejectBtn.addEventListener("click", closeRejectModal);
+        if (rejectModal) rejectModal.addEventListener("click", function (e) { if (e.target === rejectModal) closeRejectModal(); });
+        if (submitRejectBtn) submitRejectBtn.addEventListener("click", submitReject);
+
+        // Boot
+        clearLists();
+        if (emptyEl) emptyEl.style.display = "none";
+        Promise.resolve()
+          .then(loadAllowedUnits)
+          .then(loadBookings);
       })();
     </script>
   </body>

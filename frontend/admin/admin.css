@@ -2698,15 +2698,6 @@ label .required {
   transition: visibility 0.3s ease;
 }
 
-/* When both owner details and booking details are open, booking should be on top. */
-#bookingDetailSidebar {
-  z-index: 60;
-}
-
-/* Ensure reject/cancel modal stays above booking detail sidebar. */
-.modal-overlay[data-reject-reason-modal] {
-  z-index: 70;
-}
 
 .assign-sidebar.is-open {
   visibility: visible;
