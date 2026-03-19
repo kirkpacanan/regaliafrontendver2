@@ -162,19 +162,44 @@
           </div>
         </div>
 
-        <section class="panel">
+        <section class="panel admin-dashboard-panel">
           <h2>Overview</h2>
-          <p class="panel-subtitle muted">This dashboard is for condominium administration. Additional reports and tools will be added here.</p>
-          <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.25rem; margin-top: 1.5rem;">
-            <a href="./employees.html" class="stat-card" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 1rem;">
+          <p class="panel-subtitle muted">Key metrics and quick access. Use the links below to manage properties, staff, owners, and billing.</p>
+
+          <div class="admin-dashboard-stats" data-admin-dashboard-stats>
+            <div class="admin-stat-card">
+              <div class="admin-stat-card__icon"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg></div>
+              <div class="admin-stat-card__content"><span class="admin-stat-card__label">Total units</span><span class="admin-stat-card__value" data-dashboard-total-properties>—</span></div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="admin-stat-card__icon"><svg viewBox="0 0 24 24"><path d="M16 7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2"></path><rect x="6" y="2" width="6" height="4" rx="1"></rect></svg></div>
+              <div class="admin-stat-card__content"><span class="admin-stat-card__label">Staff</span><span class="admin-stat-card__value" data-dashboard-staff-count>—</span></div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="admin-stat-card__icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg></div>
+              <div class="admin-stat-card__content"><span class="admin-stat-card__label">Residents (owners)</span><span class="admin-stat-card__value" data-dashboard-owners-count>—</span></div>
+            </div>
+          </div>
+
+          <h3 class="admin-dashboard-subtitle">Quick actions</h3>
+          <div class="admin-dashboard-actions">
+            <a href="./properties.html" class="stat-card admin-action-card">
+              <div class="icon-tile"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M3 21h18"></path><path d="M5 21V7l7-4 7 4v14"></path><path d="M9 21v-6h6v6"></path></svg></div>
+              <div><div class="label">Properties</div><div class="value" style="font-size:1rem;font-weight:600;">Manage towers &amp; units</div></div>
+            </a>
+            <a href="./employees.html" class="stat-card admin-action-card">
               <div class="icon-tile"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M16 7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2"></path><rect x="6" y="2" width="6" height="4" rx="1"></rect></svg></div>
               <div><div class="label">Staff</div><div class="value" style="font-size:1rem;font-weight:600;">Manage Employees</div></div>
             </a>
-            <a href="./manage-owners.html" class="stat-card" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 1rem;">
+            <a href="./manage-owners.html" class="stat-card admin-action-card">
               <div class="icon-tile"><svg viewBox="0 0 24 24" width="24" height="24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg></div>
               <div><div class="label">Residents</div><div class="value" style="font-size:1rem;font-weight:600;">Manage Owners</div></div>
             </a>
-            <a href="./monthly-dues.html" class="stat-card" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 1rem;">
+            <a href="./bookings.html" class="stat-card admin-action-card">
+              <div class="icon-tile"><svg viewBox="0 0 24 24" width="24" height="24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="16" y1="2" x2="16" y2="6"></line></svg></div>
+              <div><div class="label">Bookings</div><div class="value" style="font-size:1rem;font-weight:600;">View &amp; manage</div></div>
+            </a>
+            <a href="./monthly-dues.html" class="stat-card admin-action-card">
               <div class="icon-tile"><svg viewBox="0 0 24 24" width="24" height="24"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line></svg></div>
               <div><div class="label">Billing</div><div class="value" style="font-size:1rem;font-weight:600;">Monthly Dues</div></div>
             </a>

@@ -18,12 +18,10 @@
 
   function initDashboard() {
     var API = "/api";
-    var emptyEl = document.querySelector("[data-dashboard-empty]");
-    var listEl = document.querySelector("[data-dashboard-properties]");
-    var totalBookingEl = document.querySelector("[data-dashboard-total-booking]");
-    var availableEl = document.querySelector("[data-dashboard-available]");
-    var occupiedEl = document.querySelector("[data-dashboard-occupied]");
     var totalPropEl = document.querySelector("[data-dashboard-total-properties]");
+    var staffCountEl = document.querySelector("[data-dashboard-staff-count]");
+    var ownersCountEl = document.querySelector("[data-dashboard-owners-count]");
+
     function getAuthHeaders() {
       var h = {};
       try {
@@ -33,66 +31,22 @@
       return h;
     }
     function setStat(el, val) { if (el) el.textContent = val; }
-    function esc(s) {
-      if (s == null || s === undefined) return "";
-      var d = document.createElement("div");
-      d.textContent = String(s);
-      return d.innerHTML;
-    }
-    function firstImg(unit) {
-      var raw = unit && unit.image_urls;
-      if (!raw) return null;
-      try {
-        var arr = typeof raw === "string" ? JSON.parse(raw) : raw;
-        if (Array.isArray(arr) && arr.length) {
-          var first = arr[0];
-          return first && (typeof first === "string" ? first : first.url || first.src) ? first : null;
-        }
-      } catch (e) {}
-      return null;
-    }
+
     Promise.all([
       fetch(API + "/properties", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }),
-      fetch(API + "/bookings", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; })
+      fetch(API + "/employees", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; }),
+      fetch(API + "/owners", { headers: getAuthHeaders() }).then(function (r) { return r.ok ? r.json() : []; })
     ]).then(function (results) {
-      var data = results[0];
-      var bookings = results[1] || [];
-      var confirmed = bookings.filter(function (b) { return b.status === "confirmed" && !b.checked_out_at; }).length;
-      setStat(totalBookingEl, bookings.length);
-      setStat(totalPropEl, data.length);
-      setStat(occupiedEl, confirmed);
-      setStat(availableEl, Math.max(0, data.length - confirmed));
-      if (emptyEl) emptyEl.style.display = data.length ? "none" : "block";
-      if (!listEl) return;
-      listEl.innerHTML = "";
-      data.forEach(function (unit) {
-        var card = document.createElement("div");
-        card.className = "property-card property-card--employee-style";
-        var imgSrc = firstImg(unit);
-        var mediaHtml = "<div class=\"property-card__media\">";
-        if (imgSrc) mediaHtml += "<img src=\"" + esc(imgSrc) + "\" alt=\"\" />";
-        else mediaHtml += "<span class=\"property-card__placeholder\"></span>";
-        mediaHtml += "</div>";
-        var meta = [unit.unit_type, unit.unit_size ? unit.unit_size + " sqm" : ""].filter(Boolean).join(" · ") || "—";
-        var priceLine = unit.price != null && unit.price !== "" ? " ₱ " + esc(String(unit.price)) : "";
-        card.innerHTML =
-          mediaHtml +
-          "<div class=\"property-card__body\">" +
-            "<h4 class=\"property-card__name\">" + esc(unit.unit_number || String(unit.unit_id)) + "</h4>" +
-            "<p class=\"property-card__role\">" + esc(unit.tower_name || "—") + "</p>" +
-            "<div class=\"property-card__meta\">" +
-              "<span>" + esc(meta) + priceLine + "</span>" +
-            "</div>" +
-          "</div>";
-        listEl.appendChild(card);
-      });
+      var properties = results[0] || [];
+      var employees = results[1] || [];
+      var owners = results[2] || [];
+      setStat(totalPropEl, properties.length);
+      setStat(staffCountEl, employees.length);
+      setStat(ownersCountEl, owners.length);
     }).catch(function () {
-      setStat(totalBookingEl, "0");
-      setStat(availableEl, "0");
-      setStat(occupiedEl, "0");
       setStat(totalPropEl, "0");
-      if (emptyEl) emptyEl.style.display = "block";
-      if (listEl) listEl.innerHTML = "";
+      setStat(staffCountEl, "0");
+      setStat(ownersCountEl, "0");
     });
   }
 

@@ -711,6 +711,95 @@ label .required {
   font-weight: 600;
 }
 
+/* Admin dashboard: stats row */
+[data-page="dashboard"] .admin-dashboard-stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+@media (max-width: 560px) {
+  [data-page="dashboard"] .admin-dashboard-stats {
+    grid-template-columns: 1fr;
+  }
+}
+[data-page="dashboard"] .admin-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+[data-page="dashboard"] .admin-stat-card__icon {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+}
+[data-page="dashboard"] .admin-stat-card__icon svg {
+  width: 22px;
+  height: 22px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+[data-page="dashboard"] .admin-stat-card__content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+[data-page="dashboard"] .admin-stat-card__label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.9);
+}
+[data-page="dashboard"] .admin-stat-card__value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.1;
+}
+[data-page="dashboard"] .admin-dashboard-subtitle {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+[data-page="dashboard"] .admin-dashboard-actions {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 1rem;
+}
+@media (max-width: 900px) {
+  [data-page="dashboard"] .admin-dashboard-actions {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  [data-page="dashboard"] .admin-dashboard-actions {
+    grid-template-columns: 1fr;
+  }
+}
+[data-page="dashboard"] .admin-action-card {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .panel {
   background: var(--panel-strong);
   border-radius: 18px;
